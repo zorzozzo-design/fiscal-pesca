@@ -1,0 +1,6 @@
+node_modules/
+# dados reais nunca entram no repositório
+*.pdf
+*.csv
+*.xlsx
+backup-*.json
