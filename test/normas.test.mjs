@@ -210,3 +210,21 @@ test('R27: bagre, garoupa, cação e raia sem espécie pedem conferência; peixe
   for (const sp of ['Bagre (espécie não identificada)', 'Garoupa', 'Cação', 'Raia', 'Viola']) assert.equal(nivel(sp), 'amarelo', sp);
   for (const sp of ['Peixe-rei', 'Tainha', 'Jundiá']) assert.equal(nivel(sp), undefined, sp);
 });
+
+test('R28: IN 43/2004 nas outras águas, o ano todo', () => {
+  const out = x => ab({ area: 'outras', localTipo: 'Lagoa ou rio', data: '2026-07-10T10:00', ...x });
+  const nivel = a => checar(a, cfg).filter(m => m.regra === 'R28').map(m => m.nivel);
+  assert.deepEqual(nivel(out({ petrechos: [pet('Rede de emalhe', { malhaMm: 60 })] })), ['vermelho']);
+  assert.deepEqual(nivel(out({ petrechos: [pet('Rede de emalhe', { malhaMm: 70 })] })), []);
+  assert.deepEqual(nivel(out({ petrechos: [pet('Tarrafa', { malhaMm: 40 })] })), ['vermelho']);
+  assert.deepEqual(nivel(out({ petrechos: [pet('Tarrafa', { malhaMm: 50 })] })), []);
+  assert.deepEqual(nivel(out({ petrechos: [pet('Covo/armadilha', { malhaMm: 30 })] })), ['vermelho']);
+  assert.deepEqual(nivel(out({ petrechos: [pet('Rede de arrasto')] })), ['vermelho']);
+  assert.deepEqual(nivel(out({ petrechos: [pet('Espinhel')] })), ['amarelo']);
+  assert.deepEqual(nivel(out({ petrechos: [pet('Linha e anzol')] })), []);
+});
+
+test('R28 não vale onde há norma própria', () => {
+  for (const area of ['tramandai', 'patos', 'peixe', 'mampituba', 'mar'])
+    assert.ok(!tem(ab({ area, petrechos: [pet('Rede de emalhe', { malhaMm: 50 })] }), 'R28'), area);
+});

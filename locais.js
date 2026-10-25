@@ -5,7 +5,7 @@
 const REGIMES = {
   tramandai: { nome: 'Bacia do Rio Tramandaí', lista: true, normas: ['IN MMA 17/2004', 'Portaria anual do camarão (2026: Portaria MPA/MMA 48/2026)'] },
   patos: { nome: 'Lagoa dos Patos, estuário', lista: true, normas: ['INC MMA/SEAP 03/2004', 'IN IBAMA 171/2008 (barra)'] },
-  outras: { nome: 'Lagoas e rios fora das bacias com norma própria', lista: false, normas: ['IN IBAMA 197/2008 (piracema, 1º/11 a 31/01)', 'IN IBAMA 171/2008 (barras)'] },
+  outras: { nome: 'Lagoas e rios fora das bacias com norma própria', lista: false, normas: ['IN IBAMA 43/2004 (petrechos proibidos, o ano todo)', 'IN IBAMA 197/2008 (piracema, 1º/11 a 31/01)', 'IN IBAMA 171/2008 (barras)'] },
   peixe: { nome: 'Parque Nacional da Lagoa do Peixe', lista: false, normas: ['Decreto 93.546/1986', 'Termo de Compromisso ICMBio (2019)'] },
   mampituba: { nome: 'Barra do Mampituba até a Figueirinha', lista: false, normas: ['Portaria SUDEPE 006/1984 (texto não localizado)'] },
   mar: { nome: 'Mar e praias', lista: false, normas: ['IN MMA 53/2005 (tamanho mínimo)', 'IN Interministerial 12/2012 (emalhe)', 'IN IBAMA 171/2008 (barras)', 'Lei RS 15.223/2018 (arrasto)'] },

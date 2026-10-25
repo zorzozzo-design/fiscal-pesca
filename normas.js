@@ -1,4 +1,4 @@
-// Regras de pesca checadas na abordagem (R02 a R27; a R01 fica no semáforo, junto da lista).
+// Regras de pesca checadas na abordagem (R02 a R28; a R01 fica no semáforo, junto da lista).
 // Fonte de cada regra: aba "Legislação" do documento do projeto. Indica, não autua.
 (() => {
 
@@ -142,6 +142,20 @@ function checar(ab, cfg = {}) {
 
   if (local === 'Barra ou desembocadura (fora de Tramandaí)' && entre(data, '03-15', '08-15') && pets.some(p => p.tipo !== 'Tarrafa'))
     add('R15', 'vermelho', 'Desembocadura de lagoa ou estuário de 15/03 a 15/08: só tarrafa.', 'IN IBAMA 171/2008, art. 2º', CRIME_34);
+
+  // R28: águas continentais sem norma própria, o ano todo (IN IBAMA 43/2004, § 2º com redação da IN 120/2006).
+  if (ab.area === 'outras') {
+    const in43 = inc => `IN IBAMA 43/2004, art. 1º, ${inc}`;
+    if (de('Rede de arrasto').length) add('R28', 'vermelho', 'Rede de arrasto ou de lance em águas continentais.', in43('I'), CRIME_34_II);
+    for (const r of de('Rede de emalhe')) if (r.malhaMm != null && r.malhaMm < 70)
+      add('R28', 'vermelho', `Rede de espera com malha ${r.malhaMm} mm (mínimo 70 mm).`, in43('II'), CRIME_34_II);
+    for (const t of [...de('Tarrafa'), ...de('Tarrafa de camarão')]) if (t.malhaMm != null && t.malhaMm < 50)
+      add('R28', 'vermelho', `Tarrafa com malha ${t.malhaMm} mm (mínimo 50 mm).`, in43('III'), CRIME_34_II);
+    for (const c of de('Covo/armadilha')) if (c.malhaMm != null && c.malhaMm < 50)
+      add('R28', 'vermelho', `Covo com malha ${c.malhaMm} mm (mínimo 50 mm).`, in43('IV'), CRIME_34_II);
+    if (de('Espinhel').length)
+      add('R28', 'amarelo', 'Espinhel: confira se passa de 1/3 da largura do corpo d\'água e se os anzóis capturam peixes imaturos.', in43('VI'), CRIME_34_II);
+  }
 
   if (ab.area === 'outras' && entre(data, '11-01', '01-31')) {
     if (pets.some(p => p.tipo !== 'Linha e anzol'))
