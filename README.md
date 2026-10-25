@@ -9,7 +9,13 @@ Os dados ficam só no aparelho, criptografados com a senha (AES-GCM, chave PBKDF
 1. Criar a senha.
 2. **Dados → Lista de licenciados do MPA:** informar a temporada (ex.: `2026/2027`) e escolher o PDF baixado do site do MPA. Importe também as listas antigas: o app marca quem saiu da lista atual.
 3. **Pescadores:** busca por nome (sem acento, aceita grafia de listas antigas), CPF completo, 6 dígitos ou RGP. Filtros: na lista atual, saiu da lista atual, mesmos dígitos de outra pessoa.
-4. **Backup:** exportar no PC e importar no celular (ou o contrário). Os dados são mesclados.
+4. **Abordagens → Nova abordagem:** digitar o CPF do documento (ou o nome), escolher a pessoa e ver o semáforo da área:
+   - **Pode pescar:** na lista atual, RGP ativo consultado há até 30 dias, CPF conferido, sem colisão de dígitos.
+   - **Conferir:** falta consulta, consulta antiga ou em análise, CPF não conferido, ou outra pessoa com os mesmos dígitos.
+   - **Irregular:** fora da lista da área (inclusive quem saiu dela) ou RGP suspenso, cancelado ou não encontrado.
+   No mar não há lista: o semáforo usa só a consulta. O semáforo indica, não autua.
+5. **Consulta ao PesqBrasil:** o botão copia o CPF e abre a consulta pública. Depois do resultado, selecione tudo na página, copie e cole no campo do app: ele preenche situação, município, data do 1º RGP, categoria, forma de atuação e locais de pesca, e recusa resultado de outro CPF.
+6. **Backup:** exportar no PC e importar no celular (ou o contrário). Os dados são mesclados, e as abordagens são religadas à pessoa reconhecida no outro aparelho.
 
 ## Como o app reconhece a mesma pessoa
 
@@ -21,7 +27,7 @@ Quando o MPA publicar a lista nova, importe o PDF com a temporada nova. A tempor
 
 ## Desenvolvimento
 
-- `npm test` roda os testes do leitor de listas (fixtures fictícias em `test/fixtures`).
+- `npm test` roda os testes do leitor de listas, do semáforo e do leitor da consulta (fixtures fictícias em `test/fixtures`).
 - Servir local: `python3 -m http.server` e abrir http://localhost:8000.
 - Ao publicar mudanças, incremente `CACHE` em `sw.js`.
 - `vendor/pdf.min.js` e `vendor/pdf.worker.min.js`: pdf.js 3.11.174, build legacy (licença Apache 2.0 em `vendor/pdfjs-LICENSE`).

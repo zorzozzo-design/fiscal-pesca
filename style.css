@@ -187,3 +187,15 @@ nav a.ativo:hover { background: var(--pri); color: var(--pri-txt); }
 .lista .info { color: var(--muted); font-size: .85rem; }
 .revisar { border-left: 3px solid var(--aviso); padding-left: 10px; margin: 8px 0; }
 nav[hidden] { display: none; }
+:root { --ok-bg: #e6f4ea; }
+@media (prefers-color-scheme: dark) { :root { --ok-bg: #12301d; } }
+.sem { border: 0; }
+.sem-cor { font-size: 1.4rem; font-weight: 700; }
+.sem ul { margin: 6px 0 0; padding-left: 18px; }
+.sem-verde { background: var(--ok-bg); color: var(--ok); }
+.sem-amarelo { background: var(--aviso-bg); color: var(--aviso); }
+.sem-vermelho { background: var(--alerta-bg); color: var(--alerta); }
+.sem li.m-ok { color: var(--txt); }
+.tag.sem-verde, .tag.sem-amarelo, .tag.sem-vermelho { border-color: transparent; }
+.linha-item { border-bottom: 1px solid var(--borda); padding-bottom: 8px; margin-bottom: 8px; }
+@media (max-width: 420px) { nav { gap: 2px; } nav a { padding: 6px 5px; font-size: .85rem; } #btn-bloquear { padding: 6px 7px; font-size: .85rem; } .marca img { width: 24px; height: 24px; } }

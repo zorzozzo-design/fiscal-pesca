@@ -1,0 +1,38 @@
+Consulte a situação do(a) pescador(a) ou da solicitação usando o CPF ou o nº do RGP
+CPF
+Nº do RGP
+Limpar
+Consultar
+Resultado da consulta pública do CPF ***111222** e Nº do RGP RSPA***111222**
+
+JOAO F
+
+***111222**
+
+RSPA***111222**
+
+Situação do RGP:Ativo
+
+Tipo de registro:Registro inicial
+
+UF do pescador(a):RS
+
+Município do pescador(a):Tramandaí
+
+Categoria:Artesanal
+
+Forma de atuação:Embarcado
+
+Produto de pesca:Camarão
+
+Ano de nascimento:1975
+
+Data do 1º RGP:03/02/2010
+
+Local de pesca UF Município
+
+Lago
+RS Tramandaí
+
+Rio
+RS Imbé

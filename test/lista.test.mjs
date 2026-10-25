@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import '../lista.js';
-const { normNome, digitos, ler, parecido, mesclar, temporadaAtual, situacao, buscar } = globalThis.Lista;
+const { normNome, digitos, ler, parecido, mesclar, temporadaAtual, situacao, buscar, cpfValido, criar } = globalThis.Lista;
 
 const fx = n => JSON.parse(readFileSync(new URL(`./fixtures/${n}`, import.meta.url), 'utf8'));
 
@@ -105,4 +105,47 @@ test('busca em 4.000 registros em menos de 200 ms', () => {
   const t = performance.now();
   buscar(ps, 'numero 39');
   assert.ok(performance.now() - t < 200);
+});
+
+test('valida CPF pelos dígitos verificadores', () => {
+  assert.ok(cpfValido('529.982.247-25'));
+  assert.ok(cpfValido('52998224725'));
+  assert.ok(!cpfValido('529.982.247-24'));
+  assert.ok(!cpfValido('111.111.111-11'));
+  assert.ok(!cpfValido('5299822472'));
+});
+
+test('cria pescador abordado em campo e a lista importada depois o reconhece', () => {
+  const base = {};
+  const p = criar(base, { nome: 'João Ficticio da Silva', cpf: '529.982.247-25' });
+  assert.equal(p.digitos, '982247');
+  assert.equal(p.cpf, '52998224725');
+  assert.equal(p.nomeNorm, 'JOAO FICTICIO DA SILVA');
+  assert.equal(p.origem, 'campo');
+  assert.deepEqual(p.licencas, []);
+  const m = mesclar(base, [{ n: 1, nome: 'JOAO FICTICIO DA SILVA', nomeNorm: 'JOAO FICTICIO DA SILVA', digitos: '982247', rgp: 'RSPA***982247**' }],
+    { area: 'tramandai', temporada: '2026/2027', importacao: 'h1' });
+  assert.equal(m.vinculados, 1);
+  assert.equal(Object.keys(base).length, 1);
+  const semCpf = criar(base, { nome: 'Sem Documento' });
+  assert.equal(semCpf.digitos, null);
+});
+
+test('CPF completo informado no cadastro exclui quem tem outro CPF', () => {
+  const ps = [{ nome: 'A', nomeNorm: 'A', digitos: '982247', cpf: '11198224700', licencas: [] },
+    { nome: 'B', nomeNorm: 'B', digitos: '982247', licencas: [] }];
+  assert.deepEqual(buscar(ps, '529.982.247-25').map(p => p.nome), ['B']);
+});
+
+test('lê o resultado colado da consulta pública do PesqBrasil', async () => {
+  const { lerConsulta } = globalThis.Lista;
+  const txt = readFileSync(new URL('./fixtures/consulta-pesqbrasil.txt', import.meta.url), 'utf8');
+  assert.deepEqual(lerConsulta(txt), {
+    digitos: '111222', rgp: 'RSPA***111222**', situacao: 'Ativo', tipoRegistro: 'Registro inicial', uf: 'RS', municipio: 'Tramandaí',
+    categoria: 'Artesanal', formaAtuacao: 'Embarcado', produto: 'Camarão', anoNascimento: '1975', primeiroRgp: '2010-02-03',
+    locais: [{ tipo: 'Lago', uf: 'RS', municipio: 'Tramandaí' }, { tipo: 'Rio', uf: 'RS', municipio: 'Imbé' }],
+  });
+  // copiado com espaços depois dos dois-pontos e quebras de linha do Windows
+  assert.equal(lerConsulta(txt.replace(/:/g, ': ').replace(/\n/g, '\r\n')).situacao, 'Ativo');
+  assert.equal(lerConsulta('texto qualquer'), null);
 });

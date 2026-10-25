@@ -139,18 +139,59 @@ function situacao(p, area, atual) {
   return ls.some(l => l.temporada === atual) ? 'atual' : 'saiu';
 }
 
+function cpfValido(s) {
+  const d = String(s ?? '').replace(/\D/g, '');
+  if (d.length !== 11 || /^(\d)\1{10}$/.test(d)) return false;
+  const dv = n => { let soma = 0; for (let i = 0; i < n; i++) soma += +d[i] * (n + 1 - i); return (soma * 10 % 11) % 10; };
+  return dv(9) === +d[9] && dv(10) === +d[10];
+}
+
+// Pessoa abordada em campo que não está em nenhuma lista. Se a lista importada depois trouxer a pessoa, mesclar() a reconhece.
+function criar(base, { nome, cpf }) {
+  const c = cpfValido(cpf) ? String(cpf).replace(/\D/g, '') : '';
+  const dig = c ? c.slice(3, 9) : null;
+  let id = `${dig || 'sem'}-${slug(nome)}`;
+  while (base[id]) id += '-2';
+  const agora = new Date().toISOString();
+  return base[id] = { id, nome: normNome(nome), nomeNorm: normNome(nome), digitos: dig, cpf: c, rgp: '', licencas: [], consultas: [],
+    origem: 'campo', obs: '', criadoEm: agora, atualizadoEm: agora };
+}
+
+// Texto da consulta pública do PesqBrasil, copiado da página (selecionar tudo e copiar) e colado no app.
+function lerConsulta(texto) {
+  const t = String(texto ?? '').replace(/\r/g, '');
+  const campo = rotulo => (t.match(new RegExp(`^\\s*${rotulo}:[ \\t]*(.+?)\\s*$`, 'm')) || [])[1] || '';
+  const situacao = campo('Situação do RGP');
+  if (!situacao) return null;
+  const rgp = (t.match(/RSP[A-Z]?\*{3}\d{6}\*{2}|[A-Z]{2}-P\d{7}-\d/) || [''])[0];
+  const pri = campo('Data do 1º RGP').match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  const locais = [];
+  const bloco = t.split(/Local de pesca\s+UF\s+Município/)[1] || '';
+  const ls = bloco.split('\n').map(l => l.trim()).filter(Boolean);
+  for (let i = 0; i + 1 < ls.length; i += 2) {
+    const m = ls[i + 1].match(/^([A-Z]{2})\s+(.+)$/);
+    if (!m) break;
+    locais.push({ tipo: ls[i], uf: m[1], municipio: m[2] });
+  }
+  return { digitos: digitos(t.match(/\*{3}\d{6}\*{2}/)?.[0]), rgp, situacao, tipoRegistro: campo('Tipo de registro'),
+    uf: campo('UF do pescador\\(a\\)'), municipio: campo('Município do pescador\\(a\\)'), categoria: campo('Categoria'),
+    formaAtuacao: campo('Forma de atuação'), produto: campo('Produto de pesca'), anoNascimento: campo('Ano de nascimento'),
+    primeiroRgp: pri ? `${pri[3]}-${pri[2]}-${pri[1]}` : '', locais };
+}
+
 // Busca por nome parcial (sem acento), dígitos do CPF, CPF completo ou RGP.
 function buscar(ps, q) {
   const t = String(q ?? '').trim();
   if (!t) return ps;
   if ((t.match(/\d/g) || []).length >= 6) {
     const d = digitos(t) ?? digitos(t.replace(/\D/g, ''));
-    return d ? ps.filter(p => p.digitos === d) : [];
+    const cpf = t.replace(/\D/g, '');
+    return d ? ps.filter(p => p.digitos === d && !(cpf.length === 11 && p.cpf && p.cpf !== cpf)) : [];
   }
   const n = normNome(t);
   // também pela grafia de listas anteriores (ex.: LUIZ numa lista, LUIS na outra)
   return ps.filter(p => p.nomeNorm.includes(n) || (p.licencas || []).some(l => normNome(l.nomeLista).includes(n)));
 }
 
-globalThis.Lista = { normNome, digitos, linhas, ler, parecido, mesclar, temporadaAtual, situacao, buscar, AVISO_TXT };
+globalThis.Lista = { normNome, digitos, linhas, ler, parecido, mesclar, temporadaAtual, situacao, buscar, cpfValido, criar, lerConsulta, AVISO_TXT };
 })();

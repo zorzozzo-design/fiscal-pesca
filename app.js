@@ -1,4 +1,5 @@
-const { ler, mesclar, temporadaAtual, situacao, buscar, parecido, AVISO_TXT } = window.Lista;
+const { ler, mesclar, temporadaAtual, situacao, buscar, parecido, cpfValido, criar, lerConsulta, AVISO_TXT } = window.Lista;
+const { avaliar, ultimaConsulta, AREAS_COM_LISTA } = window.Semaforo;
 
 // ---------- utilitários ----------
 const $ = s => document.querySelector(s);
@@ -20,17 +21,17 @@ const PARTICULAS = new Set(['de', 'da', 'do', 'das', 'dos', 'e', 'di', 'du', 'de
 const nomeProprio = s => String(s ?? '').toLowerCase().trim().split(/\s+/).map((w, i) => i && PARTICULAS.has(w) ? w
   : w.replace(/(^|['\-])(\p{L})/gu, (_, sep, l) => sep + l.toUpperCase())).join(' ');
 
-const AREAS = { tramandai: 'Bacia do Rio Tramandaí (IN MMA 17/2004)' };
-const AREA_CURTA = { tramandai: 'Tramandaí' };
+const AREAS = { tramandai: 'Bacia do Rio Tramandaí (IN MMA 17/2004)', mar: 'Mar (sem lista nominal)' };
+const AREA_CURTA = { tramandai: 'Tramandaí', mar: 'Mar' };
 const SIT = { atual: ['Na lista atual', 'ok'], saiu: ['Saiu da lista atual', 'alerta'], nunca: ['Sem licença na área', 'aviso'] };
 
 // ---------- armazenamento criptografado (IndexedDB + AES-GCM), mesmo modelo do Fiscal Passeriformes ----------
 // Cada pescador é um registro cifrado separado. "meta" guarda o salt, as configurações e o histórico de importações.
 function idb() {
   return new Promise((ok, erro) => {
-    const r = indexedDB.open('fiscal-pesca', 1);
+    const r = indexedDB.open('fiscal-pesca', 2);
     r.onupgradeneeded = () => {
-      for (const loja of ['kv', 'pescadores']) if (!r.result.objectStoreNames.contains(loja)) r.result.createObjectStore(loja);
+      for (const loja of ['kv', 'pescadores', 'abordagens']) if (!r.result.objectStoreNames.contains(loja)) r.result.createObjectStore(loja);
     };
     r.onsuccess = () => ok(r.result);
     r.onerror = () => erro(r.error);
@@ -67,12 +68,15 @@ async function decifrar(chave, cofre) {
 
 let chave = null, salt = null, db = null;
 const sujos = new Set(); // pescadores alterados desde o último salvamento
+const sujosAb = new Set(); // abordagens alteradas
 async function salvar() {
-  const lote = [...sujos];
-  sujos.clear();
+  const lote = [...sujos], loteAb = [...sujosAb];
+  sujos.clear(); sujosAb.clear();
   const meta = await cifrar(chave, salt, { cfg: db.cfg, importacoes: db.importacoes });
   const regs = await Promise.all(lote.map(async id => [id, await cifrar(chave, salt, db.pescadores[id])]));
+  const regsAb = await Promise.all(loteAb.map(async id => [id, await cifrar(chave, salt, db.abordagens[id])]));
   if (regs.length) await tx('pescadores', 'readwrite', s => regs.forEach(([id, v]) => s.put(v, id)));
+  if (regsAb.length) await tx('abordagens', 'readwrite', s => regsAb.forEach(([id, v]) => s.put(v, id)));
   await tx('kv', 'readwrite', s => s.put(meta, 'meta'));
 }
 async function lerLoja(loja) {
@@ -85,8 +89,9 @@ async function lerLoja(loja) {
 }
 async function carregar(meta) {
   const m = await decifrar(chave, meta);
-  db = { cfg: m.cfg, importacoes: m.importacoes || [], pescadores: {} };
+  db = { cfg: m.cfg, importacoes: m.importacoes || [], pescadores: {}, abordagens: {} };
   for (const [id, v] of await lerLoja('pescadores')) db.pescadores[id] = await decifrar(chave, v);
+  for (const [id, v] of await lerLoja('abordagens')) db.abordagens[id] = await decifrar(chave, v);
 }
 
 // ---------- tela de senha ----------
@@ -117,7 +122,7 @@ async function telaSenha() {
         if (s1 !== $('#s2').value) throw new Error('As senhas não conferem.');
         salt = crypto.getRandomValues(new Uint8Array(16));
         chave = await derivar(s1, salt);
-        db = { cfg: {}, importacoes: [], pescadores: {} };
+        db = { cfg: {}, importacoes: [], pescadores: {}, abordagens: {} };
         await salvar();
       }
       $('#nav').hidden = false;
@@ -200,13 +205,18 @@ function telaFicha(id) {
         <div><span>RGP (lista mais recente)</span>${esc(p.rgp || '-')}</div>
         <div><span>CPF (dígitos publicados)</span>${esc(fmtDig(p.digitos))}</div>
         <div><span>Temporada atual da área</span>${esc(atual || '-')}</div>
-      </div></div>
+        ${p.cpf ? `<div><span>CPF conferido em campo</span>${esc(fmtCpf(p.cpf))}</div>` : ''}
+      </div>
+      <p><a class="btn" href="#/ab/novo?p=${encodeURIComponent(p.id)}">Nova abordagem</a></p></div>
     ${outros.length ? `<div class="card revisar"><h2>Mesmos dígitos de CPF</h2>
       <p class="muted peq">As listas publicam só 6 dígitos do CPF. Pode ser outra pessoa ou a mesma com nome escrito diferente: confira o documento.</p>
       <ul class="lista">${outros.map(o => `<li><a href="#/p/${encodeURIComponent(o.id)}">${esc(nomeProprio(o.nome))} <span class="info">${esc(o.rgp)}</span></a></li>`).join('')}</ul></div>` : ''}
     <div class="card"><h2>Licenças por temporada</h2>
       <div class="tabela"><table><thead><tr><th>Temporada</th><th>Área</th><th>Nº</th><th>Nome na lista</th><th>RGP na lista</th></tr></thead>
-      <tbody>${lics.map(l => `<tr><td>${esc(l.temporada)}</td><td>${esc(AREA_CURTA[l.area] || l.area)}</td><td>${l.n}</td><td>${esc(l.nomeLista)}</td><td>${esc(l.rgp)}</td></tr>`).join('')}</tbody></table></div></div>
+      <tbody>${lics.map(l => `<tr><td>${esc(l.temporada)}</td><td>${esc(AREA_CURTA[l.area] || l.area)}</td><td>${l.n}</td><td>${esc(l.nomeLista)}</td><td>${esc(l.rgp)}</td></tr>`).join('')}</tbody></table></div>
+      ${lics.length ? '' : '<p class="muted peq">Em nenhuma lista importada.</p>'}</div>
+    <div class="card"><h2>Consultas ao PesqBrasil</h2>${tabelaConsultas(p)}</div>
+    <div class="card"><h2>Abordagens</h2>${listaAbordagens(Object.values(db.abordagens).filter(a => a.pescadorId === p.id))}</div>
     <div class="card"><h2>Observações</h2>
       <textarea id="obs" placeholder="Anotações de fiscalização">${esc(p.obs)}</textarea>
       <p><button id="b-obs" type="button">Salvar</button> <span id="m-obs" class="muted peq"></span></p></div>`;
@@ -217,6 +227,247 @@ function telaFicha(id) {
     await salvar();
     $('#m-obs').textContent = 'Salvo.';
   };
+}
+
+// ---------- abordagem em campo ----------
+const PESQBRASIL = 'https://pesqbrasil-pescadorprofissional.mpa.gov.br/acesso-externo';
+const SITUACOES = ['Ativo', 'Suspenso', 'Cancelado', 'Em análise', 'Não encontrado'];
+const PETRECHOS = ['Rede de emalhe', 'Tarrafa', 'Espinhel', 'Aviãozinho', 'Rede de arrasto', 'Linha e anzol', 'Covo/armadilha', 'Outro'];
+const ESPECIES = ['Tainha', 'Camarão-rosa', 'Bagre', 'Corvina', 'Peixe-rei', 'Traíra', 'Jundiá', 'Linguado', 'Pescada', 'Papa-terra', 'Siri'];
+const PROVIDENCIAS = ['Nenhuma (regular)', 'Orientação', 'Notificação', 'Auto de infração', 'Apreensão', 'Outra'];
+const COR_TXT = { verde: 'Pode pescar', amarelo: 'Conferir', vermelho: 'Irregular' };
+const fmtCpf = c => c ? `${c.slice(0, 3)}.${c.slice(3, 6)}.${c.slice(6, 9)}-${c.slice(9)}` : '';
+const fmtData = iso => iso ? iso.slice(0, 10).split('-').reverse().join('/') : '';
+const agoraLocal = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
+const novoId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const opcoes = (lista, sel) => lista.map(v => `<option${v === sel ? ' selected' : ''}>${esc(v)}</option>`).join('');
+
+const tabelaConsultas = p => !(p.consultas || []).length ? '<p class="muted peq">Nenhuma consulta registrada.</p>' : `
+  <div class="tabela"><table><thead><tr><th>Data</th><th>Situação do RGP</th><th>Município</th><th>Primeiro RGP</th><th>Atuação</th><th>Locais de pesca</th><th>Obs.</th></tr></thead>
+  <tbody>${p.consultas.slice().sort((a, b) => b.data.localeCompare(a.data)).map(c => `<tr><td>${fmtData(c.data)}</td><td>${esc(c.situacao)}</td>
+    <td>${esc(c.municipio)}</td><td>${fmtData(c.primeiroRgp)}</td><td>${esc([c.categoria, c.formaAtuacao, c.produto].filter(Boolean).join(', '))}</td>
+    <td>${esc((c.locais || []).map(l => `${l.tipo} ${l.municipio}`).join(', '))}</td><td>${esc(c.obs)}</td></tr>`).join('')}</tbody></table></div>`;
+
+const listaAbordagens = abs => !abs.length ? '<p class="muted peq">Nenhuma abordagem.</p>' : `<ul class="lista">${abs
+  .sort((a, b) => b.data.localeCompare(a.data)).map(a => { const p = db.pescadores[a.pescadorId]; return `<li><a href="#/ab/${a.id}">
+    <div class="nome">${esc(p ? nomeProprio(p.nome) : 'Pessoa removida')}</div>
+    <div class="info">${fmtData(a.data)} ${esc(a.data.slice(11, 16))} · ${esc(AREA_CURTA[a.area])}${a.local ? ' · ' + esc(a.local) : ''}${a.providencia ? ' · ' + esc(a.providencia) : ''}</div>
+    <span class="tag sem-${a.semaforo.cor}">${COR_TXT[a.semaforo.cor]}</span></a></li>`; }).join('')}</ul>`;
+
+function telaAbordagens() {
+  app.innerHTML = `<div class="card"><h1>Abordagens</h1>
+    <p><a class="btn" href="#/ab/novo">Nova abordagem</a></p>
+    ${listaAbordagens(Object.values(db.abordagens))}</div>`;
+}
+
+function telaAbordagem(param) {
+  const [idUrl, query] = param.split('?');
+  const existente = db.abordagens[idUrl];
+  if (idUrl !== 'novo' && !existente) { app.innerHTML = '<div class="card"><p>Abordagem não encontrada.</p><p><a href="#/abordagens">Voltar</a></p></div>'; return; }
+  const pInicial = new URLSearchParams(query || '').get('p');
+  const ab = existente ? structuredClone(existente) : { id: novoId(), data: agoraLocal(), area: 'tramandai', local: '', gps: null,
+    pescadorId: db.pescadores[pInicial] ? pInicial : null, identificadoPor: 'nome', cpfInformado: '', petrechos: [], pescado: [],
+    providencia: '', documento: '', obs: '' };
+  const pesc = () => db.pescadores[ab.pescadorId] || null;
+  const atualDe = area => AREAS_COM_LISTA.has(area) ? temporadaAtual(db.importacoes, area) : null;
+  const semaforo = () => avaliar({ pescador: pesc(), area: ab.area, atual: atualDe(ab.area), data: ab.data, identificadoPor: ab.identificadoPor,
+    outrosMesmosDigitos: pesc()?.digitos ? Object.values(db.pescadores).filter(o => o.digitos === pesc().digitos && o.id !== ab.pescadorId).length : 0 });
+
+  app.innerHTML = `<div class="card">
+      <p class="peq"><a href="#/abordagens">← Abordagens</a></p>
+      <h1>${existente ? 'Abordagem' : 'Nova abordagem'}</h1>
+      <div class="grade">
+        <div><label for="a-area">Área</label><select id="a-area">${Object.entries(AREAS).map(([k, v]) => `<option value="${k}"${k === ab.area ? ' selected' : ''}>${esc(v)}</option>`).join('')}</select></div>
+        <div><label for="a-data">Data e hora</label><input id="a-data" type="datetime-local" value="${esc(ab.data)}"></div>
+      </div></div>
+    <div class="card"><h2>Pessoa</h2><div id="pessoa"></div></div>
+    <div id="sem"></div>
+    <div class="card" id="c-consulta" hidden><h2>Consulta ao PesqBrasil</h2><div id="consulta"></div></div>
+    <div class="card"><h2>Local</h2>
+      <input id="a-local" placeholder="Ex.: Lagoa do Armazém, margem leste" value="${esc(ab.local)}">
+      <div class="linha" style="margin-top:8px"><button class="sec" id="b-gps" type="button">Usar GPS</button><span id="gps" class="muted peq"></span></div></div>
+    <div class="card"><h2>Petrechos</h2><div id="petrechos"></div>
+      <button class="sec" id="b-pet" type="button">Adicionar petrecho</button></div>
+    <div class="card"><h2>Pescado</h2><div id="pescado"></div>
+      <button class="sec" id="b-pes" type="button">Adicionar pescado</button>
+      <datalist id="especies">${ESPECIES.map(e => `<option value="${esc(e)}">`).join('')}</datalist></div>
+    <div class="card"><h2>Providência</h2>
+      <div class="grade">
+        <div><label for="a-prov">Providência</label><select id="a-prov"><option value=""></option>${opcoes(PROVIDENCIAS, ab.providencia)}</select></div>
+        <div><label for="a-doc">Nº do documento</label><input id="a-doc" value="${esc(ab.documento)}" placeholder="Auto, notificação, BO"></div>
+      </div>
+      <label for="a-obs">Observações</label><textarea id="a-obs">${esc(ab.obs)}</textarea>
+      <p><button id="b-salvar" type="button">Salvar abordagem</button></p>
+      <p id="m-ab" class="msg"></p></div>`;
+
+  const desenharSem = () => {
+    const s = semaforo();
+    $('#sem').innerHTML = `<div class="card sem sem-${s.cor}"><div class="sem-cor">${COR_TXT[s.cor]}</div>
+      <ul>${s.motivos.map(m => `<li class="m-${m.nivel}">${esc(m.texto)}</li>`).join('')}</ul></div>`;
+  };
+
+  const desenharConsulta = () => {
+    const p = pesc();
+    $('#c-consulta').hidden = !p;
+    if (!p) return;
+    const cpf = p.cpf || (ab.identificadoPor === 'cpf' ? ab.cpfInformado : '');
+    const c = ultimaConsulta(p.consultas, ab.data);
+    $('#consulta').innerHTML = `
+      <p class="muted peq">${c ? `Última: ${fmtData(c.data)}, ${esc(c.situacao)}.` : 'Nenhuma consulta registrada.'} A consulta é feita por você no site, uma por vez.</p>
+      <p><button class="sec" id="b-pesq" type="button">${cpf ? 'Copiar CPF e abrir o PesqBrasil' : 'Abrir o PesqBrasil'}</button></p>
+      <label for="c-cola">Resultado copiado do PesqBrasil (selecionar tudo, copiar e colar aqui)</label>
+      <textarea id="c-cola" rows="3" placeholder="Cole o texto da página de resultado"></textarea>
+      <p id="c-lido" class="muted peq"></p>
+      <div class="grade">
+        <div><label for="c-sit">Situação do RGP</label><select id="c-sit">${opcoes(SITUACOES, 'Ativo')}</select></div>
+        <div><label for="c-mun">Município</label><input id="c-mun"></div>
+        <div><label for="c-pri">Data do primeiro RGP</label><input id="c-pri" type="date"></div>
+      </div>
+      <label for="c-obs">Observação da consulta</label><input id="c-obs">
+      <p><button id="b-cons" type="button">Registrar consulta de hoje</button> <span id="m-cons" class="muted peq"></span></p>`;
+    $('#b-pesq').onclick = async () => {
+      if (cpf) { try { await navigator.clipboard.writeText(cpf); } catch { /* sem área de transferência: o CPF aparece na ficha */ } }
+      open(PESQBRASIL, '_blank', 'noopener');
+    };
+    let lido = null; // demais campos do resultado colado (categoria, forma de atuação, locais de pesca...)
+    $('#c-cola').oninput = e => {
+      lido = lerConsulta(e.target.value);
+      const m = $('#c-lido');
+      if (!e.target.value.trim()) { m.textContent = ''; return; }
+      if (!lido) { m.textContent = 'Não reconheci o resultado. Copie a página inteira depois de consultar.'; m.className = 'msg erro'; return; }
+      if (lido.digitos && p.digitos && lido.digitos !== p.digitos) {
+        m.textContent = `Este resultado é de outro CPF (${fmtDig(lido.digitos)}), não de ${nomeProprio(p.nome)}.`; m.className = 'msg erro'; lido = null; return;
+      }
+      if (!SITUACOES.includes(lido.situacao)) $('#c-sit').insertAdjacentHTML('beforeend', `<option>${esc(lido.situacao)}</option>`);
+      $('#c-sit').value = lido.situacao; $('#c-mun').value = lido.municipio; $('#c-pri').value = lido.primeiroRgp;
+      m.className = 'muted peq';
+      m.textContent = [lido.categoria, lido.formaAtuacao, lido.produto, lido.tipoRegistro].filter(Boolean).join(' · ')
+        + (lido.locais.length ? ` · Locais de pesca: ${lido.locais.map(l => `${l.tipo} em ${l.municipio}/${l.uf}`).join(', ')}` : '');
+    };
+    $('#b-cons').onclick = async () => {
+      (p.consultas ||= []).push({ ...(lido || {}), id: novoId(), data: agora(), situacao: $('#c-sit').value, municipio: $('#c-mun').value.trim(),
+        primeiroRgp: $('#c-pri').value, obs: $('#c-obs').value.trim() });
+      p.atualizadoEm = agora();
+      sujos.add(p.id);
+      await salvar();
+      desenharConsulta(); desenharSem();
+      $('#m-cons').textContent = 'Consulta registrada.';
+    };
+  };
+
+  const escolher = (p, porCpf, cpf) => {
+    ab.pescadorId = p.id;
+    ab.identificadoPor = porCpf ? 'cpf' : 'nome';
+    ab.cpfInformado = porCpf ? cpf : '';
+    desenharPessoa(); desenharSem(); desenharConsulta();
+  };
+
+  const desenharPessoa = () => {
+    const p = pesc();
+    if (p) {
+      $('#pessoa').innerHTML = `<div class="nome"><b><a href="#/p/${encodeURIComponent(p.id)}">${esc(nomeProprio(p.nome))}</a></b></div>
+        <div class="muted peq">${esc(p.rgp || fmtDig(p.digitos))}${ab.identificadoPor === 'cpf' ? ' · CPF conferido: ' + esc(fmtCpf(ab.cpfInformado || p.cpf)) : ''}</div>
+        ${ab.identificadoPor === 'cpf' ? '' : `<label for="p-cpf">CPF do documento</label>
+          <div class="linha"><input id="p-cpf" inputmode="numeric" placeholder="000.000.000-00" style="flex:1"><button class="sec" id="b-cpf" type="button">Conferir</button></div>
+          <p id="m-cpf" class="msg"></p>`}
+        <p><button class="sec" id="b-trocar" type="button">Trocar pessoa</button></p>`;
+      $('#b-trocar').onclick = () => { ab.pescadorId = null; ab.identificadoPor = 'nome'; ab.cpfInformado = ''; desenharPessoa(); desenharSem(); desenharConsulta(); };
+      $('#b-cpf')?.addEventListener('click', () => {
+        const v = $('#p-cpf').value.replace(/\D/g, '');
+        if (!cpfValido(v)) { $('#m-cpf').textContent = 'CPF inválido.'; $('#m-cpf').className = 'msg erro'; return; }
+        if ((p.digitos && p.digitos !== v.slice(3, 9)) || (p.cpf && p.cpf !== v)) {
+          $('#m-cpf').textContent = `Este CPF não confere com o cadastro (${p.cpf ? fmtCpf(p.cpf) : fmtDig(p.digitos)}). Pode ser outra pessoa.`;
+          $('#m-cpf').className = 'msg erro'; return;
+        }
+        escolher(p, true, v);
+      });
+      return;
+    }
+    $('#pessoa').innerHTML = `
+      <label for="p-q">CPF, nome ou RGP</label><input id="p-q" type="search" autocomplete="off" placeholder="Digite o CPF do documento ou o nome">
+      <p id="p-msg" class="muted peq"></p><ul id="p-res" class="lista"></ul>
+      <details id="p-novo"><summary>Pessoa fora da base: cadastrar</summary>
+        <label for="n-nome">Nome completo</label><input id="n-nome">
+        <label for="n-cpf">CPF</label><input id="n-cpf" inputmode="numeric" placeholder="000.000.000-00">
+        <p><button id="b-novo" type="button">Cadastrar e selecionar</button></p><p id="m-novo" class="msg"></p></details>`;
+    const buscarPessoa = () => {
+      const q = $('#p-q').value.trim(), cpf = q.replace(/\D/g, '');
+      const porCpf = cpf.length === 11 && !/[a-z]/i.test(q);
+      if (porCpf) $('#n-cpf').value = q;
+      else if (/[a-z]/i.test(q)) $('#n-nome').value = q;
+      if (porCpf && !cpfValido(cpf)) { $('#p-msg').textContent = 'CPF inválido (dígitos verificadores não conferem).'; $('#p-res').innerHTML = ''; return; }
+      const res = q.length < 3 ? [] : buscar(Object.values(db.pescadores), q).sort((a, b) => a.nomeNorm.localeCompare(b.nomeNorm)).slice(0, 20);
+      $('#p-msg').textContent = q.length < 3 ? '' : res.length ? `${res.length} encontrado(s)${porCpf ? ' com os mesmos dígitos do CPF: escolha pelo nome do documento' : ''}.` : 'Ninguém na base. Cadastre abaixo.';
+      $('#p-res').innerHTML = res.map(p => `<li><a href="#" data-id="${esc(p.id)}"><div class="nome">${esc(nomeProprio(p.nome))}</div>
+        <div class="info">${esc(p.rgp || fmtDig(p.digitos))}</div></a></li>`).join('');
+      $('#p-res').querySelectorAll('a').forEach(a => a.onclick = e => { e.preventDefault(); escolher(db.pescadores[a.dataset.id], porCpf, cpf); });
+      if (!res.length && q.length >= 3) $('#p-novo').open = true;
+    };
+    $('#p-q').oninput = buscarPessoa;
+    $('#b-novo').onclick = async () => {
+      const nome = $('#n-nome').value.trim(), cpf = $('#n-cpf').value.replace(/\D/g, '');
+      const m = $('#m-novo');
+      if (nome.split(/\s+/).length < 2) { m.textContent = 'Informe nome e sobrenome.'; m.className = 'msg erro'; return; }
+      if (cpf && !cpfValido(cpf)) { m.textContent = 'CPF inválido.'; m.className = 'msg erro'; return; }
+      const p = criar(db.pescadores, { nome, cpf });
+      sujos.add(p.id);
+      await salvar();
+      escolher(p, !!cpf, cpf);
+    };
+    $('#p-q').focus();
+  };
+
+  const desenharLinhas = (chaveLista, alvo, campos) => {
+    $(alvo).innerHTML = ab[chaveLista].map((item, i) => `<div class="grade linha-item">${campos.map(([k, rot, tipo, extra]) => `<div><label>${rot}</label>${
+      tipo === 'select' ? `<select data-i="${i}" data-k="${k}">${opcoes(extra, item[k])}</select>`
+        : `<input data-i="${i}" data-k="${k}" type="${tipo}" ${extra || ''} value="${esc(item[k] ?? '')}">`}</div>`).join('')}
+      <div><label>&nbsp;</label><button class="sec" type="button" data-rm="${i}">Remover</button></div></div>`).join('');
+    $(alvo).querySelectorAll('[data-k]').forEach(el => el.oninput = el.onchange = () => {
+      ab[chaveLista][+el.dataset.i][el.dataset.k] = el.type === 'number' ? (el.value === '' ? null : +el.value) : el.value;
+    });
+    $(alvo).querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { ab[chaveLista].splice(+b.dataset.rm, 1); desenharLinhas(chaveLista, alvo, campos); });
+  };
+  const CAMPOS_PET = [['tipo', 'Tipo', 'select', PETRECHOS], ['malhaMm', 'Malha (mm, nós opostos)', 'number', 'min="0" step="1" inputmode="numeric"'],
+    ['comprimentoM', 'Comprimento (m)', 'number', 'min="0" step="1" inputmode="numeric"'], ['qtd', 'Quantidade', 'number', 'min="1" step="1" inputmode="numeric"']];
+  const CAMPOS_PES = [['especie', 'Espécie', 'text', 'list="especies"'], ['kg', 'Peso (kg)', 'number', 'min="0" step="0.1" inputmode="decimal"'],
+    ['menorCm', 'Menor exemplar (cm)', 'number', 'min="0" step="0.5" inputmode="decimal"']];
+  $('#b-pet').onclick = () => { ab.petrechos.push({ tipo: PETRECHOS[0], malhaMm: null, comprimentoM: null, qtd: 1 }); desenharLinhas('petrechos', '#petrechos', CAMPOS_PET); };
+  $('#b-pes').onclick = () => { ab.pescado.push({ especie: '', kg: null, menorCm: null }); desenharLinhas('pescado', '#pescado', CAMPOS_PES); };
+
+  const mostrarGps = () => { $('#gps').innerHTML = ab.gps ? `<a href="https://maps.google.com/?q=${ab.gps.lat},${ab.gps.lon}" target="_blank" rel="noopener">${ab.gps.lat.toFixed(5)}, ${ab.gps.lon.toFixed(5)}</a> (±${Math.round(ab.gps.prec)} m)` : ''; };
+  $('#b-gps').onclick = () => {
+    if (!navigator.geolocation) { $('#gps').textContent = 'GPS indisponível neste aparelho.'; return; }
+    $('#gps').textContent = 'Obtendo posição…';
+    navigator.geolocation.getCurrentPosition(
+      pos => { ab.gps = { lat: pos.coords.latitude, lon: pos.coords.longitude, prec: pos.coords.accuracy }; mostrarGps(); },
+      err => { $('#gps').textContent = 'Não foi possível obter a posição: ' + err.message; },
+      { enableHighAccuracy: true, timeout: 20000 });
+  };
+
+  $('#a-area').onchange = e => { ab.area = e.target.value; desenharSem(); };
+  $('#a-data').onchange = e => { ab.data = e.target.value || ab.data; desenharSem(); desenharConsulta(); };
+  $('#a-local').oninput = e => { ab.local = e.target.value; };
+  $('#a-prov').onchange = e => { ab.providencia = e.target.value; };
+  $('#a-doc').oninput = e => { ab.documento = e.target.value; };
+  $('#a-obs').oninput = e => { ab.obs = e.target.value; };
+  $('#b-salvar').onclick = async () => {
+    const m = $('#m-ab');
+    if (!pesc()) { m.textContent = 'Selecione ou cadastre a pessoa abordada.'; m.className = 'msg erro'; return; }
+    const p = pesc();
+    if (ab.identificadoPor === 'cpf' && !p.cpf) { p.cpf = ab.cpfInformado; if (!p.digitos) p.digitos = p.cpf.slice(3, 9); p.atualizadoEm = agora(); sujos.add(p.id); }
+    ab.semaforo = semaforo();
+    ab.criadoEm ||= agora();
+    ab.atualizadoEm = agora();
+    db.abordagens[ab.id] = structuredClone(ab);
+    sujosAb.add(ab.id);
+    await salvar();
+    if (location.hash !== '#/ab/' + ab.id) location.hash = '#/ab/' + ab.id;
+    else { m.textContent = 'Abordagem salva.'; m.className = 'msg'; }
+  };
+
+  desenharPessoa(); desenharSem(); desenharConsulta(); mostrarGps();
+  desenharLinhas('petrechos', '#petrechos', CAMPOS_PET); desenharLinhas('pescado', '#pescado', CAMPOS_PES);
+  if (existente) $('#m-ab').textContent = `Salva em ${fmtDH(existente.atualizadoEm)}.`;
 }
 
 // ---------- importação das listas em PDF ----------
@@ -266,19 +517,28 @@ const htmlAvisos = imp => `
     ${imp.revisar.map(a => `<li>Nº ${a.n} ${esc(a.nome)} x ${a.outros.map(esc).join(', ')}. Cadastrado como pessoa separada.</li>`).join('')}</ul></details>` : ''}`;
 
 // ---------- backup ----------
-// Junta dados de outro aparelho: mesma pessoa pelo id ou por dígitos + nome parecido; licenças somadas; observação mais recente.
+// Junta dados de outro aparelho: mesma pessoa pelo id ou por dígitos + nome parecido; licenças e consultas somadas;
+// observação e abordagem: vale a mais recente. A abordagem é religada ao pescador reconhecido aqui.
 function mesclarBackup(outro) {
   let n = 0;
+  const idLocal = {}; // id no aparelho de origem -> id aqui
   for (const b of Object.values(outro.pescadores || {})) {
     const lista = Object.values(db.pescadores);
     const a = db.pescadores[b.id] || lista.find(p => p.digitos && p.digitos === b.digitos && (p.nomeNorm === b.nomeNorm || parecido(p.nome, b.nome)));
+    idLocal[b.id] = a ? a.id : b.id;
     if (!a) { db.pescadores[b.id] = b; sujos.add(b.id); n++; continue; }
     const antes = JSON.stringify(a);
     for (const l of b.licencas) if (!a.licencas.some(x => x.area === l.area && x.temporada === l.temporada)) a.licencas.push(l);
     if (b.obs && b.obs !== a.obs && b.atualizadoEm > a.atualizadoEm) { a.obs = b.obs; a.atualizadoEm = b.atualizadoEm; }
+    for (const c of b.consultas || []) if (!(a.consultas ||= []).some(x => x.id === c.id)) a.consultas.push(c);
+    if (b.cpf && !a.cpf) a.cpf = b.cpf;
     if (JSON.stringify(a) !== antes) { sujos.add(a.id); n++; }
   }
   for (const i of outro.importacoes || []) if (!db.importacoes.some(x => x.hash === i.hash)) db.importacoes.push(i);
+  for (const [id, b] of Object.entries(outro.abordagens || {})) { // vale a versão editada por último
+    const a = db.abordagens[id];
+    if (!a || b.atualizadoEm > a.atualizadoEm) { db.abordagens[id] = { ...b, pescadorId: idLocal[b.pescadorId] || b.pescadorId }; sujosAb.add(id); n++; }
+  }
   return n;
 }
 
@@ -378,8 +638,8 @@ function telaDados() {
 
 // ---------- roteamento e bloqueio ----------
 function marcarNav() {
-  const h = location.hash.startsWith('#/dados') ? '#/dados' : '#/';
-  document.querySelectorAll('#nav a').forEach(a => a.style.textDecoration = a.getAttribute('href') === h ? 'underline' : 'none');
+  const h = location.hash.startsWith('#/dados') ? '#/dados' : location.hash.startsWith('#/ab') ? '#/abordagens' : '#/';
+  document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('ativo', a.getAttribute('href') === h));
 }
 function rotear() {
   if (!db) return telaSenha();
@@ -387,6 +647,8 @@ function rotear() {
   const h = location.hash;
   if (h.startsWith('#/p/')) return telaFicha(decodeURIComponent(h.slice(4)));
   if (h === '#/dados') return telaDados();
+  if (h === '#/abordagens') return telaAbordagens();
+  if (h.startsWith('#/ab/')) return telaAbordagem(h.slice(5));
   return telaLista();
 }
 window.addEventListener('hashchange', rotear);
@@ -394,7 +656,7 @@ $('#btn-bloquear').onclick = () => location.reload();
 
 // Salvamento automático do que estiver pendente e bloqueio após 5 min em segundo plano.
 async function autosalvar() {
-  if (chave && db && sujos.size) { try { await salvar(); } catch { /* tenta no próximo ciclo */ } }
+  if (chave && db && (sujos.size || sujosAb.size)) { try { await salvar(); } catch { /* tenta no próximo ciclo */ } }
 }
 setInterval(autosalvar, 30000);
 let escondidoEm = 0;
