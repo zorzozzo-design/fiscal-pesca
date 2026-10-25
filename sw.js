@@ -1,4 +1,4 @@
-const CACHE = 'fpesca-v10';
+const CACHE = 'fpesca-v11';
 const ARQUIVOS = ['./', 'index.html', 'app.js', 'lista.js', 'semaforo.js', 'normas.js', 'docs.js', 'municipios-rs.js', 'locais.js', 'style.css', 'manifest.webmanifest',
   'vendor/pdf.min.js', 'vendor/pdf.worker.min.js', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png'];
 

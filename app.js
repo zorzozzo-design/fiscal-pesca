@@ -1,7 +1,7 @@
 const { ler, mesclar, temporadaAtual, situacao, buscar, parecido, cpfValido, criar, lerConsulta, identificar, AVISO_TXT } = window.Lista;
 const { avaliar, ultimaConsulta, corDe, AREAS_COM_LISTA } = window.Semaforo;
 const { checar, multaReferencia, defesosDe, DEFESOS, RESUMO, RESUMO_TODOS, AMEACADAS_GUIA, TAMANHO_MINIMO, LOCAIS } = window.Normas;
-const { itensDaAbordagem, termoApreensao, notificacao, motivoSugerido, DESTINOS } = window.Docs;
+const { itensDaAbordagem, termoApreensao, notificacao, motivoSugerido, normalizarAb, pendenciasDe, PESSOAIS, DESTINOS } = window.Docs;
 
 // ---------- utilitários ----------
 const $ = s => document.querySelector(s);
@@ -317,7 +317,7 @@ function telaFicha(id) {
       <details><summary>Cadastrar embarcação</summary><div id="f-emb-form"></div></details></div>
     <div class="card"><h2>Consultas ao PesqBrasil</h2>${tabelaConsultas(p)}
       <details><summary>Colar consulta</summary><div id="f-colar"></div></details></div>
-    <div class="card"><h2>Abordagens</h2>${listaAbordagens(Object.values(db.abordagens).filter(a => a.pescadorId === p.id))}</div>
+    <div class="card"><h2>Abordagens</h2>${listaAbordagens(Object.values(db.abordagens).filter(a => normalizarAb(a).envolvidos.some(e => e.pescadorId === p.id)))}</div>
     <div class="card"><h2>Observações</h2>
       <textarea id="obs" placeholder="Anotações de fiscalização">${esc(p.obs)}</textarea>
       <p><button id="b-obs" type="button">Salvar</button> <span id="m-obs" class="muted peq"></span></p></div>`;
@@ -381,7 +381,6 @@ const PROVIDENCIAS = ['Abordagem', 'Averiguação', 'Orientação', 'BA', 'BO/TC
   'Auto de infração', 'Destruição do pescado', 'Doação do pescado', 'Soltura do pescado'];
 const COM_NUMERO = new Set(['BA', 'BO/TC', 'BO/COP', 'Apreensão', 'Notificação', 'Auto de infração']);
 // Abordagens antigas tinham uma providência e um número só.
-const provsDe = a => a.providencias || (a.providencia ? [{ tipo: a.providencia, numero: a.documento || '' }] : []);
 const COR_TXT = { verde: 'Pode pescar', amarelo: 'Conferir', vermelho: 'Irregular' };
 const fmtCpf = c => c ? `${c.slice(0, 3)}.${c.slice(3, 6)}.${c.slice(6, 9)}-${c.slice(9)}` : '';
 const fmtData = iso => iso ? iso.slice(0, 10).split('-').reverse().join('/') : '';
@@ -395,11 +394,14 @@ const tabelaConsultas = p => !(p.consultas || []).length ? '<p class="muted peq"
     <td>${esc(c.municipio)}</td><td>${fmtData(c.primeiroRgp)}</td><td>${esc([c.categoria, c.formaAtuacao, c.produto].filter(Boolean).join(', '))}</td>
     <td>${esc((c.locais || []).map(l => `${l.tipo} ${l.municipio}`).join(', '))}</td><td>${esc(c.obs)}</td></tr>`).join('')}</tbody></table></div>`;
 
-const listaAbordagens = abs => !abs.length ? '<p class="muted peq">Nenhuma abordagem.</p>' : `<ul class="lista">${abs
-  .sort((a, b) => b.data.localeCompare(a.data)).map(a => { const p = db.pescadores[a.pescadorId]; return `<li><a href="#/ab/${a.id}">
-    <div class="nome">${esc(p ? nomeProprio(p.nome) : 'Pessoa removida')}</div>
-    <div class="info">${fmtData(a.data)} ${esc(a.data.slice(11, 16))} · ${esc(localPesca(a.localPescaId)?.nome || AREA_CURTA[a.area])}${a.local && a.local !== localPesca(a.localPescaId)?.nome ? ' · ' + esc(a.local) : ''}${provsDe(a).length ? ' · ' + esc(provsDe(a).map(p => p.tipo).join(', ')) : ''}</div>
-    <span class="tag sem-${a.semaforo.cor}">${COR_TXT[a.semaforo.cor]}</span>${a.apreensao?.itens?.length ? '<span class="tag">Apreensão</span>' : ''}${a.notificacao ? '<span class="tag">Notificação</span>' : ''}</a></li>`; }).join('')}</ul>`;
+const piorCor = cs => ['vermelho', 'amarelo', 'verde'].find(c => cs.includes(c)) || 'verde';
+const listaAbordagens = abs => !abs.length ? '<p class="muted peq">Nenhuma abordagem.</p>' : `<ul class="lista">${abs.map(normalizarAb)
+  .sort((a, b) => b.data.localeCompare(a.data)).map(a => { const es = a.envolvidos, cor = piorCor(es.map(e => e.semaforo?.cor));
+    const provs = [...new Set(es.flatMap(e => (e.providencias || []).map(p => p.tipo)))];
+    return `<li><a href="#/ab/${a.id}">
+    <div class="nome">${esc(es.map(e => db.pescadores[e.pescadorId] ? nomeProprio(db.pescadores[e.pescadorId].nome) : 'Pessoa removida').join(', '))}</div>
+    <div class="info">${fmtData(a.data)} ${esc(a.data.slice(11, 16))} · ${esc(localPesca(a.localPescaId)?.nome || AREA_CURTA[a.area])}${a.local && a.local !== localPesca(a.localPescaId)?.nome ? ' · ' + esc(a.local) : ''}${provs.length ? ' · ' + esc(provs.join(', ')) : ''}</div>
+    <span class="tag sem-${cor}">${COR_TXT[cor]}</span>${es.length > 1 ? `<span class="tag">${es.length} envolvidos</span>` : ''}</a></li>`; }).join('')}</ul>`;
 
 // Imprime (ou salva em PDF) só o documento, escondendo o app.
 function imprimir(html) {
@@ -415,10 +417,37 @@ function imprimir(html) {
 const QUALIFICACAO = [['rg', 'RG'], ['telefone', 'Telefone'], ['endereco', 'Endereço'], ['bairro', 'Bairro'], ['municipio', 'Município']];
 const UNIDADES = ['un', 'kg', 'm'];
 
-function telaAbordagens() {
-  app.innerHTML = `<div class="card"><h1>Abordagens</h1>
-    <p><a class="btn" href="#/ab/novo">Nova abordagem</a></p>
-    ${listaAbordagens(Object.values(db.abordagens))}</div>`;
+// Pendências: o que falta em cada abordagem para o processo administrativo, mais tarefas livres da equipe.
+const todasPendencias = () => Object.values(db.abordagens).map(normalizarAb)
+  .map(a => ({ a, ps: pendenciasDe(a, id => db.pescadores[id]) })).filter(x => x.ps.length).sort((x, y) => y.a.data.localeCompare(x.a.data));
+function telaAbordagens(aba = 'lista') {
+  const pend = todasPendencias(), tarefas = (db.cfg.tarefas ||= []);
+  const nPend = pend.reduce((t, x) => t + x.ps.length, 0) + tarefas.filter(t => !t.feito).length;
+  app.innerHTML = `<div class="card"><div class="abas-seg">
+      <a href="#/abordagens" class="${aba === 'lista' ? 'ativo' : ''}">Abordagens</a>
+      <a href="#/pendencias" class="${aba === 'pend' ? 'ativo' : ''}">Pendências${nPend ? ` <span class="cont">${nPend}</span>` : ''}</a></div>
+    ${aba === 'lista' ? `<p><a class="btn" href="#/ab/novo">Nova abordagem</a></p>${listaAbordagens(Object.values(db.abordagens))}` : `
+      <h2>Tarefas</h2>
+      <div class="linha"><input id="t-txt" placeholder="Ex.: levar termo ao IBAMA" style="flex:2"><input id="t-prazo" type="date" style="flex:1"><button id="b-tarefa" type="button">Adicionar</button></div>
+      <ul class="lista">${tarefas.slice().sort((a, b) => a.feito - b.feito || (a.prazo || '9').localeCompare(b.prazo || '9')).map(t => `<li class="tarefa${t.feito ? ' feita' : ''}">
+        <label class="chk"><input type="checkbox" data-t="${t.id}"${t.feito ? ' checked' : ''}> <span>${esc(t.texto)}${t.prazo ? ` <span class="${!t.feito && t.prazo < agoraLocal().slice(0, 10) ? 'erro-txt' : 'muted'} peq">até ${fmtData(t.prazo)}</span>` : ''}</span></label>
+        <button class="sec" type="button" data-rmt="${t.id}">Apagar</button></li>`).join('') || '<li class="muted peq" style="padding:8px">Nenhuma tarefa.</li>'}</ul>
+      <h2 class="sec-tit">Das abordagens</h2>
+      ${pend.map(({ a, ps }) => `<div class="pend"><a href="#/ab/${a.id}"><b>${fmtData(a.data)}</b> · ${esc(localPesca(a.localPescaId)?.nome || AREA_CURTA[a.area])}</a>
+        <ul class="peq">${ps.map(p => `<li>${esc(p.texto)}${p.resolvivel ? ` <button class="sec mini" type="button" data-ab="${a.id}" data-res="${esc(p.chave)}">Resolvida</button>` : ''}</li>`).join('')}</ul></div>`).join('')
+        || '<p class="muted peq">Nenhuma pendência nas abordagens.</p>'}`}</div>`;
+  if (aba !== 'pend') return;
+  const gravarTarefas = async () => { await salvar(); telaAbordagens('pend'); };
+  $('#b-tarefa').onclick = () => { const texto = $('#t-txt').value.trim(); if (!texto) return $('#t-txt').focus();
+    tarefas.push({ id: novoId(), texto, prazo: $('#t-prazo').value, feito: false, criadoEm: agora() }); gravarTarefas(); };
+  app.querySelectorAll('[data-t]').forEach(c => c.onchange = () => { tarefas.find(t => t.id === c.dataset.t).feito = c.checked; gravarTarefas(); });
+  app.querySelectorAll('[data-rmt]').forEach(b => b.onclick = () => { tarefas.splice(tarefas.findIndex(t => t.id === b.dataset.rmt), 1); gravarTarefas(); });
+  app.querySelectorAll('[data-res]').forEach(b => b.onclick = async () => {
+    const a = normalizarAb(db.abordagens[b.dataset.ab]);
+    a.resolvidas = [...(a.resolvidas || []), b.dataset.res];
+    db.abordagens[a.id] = a; sujosAb.add(a.id);
+    await salvar(); telaAbordagens('pend');
+  });
 }
 
 function telaAbordagem(param) {
@@ -428,9 +457,16 @@ function telaAbordagem(param) {
   const pInicial = new URLSearchParams(query || '').get('p');
   // Local vindo de "Normas por local" ou o da última abordagem: o turno costuma seguir no mesmo lugar.
   const turno = localPesca(new URLSearchParams(query || '').get('l')) || localPesca(lerLocalTurno());
-  const ab = existente ? { providencias: provsDe(existente), ...structuredClone(existente) } : { id: novoId(), data: agoraLocal(), area: turno?.regime || 'tramandai', local: '', gps: null,
-    pescadorId: db.pescadores[pInicial] ? pInicial : null, identificadoPor: 'nome', cpfInformado: '', petrechos: [], pescado: [],
-    providencias: [], obs: '', localPescaId: turno?.id || '', localTipo: turno?.sub || '', embarcacao: 'Nenhuma', comprimentoEmbM: null, embarcacaoId: '', categoria: 'Profissional' };
+  // Vários envolvidos: local, data e GPS ficam na abordagem (A); pessoa, ponto, petrechos, pescado e providências, em cada envolvido.
+  const novoEnv = (pescadorId, localTipo) => ({ id: novoId(), pescadorId, identificadoPor: 'nome', cpfInformado: '', categoria: 'Profissional',
+    embarcacao: 'Nenhuma', comprimentoEmbM: null, embarcacaoId: '', localTipo, petrechos: [], pescado: [], apreensao: null, notificacao: null, providencias: [] });
+  const A = existente ? normalizarAb(structuredClone(existente)) : { id: novoId(), data: agoraLocal(), area: turno?.regime || 'tramandai', local: '', gps: null,
+    obs: '', localPescaId: turno?.id || '', envolvidos: [novoEnv(db.pescadores[pInicial] ? pInicial : null, turno?.sub || '')] };
+  let atual = 0;
+  // `ab` é a visão do envolvido aberto: campos pessoais vão para ele, os demais para a abordagem. O resto da tela usa só `ab`.
+  const PESS = new Set(PESSOAIS);
+  const ab = new Proxy({}, { get: (_, k) => (PESS.has(k) ? A.envolvidos[atual] : A)[k],
+    set: (_, k, v) => { (PESS.has(k) ? A.envolvidos[atual] : A)[k] = v; return true; } });
   const pesc = () => db.pescadores[ab.pescadorId] || null;
   const atualDe = area => AREAS_COM_LISTA.has(area) ? temporadaAtual(db.importacoes, area) : null;
   // Lista e PesqBrasil (semaforo.js) + regras de pesca R02 a R17 (normas.js).
@@ -455,7 +491,7 @@ function telaAbordagem(param) {
           <div class="linha" style="margin-top:6px"><button class="sec" id="b-gps" type="button">Registrar GPS</button><span id="gps" class="muted peq"></span></div></div>
         <div><label for="a-data">Data e hora</label><input id="a-data" type="datetime-local" value="${esc(ab.data)}"></div>
       </div></div>
-    <div class="card"><h2>Pessoa</h2><div id="pessoa"></div><div id="embs"></div>
+    <div class="card"><h2>Pessoas abordadas</h2><div id="envs" class="chips envs"></div><div id="pessoa"></div><div id="embs"></div>
       <div class="grade">
         <div><label for="a-cat">Categoria</label><select id="a-cat">${opcoes(CATEGORIAS, ab.categoria || 'Profissional')}</select></div>
         <div><label for="a-emb">Embarcação</label><select id="a-emb">${opcoes(EMBARCACOES, ab.embarcacao || 'Nenhuma')}</select></div>
@@ -464,18 +500,18 @@ function telaAbordagem(param) {
     <div id="sem"></div>
     <div class="card" id="c-consulta" hidden><h2>Consulta ao PesqBrasil</h2><div id="consulta"></div></div>
     <div class="card" id="c-qual" hidden><h2>Qualificação</h2><p class="muted peq">Usada na notificação e no termo. Fica salva no cadastro da pessoa.</p><div id="qual" class="grade"></div></div>
-    <div class="card"><h2>Petrechos</h2><div id="petrechos"></div>
+    <div class="card"><h2>Petrechos<span class="quem"></span></h2><div id="petrechos"></div>
       <button class="sec" id="b-pet" type="button">Adicionar petrecho</button></div>
-    <div class="card"><h2>Pescado</h2><div id="pescado"></div>
+    <div class="card"><h2>Pescado<span class="quem"></span></h2><div id="pescado"></div>
       <button class="sec" id="b-pes" type="button">Adicionar pescado</button>
       <datalist id="especies">${ESPECIES.map(e => `<option value="${esc(e)}">`).join('')}</datalist></div>
-    <div class="card"><h2>Apreensão</h2>
+    <div class="card"><h2>Apreensão<span class="quem"></span></h2>
       <label class="chk"><input type="checkbox" id="ap-on"${ab.apreensao ? ' checked' : ''}> Houve apreensão</label>
       <div id="ap"></div></div>
-    <div class="card"><h2>Notificação</h2>
+    <div class="card"><h2>Notificação<span class="quem"></span></h2>
       <label class="chk"><input type="checkbox" id="nt-on"${ab.notificacao ? ' checked' : ''}> Notificar a pessoa</label>
       <div id="nt"></div></div>
-    <div class="card"><h2>Providências</h2>
+    <div class="card"><h2>Providências<span class="quem"></span></h2>
       <p class="muted peq">Marque todas as adotadas.</p><div id="provs" class="provs"></div>
       <label for="a-obs">Observações</label><textarea id="a-obs">${esc(ab.obs)}</textarea></div>
     <div class="barra-ab"><a href="#" id="ba-cor" class="ba-cor"></a><span id="m-ab" class="msg peq"></span><button id="b-salvar" type="button">Salvar</button></div>`;
@@ -489,6 +525,36 @@ function telaAbordagem(param) {
         return mr ? `<div class="sem-multa">Multa mínima de referência: ${fmtReais(mr.minimo)} (Dec. 6.514/2008, art. ${mr.artigo}: ${mr.artigo === 35 ? 'R$ 700' : 'R$ 300'} + R$ 20 por kg, ${String(kg).replace('.', ',')} kg)</div>` : ''; })()}</div>`;    const irr = s.motivos.filter(m => m.nivel !== 'ok').length, ba = $('#ba-cor');
     ba.className = 'ba-cor sem-' + s.cor;
     ba.textContent = COR_TXT[s.cor] + (irr ? ` · ${irr} ${irr === 1 ? 'motivo' : 'motivos'}` : '');
+    desenharEnvs();
+  };
+  const semaforoDe = i => { const antes = atual; atual = i; try { return semaforo(); } finally { atual = antes; } };
+  // Só redesenha os botões quando algo muda: assim o toque não se perde quando um campo perde o foco e o semáforo recalcula.
+  const desenharEnvs = () => {
+    const html = A.envolvidos.map((e, i) => { const p = db.pescadores[e.pescadorId];
+      return `<button type="button" class="chip sem-${semaforoDe(i).cor}${i === atual ? ' ativo' : ''}" data-env="${i}">${esc(p ? nomeProprio(p.nome).split(' ')[0] : `Pessoa ${i + 1}`)}</button>`; }).join('')
+      + '<button type="button" class="chip" data-env="+">+ Pessoa</button>'
+      + (A.envolvidos.length > 1 ? '<button type="button" class="chip" data-env="-">Remover esta</button>' : '');
+    if ($('#envs').innerHTML !== html) $('#envs').innerHTML = html;
+    // Com mais de uma pessoa, cada seção mostra de quem é.
+    const p = pesc(), quem = A.envolvidos.length > 1 ? ` · ${p ? nomeProprio(p.nome).split(' ')[0] : `Pessoa ${atual + 1}`}` : '';
+    document.querySelectorAll('.quem').forEach(q => { q.textContent = quem; });
+  };
+  $('#envs').onclick = e => {
+    const v = e.target.closest('[data-env]')?.dataset.env;
+    if (v === '+') { A.envolvidos.push(novoEnv(null, ab.localTipo)); trocarEnv(A.envolvidos.length - 1); }
+    else if (v === '-') { A.envolvidos.splice(atual, 1); trocarEnv(Math.max(0, atual - 1)); }
+    else if (v != null) trocarEnv(+v);
+  };
+  // Troca o envolvido aberto e redesenha as partes pessoais da tela.
+  const trocarEnv = i => {
+    atual = i;
+    $('#a-loc').innerHTML = opcoesLocal();
+    $('#a-cat').value = ab.categoria || 'Profissional'; $('#a-emb').value = ab.embarcacao || 'Nenhuma';
+    $('#a-comp').value = ab.comprimentoEmbM ?? ''; $('#d-comp').hidden = !ab.embarcacao || ab.embarcacao === 'Nenhuma';
+    $('#ap-on').checked = !!ab.apreensao; $('#nt-on').checked = !!ab.notificacao;
+    desenharPessoa(); desenharSem(); desenharConsulta(); desenharQual();
+    desenharLinhas(ab.petrechos, '#petrechos', CAMPOS_PET, desenharSem); desenharLinhas(ab.pescado, '#pescado', CAMPOS_PES, desenharSem);
+    desenharApreensao(); desenharNotificacao(); desenharProvs();
   };
 
   const desenharConsulta = () => {
@@ -720,7 +786,7 @@ function telaAbordagem(param) {
     ab.localPescaId = l.id;
     ab.area = l.regime;
     if ((l.id === 'patos' || l.id === 'patosnorte') && ab.gps) ab.area = trechoPatos(ab.gps.lat);
-    ab.localTipo = l.sub || '';
+    A.envolvidos.forEach(e => { e.localTipo = l.sub || ''; }); // trocou o local: o ponto volta ao padrão para todos
     if (!ab.local) { ab.local = l.nome; $('#a-local').value = l.nome; }
     gravarLocalTurno(l.id);
     $('#a-loc').innerHTML = opcoesLocal();
@@ -801,22 +867,23 @@ function telaAbordagem(param) {
   $('#a-obs').oninput = e => { ab.obs = e.target.value; };
   $('#b-salvar').onclick = async () => {
     const m = $('#m-ab');
-    if (!pesc()) { m.textContent = 'Selecione ou cadastre a pessoa abordada.'; m.className = 'msg erro'; return; }
-    const p = pesc();
-    if (ab.identificadoPor === 'cpf' && !p.cpf) { p.cpf = ab.cpfInformado; if (!p.digitos) p.digitos = p.cpf.slice(3, 9); p.atualizadoEm = agora(); sujos.add(p.id); }
-    ab.semaforo = semaforo();
-    ab.criadoEm ||= agora();
-    ab.atualizadoEm = agora();
-    db.abordagens[ab.id] = structuredClone(ab);
-    sujosAb.add(ab.id);
+    const sem = A.envolvidos.findIndex(e => !db.pescadores[e.pescadorId]);
+    if (sem >= 0) { trocarEnv(sem); m.textContent = 'Selecione ou cadastre a pessoa abordada.'; m.className = 'msg erro'; return; }
+    A.envolvidos.forEach((e, i) => {
+      const p = db.pescadores[e.pescadorId];
+      if (e.identificadoPor === 'cpf' && !p.cpf) { p.cpf = e.cpfInformado; if (!p.digitos) p.digitos = p.cpf.slice(3, 9); p.atualizadoEm = agora(); sujos.add(p.id); }
+      e.semaforo = semaforoDe(i);
+    });
+    A.criadoEm ||= agora();
+    A.atualizadoEm = agora();
+    db.abordagens[A.id] = structuredClone(A);
+    sujosAb.add(A.id);
     await salvar();
-    if (location.hash !== '#/ab/' + ab.id) location.hash = '#/ab/' + ab.id;
+    if (location.hash !== '#/ab/' + A.id) location.hash = '#/ab/' + A.id;
     else { m.textContent = 'Abordagem salva.'; m.className = 'msg'; }
   };
 
-  desenharOnde(); desenharPessoa(); desenharSem(); desenharConsulta(); desenharQual(); mostrarGps();
-  desenharLinhas(ab.petrechos, '#petrechos', CAMPOS_PET, desenharSem); desenharLinhas(ab.pescado, '#pescado', CAMPOS_PES, desenharSem);
-  desenharApreensao(); desenharNotificacao(); desenharProvs();
+  desenharOnde(); mostrarGps(); trocarEnv(0);
   if (existente) $('#m-ab').textContent = `Salva em ${fmtDH(existente.atualizadoEm)}.`;
 }
 
@@ -889,7 +956,11 @@ function mesclarBackup(outro) {
   for (const i of outro.importacoes || []) if (!db.importacoes.some(x => x.hash === i.hash)) db.importacoes.push(i);
   for (const [id, b] of Object.entries(outro.abordagens || {})) { // vale a versão editada por último
     const a = db.abordagens[id];
-    if (!a || b.atualizadoEm > a.atualizadoEm) { db.abordagens[id] = { ...b, pescadorId: idLocal[b.pescadorId] || b.pescadorId }; sujosAb.add(id); n++; }
+    if (!a || b.atualizadoEm > a.atualizadoEm) {
+      const nb = normalizarAb(b);
+      db.abordagens[id] = { ...nb, envolvidos: nb.envolvidos.map(e => ({ ...e, pescadorId: idLocal[e.pescadorId] || e.pescadorId })) };
+      sujosAb.add(id); n++;
+    }
   }
   return n;
 }
@@ -1127,7 +1198,7 @@ function telaNormas() {
 
 // ---------- roteamento e bloqueio ----------
 function marcarNav() {
-  const h = location.hash.startsWith('#/dados') ? '#/dados' : location.hash.startsWith('#/normas') || location.hash.startsWith('#/guia') ? '#/guia' : location.hash.startsWith('#/ab') ? '#/abordagens' : '#/';
+  const h = location.hash.startsWith('#/dados') ? '#/dados' : location.hash.startsWith('#/normas') || location.hash.startsWith('#/guia') ? '#/guia' : location.hash.startsWith('#/ab') || location.hash.startsWith('#/pendencias') ? '#/abordagens' : '#/';
   document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('ativo', a.getAttribute('href') === h));
 }
 function rotear() {
@@ -1140,6 +1211,7 @@ function rotear() {
   if (h.startsWith('#/p/')) return telaFicha(decodeURIComponent(h.slice(4)));
   if (h === '#/dados') return telaDados();
   if (h === '#/abordagens') return telaAbordagens();
+  if (h === '#/pendencias') return telaAbordagens('pend');
   if (h.startsWith('#/ab/')) return telaAbordagem(h.slice(5));
   return telaLista();
 }

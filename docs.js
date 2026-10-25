@@ -95,5 +95,45 @@ function notificacao(ab, p, cfg) {
   </div>`;
 }
 
-globalThis.Docs = { itensDaAbordagem, termoApreensao, notificacao, motivoSugerido, DESTINOS };
+// Abordagem com vários envolvidos: local, data e GPS uma vez; cada envolvido com pessoa, ponto, petrechos, pescado e providências.
+const PESSOAIS = ['pescadorId', 'identificadoPor', 'cpfInformado', 'categoria', 'embarcacao', 'comprimentoEmbM', 'embarcacaoId', 'localTipo',
+  'petrechos', 'pescado', 'apreensao', 'notificacao', 'providencias', 'semaforo'];
+// Abordagens gravadas antes (uma pessoa só) viram uma com um envolvido. A providência única vira lista.
+function normalizarAb(a) {
+  if (a.envolvidos) return a;
+  const e = { id: a.id + '-1' }, n = {};
+  for (const [k, v] of Object.entries(a)) if (PESSOAIS.includes(k)) e[k] = v; else if (k !== 'providencia' && k !== 'documento') n[k] = v;
+  e.providencias ||= a.providencia ? [{ tipo: a.providencia, numero: a.documento || '' }] : [];
+  n.envolvidos = [e];
+  return n;
+}
+
+// O que falta para o processo administrativo. resolvidas: chaves marcadas como resolvidas pela equipe.
+const PEDE_NUMERO = new Set(['BA', 'BO/TC', 'BO/COP', 'Apreensão', 'Notificação', 'Auto de infração']);
+const DOCUMENTOS = ['BA', 'BO/TC', 'BO/COP', 'Auto de infração'];
+function pendenciasDe(a, pessoa) {
+  const out = [], feitas = new Set(a.resolvidas || []);
+  const add = (e, k, texto, resolvivel = false) => { const chave = `${e.id}:${k}`; if (!feitas.has(chave)) out.push({ chave, envolvido: e.id, texto, resolvivel }); };
+  for (const e of a.envolvidos || []) {
+    const p = pessoa(e.pescadorId), quem = p ? nomeProprio(p.nome) : 'Envolvido sem pessoa';
+    const provs = e.providencias || [];
+    if (!p) add(e, 'pessoa', `${quem}: identificar a pessoa.`);
+    for (const pr of provs) if (PEDE_NUMERO.has(pr.tipo) && !String(pr.numero || '').trim()) add(e, `num:${pr.tipo}`, `${quem}: falta o número (${pr.tipo}).`);
+    if (e.semaforo?.cor === 'vermelho' && !provs.some(pr => DOCUMENTOS.includes(pr.tipo)))
+      add(e, 'sem-documento', `${quem}: irregular sem BA, BO ou auto registrado.`, true);
+    if (e.apreensao) {
+      if (!(e.apreensao.itens || []).length) add(e, 'ap-itens', `${quem}: apreensão sem itens no termo.`);
+      if (!e.apreensao.fiel?.nome && !e.apreensao.destinacao) add(e, 'ap-destino', `${quem}: apreensão sem fiel depositário nem destinação.`);
+    }
+    if (p && (e.apreensao || e.notificacao || provs.some(pr => DOCUMENTOS.includes(pr.tipo))) && !(p.rg && p.endereco && p.municipio))
+      add(e, 'qualificacao', `${quem}: qualificação incompleta (RG, endereço, município).`);
+    if (p && e.categoria !== 'Amador' && !(p.consultas || []).some(c => c.data.slice(0, 10) <= a.data.slice(0, 10) && c.data.slice(0, 10) >= diaMenos(a.data, 30)))
+      add(e, 'consulta', `${quem}: sem consulta ao PesqBrasil nos 30 dias da abordagem.`, true);
+    if (e.notificacao) add(e, 'comparecimento', `${quem}: acompanhar o comparecimento da notificação.`, true);
+  }
+  return out;
+}
+const diaMenos = (iso, n) => { const d = new Date(iso.slice(0, 10) + 'T12:00'); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); };
+
+globalThis.Docs = { itensDaAbordagem, termoApreensao, notificacao, motivoSugerido, normalizarAb, pendenciasDe, PESSOAIS, DESTINOS };
 })();

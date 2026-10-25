@@ -262,3 +262,18 @@ input[type=checkbox], input[type=radio] { min-height: 0; width: 18px; height: 18
 .ba-cor { flex: 0 0 auto; }
 .barra-ab .msg { font-size: .78rem; line-height: 1.2; white-space: normal; max-height: 2.4em; }
 .chk input { flex: 0 0 18px; }
+.envs { margin-bottom: 8px; }
+.envs .chip.sem-vermelho { background: var(--alerta-bg); color: var(--alerta); }
+.envs .chip.sem-amarelo { background: var(--aviso-bg); color: var(--aviso); }
+.envs .chip.sem-verde { background: var(--ok-bg); color: var(--ok); }
+.envs .chip.ativo { outline: 2px solid var(--pri); outline-offset: 1px; font-weight: 700; }
+.abas-seg { display: flex; gap: 6px; margin-bottom: 10px; }
+.abas-seg a { flex: 1; text-align: center; padding: 8px; border-radius: 8px; border: 1px solid var(--borda); text-decoration: none; font-weight: 600; }
+.abas-seg a.ativo { background: var(--pri); color: var(--pri-txt); border-color: var(--pri); }
+.abas-seg .cont { display: inline-block; min-width: 1.4em; padding: 0 5px; border-radius: 99px; background: var(--alerta); color: #fff; font-size: .75rem; }
+.tarefa { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 4px; border-bottom: 1px solid var(--borda); }
+.tarefa.feita span { text-decoration: line-through; color: var(--muted); }
+.pend { border-top: 1px solid var(--borda); padding: 8px 0; }
+.pend ul { margin: 4px 0 0; padding-left: 18px; }
+button.mini { padding: 2px 8px; min-height: 28px; font-size: .8rem; }
+.quem { color: var(--pri); font-weight: 600; }

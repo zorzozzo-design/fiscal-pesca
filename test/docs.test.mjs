@@ -63,3 +63,39 @@ test('logos opcionais: sem imagem não quebra, com imagem entra no cabeçalho', 
   assert.doesNotMatch(notificacao(ab, p, cfg), /<img/);
   assert.match(notificacao(ab, p, { ...cfg, logos: { brasao: 'data:image/png;base64,AAA', comando: 'data:image/png;base64,BBB' } }), /<img src="data:image\/png;base64,AAA"/);
 });
+
+test('abordagem antiga vira abordagem com um envolvido', () => {
+  const { normalizarAb } = globalThis.Docs;
+  const velha = { id: 'x', data: '2026-10-25T10:00', area: 'tramandai', local: 'L', gps: null, localPescaId: 'tramandai', localTipo: 'Lagoa Tramandaí', obs: 'o',
+    pescadorId: 'p1', identificadoPor: 'cpf', cpfInformado: '52998224725', categoria: 'Profissional', embarcacao: 'Nenhuma', comprimentoEmbM: null,
+    petrechos: [{ tipo: 'Tarrafa' }], pescado: [], providencia: 'Notificação', documento: '12', notificacao: { motivo: 'm' }, semaforo: { cor: 'amarelo', motivos: [] } };
+  const n = normalizarAb(velha);
+  assert.equal(n.envolvidos.length, 1);
+  const e = n.envolvidos[0];
+  assert.equal(e.pescadorId, 'p1'); assert.equal(e.localTipo, 'Lagoa Tramandaí'); assert.deepEqual(e.providencias, [{ tipo: 'Notificação', numero: '12' }]);
+  assert.equal(e.notificacao.motivo, 'm'); assert.equal(n.area, 'tramandai'); assert.equal(n.obs, 'o');
+  assert.equal(n.pescadorId, undefined);
+  assert.equal(normalizarAb(n), n, 'já no formato novo: não muda');
+});
+
+test('pendências da abordagem para o administrativo', () => {
+  const { pendenciasDe } = globalThis.Docs;
+  const pess = { p1: { id: 'p1', nome: 'JOAO TESTE', consultas: [] }, p2: { id: 'p2', nome: 'ANA TESTE', rg: '1', endereco: 'R', municipio: 'M', consultas: [{ data: '2026-10-25T09:00' }] } };
+  const a = { id: 'a1', data: '2026-10-25T10:00', envolvidos: [
+    { id: 'e1', pescadorId: 'p1', categoria: 'Profissional', semaforo: { cor: 'vermelho' }, providencias: [{ tipo: 'BO/TC', numero: '' }],
+      apreensao: { itens: [], fiel: {}, destinacao: '' }, notificacao: { motivo: 'x' } },
+    { id: 'e2', pescadorId: 'p2', categoria: 'Profissional', semaforo: { cor: 'verde' }, providencias: [{ tipo: 'Abordagem', numero: '' }] }] };
+  const ps = pendenciasDe(a, id => pess[id]);
+  const chaves = ps.map(p => p.chave);
+  assert.ok(chaves.includes('e1:num:BO/TC'));
+  assert.ok(chaves.includes('e1:ap-itens'));
+  assert.ok(chaves.includes('e1:ap-destino'));
+  assert.ok(chaves.includes('e1:qualificacao'));
+  assert.ok(chaves.includes('e1:consulta'));
+  assert.ok(chaves.includes('e1:comparecimento'));
+  assert.ok(!chaves.some(c => c.startsWith('e2:')), 'regular, consultado e qualificado: nada pendente');
+  const resolvida = pendenciasDe({ ...a, resolvidas: ['e1:comparecimento'] }, id => pess[id]).map(p => p.chave);
+  assert.ok(!resolvida.includes('e1:comparecimento'));
+  const semDoc = pendenciasDe({ ...a, envolvidos: [{ ...a.envolvidos[0], providencias: [] }] }, id => pess[id]).map(p => p.chave);
+  assert.ok(semDoc.includes('e1:sem-documento'));
+});
