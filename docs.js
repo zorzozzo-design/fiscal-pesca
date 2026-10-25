@@ -52,6 +52,7 @@ function termoApreensao(ab, p, cfg) {
       que consta como responsável pelos fatos constatados o(a) Sr(a) <b>${esc(nomeProprio(p.nome))}</b>${fmtCpf(p) ? `, CPF <b>${esc(fmtCpf(p))}</b>` : ''},
       fica(m) apreendido(s) o(s) animal(is), produto(s), petrecho(s) e/ou material(is) abaixo descrito(s):</p>
     <table class="doc-linhas">${linhas}</table>
+    ${bensUsados(ab, p)}
     <table class="doc-grade"><tr><td class="doc-assin">Assinatura do responsável cujos bens / animais foram apreendidos:</td></tr></table>
     <div class="doc-faixa">FIEL DEPOSITÁRIO</div>
     <p class="doc-texto doc-negrito">Nomeio como FIEL DEPOSITÁRIO dos animais/produtos/bens aqui apreendidos, a pessoa abaixo qualificada, que desde já, fica ciente de que NÃO PODERÁ vender, usufruir, e/ou emprestar os mesmos, devendo apresentá-los quando solicitado pelo depositante, nas mesmas condições e quantidades que recebeu, conforme Art. 640 e 652 do Código Civil vigente.</p>
@@ -67,6 +68,14 @@ function termoApreensao(ab, p, cfg) {
       ${DESTINOS.map(d => `${marca(a.destinacao === d)} ${d}`).join('&nbsp;&nbsp;')}</td></tr></table>
     <div class="doc-vias">1ª via – Processo | 2ª via – Autuado | 3ª via – Depósito</div>
   </div>`;
+}
+
+// Embarcação e veículo usados (cadastro da pessoa), quando informados na abordagem.
+function bensUsados(ab, p) {
+  const e = (p.embarcacoes || []).find(x => x.id === ab.embarcacaoId), v = (p.veiculos || []).find(x => x.id === ab.veiculoId);
+  const ts = [e && `Embarcação: ${[e.nome, e.inscricao && `inscrição ${e.inscricao}`, e.rgp && `RGP ${e.rgp}`, e.comprimentoM && `${num(e.comprimentoM)} m`, e.propulsao].filter(Boolean).join(', ')}`,
+    v && `Veículo: ${[v.placa, v.modelo, v.cor, v.tipo].filter(Boolean).join(', ')}`].filter(Boolean);
+  return ts.length ? `<p class="doc-texto">${ts.map(esc).join('<br>')}</p>` : '';
 }
 
 function notificacao(ab, p, cfg) {

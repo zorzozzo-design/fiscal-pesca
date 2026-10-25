@@ -99,3 +99,11 @@ test('pendências da abordagem para o administrativo', () => {
   const semDoc = pendenciasDe({ ...a, envolvidos: [{ ...a.envolvidos[0], providencias: [] }] }, id => pess[id]).map(p => p.chave);
   assert.ok(semDoc.includes('e1:sem-documento'));
 });
+
+test('termo de apreensão mostra a embarcação e o veículo usados', () => {
+  const pe = { ...p, embarcacoes: [{ id: 'e1', nome: 'Marisco', inscricao: '4410', comprimentoM: 7, propulsao: 'Motorizada' }], veiculos: [{ id: 'v1', placa: 'ABC1D23', modelo: 'Saveiro' }] };
+  const h = termoApreensao({ ...ab, embarcacaoId: 'e1', veiculoId: 'v1' }, pe, {});
+  assert.match(h, /Embarcação: Marisco, inscrição 4410, 7 m, Motorizada/);
+  assert.match(h, /Veículo: ABC1D23, Saveiro/);
+  assert.doesNotMatch(termoApreensao(ab, pe, {}), /Embarcação:/);
+});

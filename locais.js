@@ -44,7 +44,7 @@ const LOCAIS_PESCA = [
   L('cornelio', 'Rio Cornélio', ['Torres', 'Arroio do Sal', 'Capão da Canoa'], 'tramandai', 'IN 17, art. 7º', { sub: 'Rio Cornélio, Lagoa Boa Vista ou áreas do art. 7º' }),
   L('camarao', 'Rios Camarão e Relógio', ['Tramandaí', 'Osório'], 'tramandai', 'IN 17, art. 19', { sub: 'Rio, canal ou foz' }),
   L('peixoto', 'Lagoas Peixoto, Marcelino, Caconde e Emboaba', ['Osório', 'Tramandaí'], 'tramandai', 'Entre a Itapeva e a Cerquinha; a IN 17 não as nomeia', { sub: 'Outra lagoa da bacia', conferir: true }),
-  L('barrososorio', 'Lagoa dos Barros (Osório)', ['Osório'], 'tramandai', 'Entre a Itapeva e a Cerquinha; a IN 17 não a nomeia', { sub: 'Outra lagoa da bacia', conferir: true }),
+  L('barrososorio', 'Lagoa dos Barros', ['Osório', 'Santo Antônio da Patrulha'], 'outras', 'Bacia do Litoral Médio, drena para a Lagoa dos Patos (Vanzella e outros, IST, 2021); fora da IN 17', { sub: 'Lagoa ou rio' }),
   L('fortaleza', 'Lagoa da Fortaleza', ['Cidreira'], 'tramandai', 'Ao norte da Cerquinha; a IN 17 não a nomeia', { sub: 'Outra lagoa da bacia', conferir: true }),
   L('rincao', 'Lagoa Rincão das Éguas', ['Balneário Pinhal', 'Palmares do Sul'], 'outras', 'Nota técnica SEMA 001/2007: ao sul do limite da bacia', { sub: 'Lagoa ou rio' }),
   L('porteira', 'Lagoa da Porteira', ['Palmares do Sul'], 'outras', 'Nota técnica SEMA 001/2007', { sub: 'Lagoa ou rio' }),
@@ -57,7 +57,7 @@ const LOCAIS_PESCA = [
   L('peixe', 'Lagoa do Peixe', ['Tavares', 'Mostardas'], 'peixe', 'Parque Nacional; IN 197/2008, art. 3º', { sub: 'Lagoa do Peixe' }),
   L('mampituba', 'Rio Mampituba', ['Torres'], 'outras', 'Bacias do RS: IN 197/2008', { sub: 'Lagoa ou rio' }),
   L('barramampituba', 'Barra do Mampituba até a Figueirinha', ['Torres'], 'mampituba', 'IN 197/2008, art. 3º: 2.000 m com norma própria', { sub: 'Barra do Mampituba até a Figueirinha' }),
-  L('lagoastorres', 'Lagoas do Violão, do Jacaré e do Morro do Forno', ['Torres'], 'outras', 'Bacia não confirmada', { sub: 'Lagoa ou rio', conferir: true }),
+  L('lagoastorres', 'Lagoas do Violão, do Jacaré e do Morro do Forno', ['Torres'], 'outras', 'Torres fica 79% na bacia do Mampituba (SEMA); bacia de cada lagoa não confirmada', { sub: 'Lagoa ou rio', conferir: true }),
   // Demais regiões do RS: principais corpos d'água; o resto se escolhe pelo município.
   L('guaiba', 'Lago Guaíba', ['Porto Alegre', 'Guaíba', 'Eldorado do Sul', 'Barra do Ribeiro', 'Viamão'], 'outras', 'Bacia G080 (Lago Guaíba)', { sub: 'Lagoa ou rio' }),
   L('deltajacui', 'Delta do Jacuí', ['Porto Alegre', 'Eldorado do Sul', 'Canoas', 'Triunfo', 'Nova Santa Rita'], 'outras', 'Bacia G080 (Lago Guaíba)', { sub: 'Lagoa ou rio' }),

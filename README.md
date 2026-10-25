@@ -31,5 +31,5 @@ Quando o MPA publicar a lista nova, importe o PDF com a temporada nova. A tempor
 
 - `npm test` roda os testes do leitor de listas, do semáforo e do leitor da consulta (fixtures fictícias em `test/fixtures`).
 - Servir local: `python3 -m http.server` e abrir http://localhost:8000.
-- Ao publicar mudanças, incremente `CACHE` em `sw.js`.
+- Ao publicar mudanças, rode `node tools/versao.mjs`: ele sobe a versão do cache em `sw.js`. O teste `test/sw.test.mjs` falha se isso for esquecido.
 - `vendor/pdf.min.js` e `vendor/pdf.worker.min.js`: pdf.js 3.11.174, build legacy (licença Apache 2.0 em `vendor/pdfjs-LICENSE`).

@@ -297,3 +297,26 @@ test('defesos por regime: vigente e próximo', () => {
   assert.ok(!defesosDe('outras', '2026-06-10').some(x => x.nome === 'Piracema'));
   assert.ok(defesosDe('patos', '2026-07-10').some(x => x.nome === 'Fora do calendário do estuário' && /corvina/.test(x.texto)));
 });
+
+test('R06: tarrafa embarcada de 25 mm para peixe-rei e sardinha sob a ponte, sentido oeste (IN 17, art. 25, II)', () => {
+  const base = { localTipo: 'Sob a ponte Giuseppe Garibaldi, sentido oeste (art. 25, II)', embarcacao: 'A remo', petrechos: [pet('Tarrafa', { malhaMm: 30 })] };
+  assert.ok(!tem(ab({ ...base, pescado: [{ especie: 'Peixe-rei', kg: 2 }] }), 'R06'));
+  assert.ok(tem(ab({ ...base, pescado: [{ especie: 'Tainha', kg: 2 }] }), 'R06'), 'outra espécie: vale 60 mm');
+  assert.ok(tem(ab({ ...base, embarcacao: 'Nenhuma', pescado: [{ especie: 'Peixe-rei', kg: 2 }] }), 'R06'), 'desembarcado: vale 60 mm');
+  assert.ok(tem(ab({ ...base, petrechos: [pet('Tarrafa', { malhaMm: 20 })], pescado: [{ especie: 'Peixe-rei', kg: 2 }] }), 'R06'));
+});
+
+test('R34: GPS dentro das áreas da IN 17 pede conferência', () => {
+  const g = (lat, lon) => ab({ gps: { lat, lon, prec: 10 } });
+  const r34 = a => checar(a, cfg).filter(m => m.regra === 'R34').map(m => m.norma);
+  // art. 7º, III (Lagoa dos Quadros): dentro do triângulo
+  assert.match(r34(g(-29.6435, -50.0960)).join(), /art\. 7º, III/);
+  // art. 5º: sobre o eixo do canal entre o pontal do Capão Grande e a antiga rodoviária
+  assert.match(r34(g(-29.98636, -50.14998)).join(), /art\. 5º/);
+  // art. 2º: perto da barra
+  assert.match(r34(g(-29.9750, -50.1300)).join(), /art\. 2º/);
+  // longe de tudo (meio da Lagoa Itapeva)
+  assert.deepEqual(r34(g(-29.50, -49.90)), []);
+  // fora da bacia do Tramandaí, não avalia
+  assert.deepEqual(checar({ ...g(-29.6435, -50.0960), area: 'outras' }, cfg).filter(m => m.regra === 'R34'), []);
+});

@@ -6,7 +6,8 @@ const LOCAIS = {
   tramandai: ['Lagoa Tramandaí', 'Laguna do Armazém', 'Outra lagoa da bacia', 'Rio, canal ou foz',
     'Canal da Barra e Boca da Barra (IN 17, art. 2º)', 'Sobre a ponte Giuseppe Garibaldi (art. 3º)', 'Lagoa Gentil (art. 4º)',
     'Canal de 200 m na Laguna do Armazém (art. 5º)', 'Faixa de 150 m das margens: Itapeva, Quadros, Pinguela, Malva, Palmital, Passo (art. 6º)',
-    'Rio Cornélio, Lagoa Boa Vista ou áreas do art. 7º', 'Raio de 200 m da foz de rio ou canal (art. 9º)', 'Braço Morto do Imbé (art. 10)'],
+    'Rio Cornélio, Lagoa Boa Vista ou áreas do art. 7º', 'Raio de 200 m da foz de rio ou canal (art. 9º)', 'Braço Morto do Imbé (art. 10)',
+    'Sob a ponte Giuseppe Garibaldi, sentido oeste (art. 25, II)'],
   mar: ['Praia (desembarcado)', 'Embarcado até 1 milha da costa', 'Embarcado além de 1 milha', 'Barra ou desembocadura (fora de Tramandaí)'],
   outras: ['Lagoa ou rio', 'Reservatório de hidrelétrica ou açude público', 'Lagoa marginal', 'Até 200 m de barragem, cachoeira ou corredeira',
     'Entre 200 e 1.500 m de barragem, cachoeira ou corredeira', 'Barra ou desembocadura (fora de Tramandaí)'],
@@ -32,6 +33,31 @@ const PROIBIDOS = [
   ['Rio Cornélio', 'art. 7º', () => false],
   ['Raio de 200 m', 'art. 9º', () => false],
   ['Braço Morto', 'art. 10', p => p.tipo === 'Linha e anzol'],
+];
+
+// Áreas da IN 17/2004 com coordenadas no texto oficial (graus, minutos, segundos -> decimal).
+const dms = (g, m, s) => -(g + m / 60 + s / 3600);
+const P = (la, lo) => [dms(...la), dms(...lo)];
+const RODOVIARIA = P([29, 59, 10.9], [50, 8, 50.3]), CAPAO_GRANDE = P([29, 59, 10.5], [50, 9, 10.0]), CECLIMAR = P([29, 58, 25.5], [50, 8, 18.5]);
+const metros = ([a, b], [c, d]) => 6371000 * 2 * Math.asin(Math.sqrt(Math.sin((c - a) * Math.PI / 360) ** 2 + Math.cos(a * Math.PI / 180) * Math.cos(c * Math.PI / 180) * Math.sin((d - b) * Math.PI / 360) ** 2));
+// Distância do ponto ao segmento AB (aproximação plana, suficiente para centenas de metros).
+const aoSegmento = (p, a, b) => {
+  const k = Math.cos(a[0] * Math.PI / 180), ax = a[1] * k, bx = b[1] * k, px = p[1] * k;
+  const t = Math.max(0, Math.min(1, ((px - ax) * (bx - ax) + (p[0] - a[0]) * (b[0] - a[0])) / ((bx - ax) ** 2 + (b[0] - a[0]) ** 2)));
+  return metros(p, [a[0] + t * (b[0] - a[0]), (ax + t * (bx - ax)) / k]);
+};
+const noPoligono = (p, vs) => { let d = false; for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+  const [yi, xi] = vs[i], [yj, xj] = vs[j]; if ((yi > p[0]) !== (yj > p[0]) && p[1] < (xj - xi) * (p[0] - yi) / (yj - yi) + xi) d = !d; } return d; };
+const AREAS_IN17 = [
+  // Art. 2º: canal e boca da barra; 3.000 m para o oceano, 2.000 m ao norte, 3.000 m ao sul. Aproximado por 3 km da divisa do CECLIMAR, do lado do mar.
+  ['art. 2º', 'na área do canal e da boca da barra (aproximada)', (la, lo) => metros([la, lo], CECLIMAR) <= 3000 && lo > RODOVIARIA[1]],
+  ['art. 5º', 'no canal de 200 m da Laguna do Armazém', (la, lo) => aoSegmento([la, lo], CAPAO_GRANDE, RODOVIARIA) <= 100],
+  ['art. 7º, I', 'na área da Lagoa Boa Vista e margens do rio Cornélio', (la, lo) => noPoligono([la, lo],
+    [P([29, 38, 51.7], [50, 2, 42.7]), P([29, 37, 47.0], [50, 1, 12.9]), P([29, 37, 22.6], [50, 1, 19.7]), P([29, 38, 27.0], [50, 2, 44.3])])],
+  ['art. 7º, II', 'na foz do rio Cornélio na Lagoa Itapeva (Reserva dos Quirinos)', (la, lo) => noPoligono([la, lo],
+    [P([29, 37, 50.4], [50, 1, 11.4]), P([29, 36, 17.2], [49, 59, 30.0]), P([29, 36, 35], [49, 58, 51.7]), P([29, 38, 46.5], [50, 0, 12.2])])],
+  ['art. 7º, III', 'na área da Lagoa dos Quadros (Sanga Funda, coroa do peixe-rei, FEPAGRO)', (la, lo) => noPoligono([la, lo],
+    [P([29, 38, 16.4], [50, 5, 15.7]), P([29, 39, 0.27], [50, 5, 30.9]), P([29, 38, 50.4], [50, 6, 32.0])])],
 ];
 
 // IN MMA 53/2005, comprimento total mínimo (cm), pelo nome usado no app.
@@ -84,8 +110,14 @@ function checar(ab, cfg = {}) {
       if (local === 'Rio, canal ou foz') add('R04', 'vermelho', 'Rede de espera em rio, canal ou foz.', 'IN 17/2004, art. 11, IV', CRIME_34_II);
     }
     if (de('Rede de arrasto').length) add('R05', 'vermelho', 'Rede de arrasto na bacia.', 'IN 17/2004, art. 11, I', CRIME_34_II);
-    for (const t of de('Tarrafa')) if (t.malhaMm != null && t.malhaMm < 60)
-      add('R06', 'vermelho', `Tarrafa de peixe com malha ${t.malhaMm} mm (mínimo 60 mm).`, 'IN 17/2004, arts. 6º, 8º e 25', CRIME_34_II);
+    // Art. 25, II: tarrafa embarcada de 25 mm para sardinha e peixe-rei, sob a ponte, sentido oeste (só licenciados).
+    const art25 = local.startsWith('Sob a ponte') && ab.embarcacao && ab.embarcacao !== 'Nenhuma' && pes.length
+      && pes.every(p => /^(peixe-rei|sardinha)/.test(chave(p.especie)));
+    for (const t of de('Tarrafa')) if (t.malhaMm != null && t.malhaMm < (art25 ? 25 : 60))
+      add('R06', 'vermelho', `Tarrafa de peixe com malha ${t.malhaMm} mm (mínimo ${art25 ? '25 mm, art. 25, II' : '60 mm'}).`, 'IN 17/2004, arts. 6º, 8º e 25', CRIME_34_II);
+    // R34: posição do GPS dentro das áreas georreferenciadas da IN 17 (indica para conferir; o GPS do celular erra alguns metros).
+    if (ab.gps) for (const [art, texto, dentro] of AREAS_IN17) if (dentro(ab.gps.lat, ab.gps.lon))
+      add('R34', 'amarelo', `Pelo GPS, o ponto fica ${texto}: confira se a pesca é permitida ali.`, `IN 17/2004, ${art}`, CRIME_34);
     const av = de('Aviãozinho');
     if (av.length) {
       const qtd = av.reduce((t, a) => t + (+a.qtd || 1), 0);
@@ -147,7 +179,7 @@ function checar(ab, cfg = {}) {
   }
 
   if (ab.area === 'peixe')
-    add('R25', 'amarelo', 'Parque Nacional da Lagoa do Peixe: só pescam os cadastrados no Termo de Compromisso do ICMBio. Confira o cadastro.', 'Decreto 93.546/1986; Termo de Compromisso ICMBio (2019)', CRIME_34);
+    add('R25', 'amarelo', 'Parque Nacional da Lagoa do Peixe: só pescam os artesanais do Termo de Compromisso do ICMBio, com aviãozinho de lacre numerado, em caíco sem motor, na temporada aberta pelo monitoramento. Confira o cadastro e os lacres.', 'Decreto 93.546/1986; Termo de Compromisso ICMBio', CRIME_34);
   if (ab.area === 'mampituba')
     add('R26', 'amarelo', 'Barra do Mampituba até a Figueirinha: norma própria (Portaria SUDEPE 006/1984), texto não localizado. Confira.', 'Portaria SUDEPE 006/1984', CRIME_34);
 
@@ -267,7 +299,8 @@ const RESUMO = {
     'Rede de espera: malha mínima 80 mm; na Lagoa Tramandaí, 90 mm e até 500 m. Proibida em rio, canal e foz.',
     'Tarrafa de peixe: malha mínima 60 mm. Arrasto proibido.', 'Aviãozinho: só na Laguna do Armazém, malha mínima 25 mm, até 10 por pescador.',
     'Camarão: só na temporada da portaria anual. Bagre: proibido de 15/12 a 31/03.',
-    'Locais proibidos: canal e boca da barra, ponte Giuseppe Garibaldi, Lagoa Gentil, Braço Morto do Imbé, 200 m da foz de rios (arts. 2º a 10).'],
+    'Locais proibidos: canal e boca da barra, ponte Giuseppe Garibaldi, Lagoa Gentil, Braço Morto do Imbé, 200 m da foz de rios (arts. 2º a 10). Com GPS, o app avisa nas áreas que têm coordenadas.',
+    'Sob a ponte, sentido oeste: tarrafa embarcada de 25 mm para sardinha e peixe-rei, só licenciados (art. 25, II).'],
   patos: ['Licença: só quem está na lista do estuário (INC 03/2004).', 'Rede de espera: malha mínima 100 mm (bagre 140, peixe-rei 40); até 1.830 m por embarcação.',
     'Rede de saco e aviãozinho: malha mínima 24 mm, andaina de até 10.', 'Arrasto proibido. Embarcação de até 12 m.',
     'Calendário: tainha out a mai, corvina out a fev, camarão-rosa fev a mai (mínimo 9 cm).'],
@@ -280,7 +313,7 @@ const RESUMO = {
     'Piracema 1º/10 a 31/01: só linha, 1 por pescador, até 5 kg, barco sem motor; nada em lagoa marginal, a 1.500 m de barragem, a 500 m de confluência com o Uruguai e nos trechos do art. 3º (IN 193/2008).',
     'Lambari em reservatório: proibido de 1º/11 a 28/02.'],
   mirim: ['Defeso de todas as espécies de 1º/11 a 31/01.', 'Malha, petrechos e licença: INC MMA/SEAP 02/2004 (texto não localizado). Confira.'],
-  peixe: ['Parque Nacional: só pesca quem está no Termo de Compromisso do ICMBio.'],
+  peixe: ['Parque Nacional: só pesca quem está no Termo de Compromisso do ICMBio.', 'Camarão: aviãozinho com lacre numerado, caíco sem motor, só na temporada que o ICMBio abre pelo monitoramento (2026: aberta em 14/01).'],
   mampituba: ['Barra do Mampituba até a Figueirinha: Portaria SUDEPE 006/1984 (texto não localizado). Confira.'],
   mar: ['Emalhe: malha de 70 a 140 mm, altura até 4 m, RGP na tralha superior (IN 12/2012).', 'Barco motorizado: emalhe só além de 1 milha da costa.',
     'Arrasto por barco motorizado: proibido nas 12 milhas do RS (Lei RS 15.223/2018).',
