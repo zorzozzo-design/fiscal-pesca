@@ -79,3 +79,30 @@ test('vale a consulta mais recente até a data da abordagem', () => {
   assert.equal(ultimaConsulta(cs, '2026-10-25').situacao, 'Suspenso');
   assert.equal(av({ pescador: pesc([lic('2026/2027')], cs) }).cor, 'vermelho');
 });
+
+test('R01: profissional fora da lista só com linha e anzol não é irregular pela lista', () => {
+  const r = av({ pescador: null, soLinha: true });
+  assert.ok(!r.motivos.some(m => m.nivel === 'vermelho'));
+  assert.ok(tem(r, 'art. 26'));
+});
+
+test('R01: amador na bacia só pode linha e anzol; não precisa de consulta ao PesqBrasil', () => {
+  const r = av({ pescador: pesc(), categoria: 'Amador', soLinha: false });
+  assert.equal(r.cor, 'vermelho');
+  assert.ok(tem(r, 'Amador'));
+  assert.ok(!tem(r, 'PesqBrasil'));
+  assert.equal(av({ pescador: pesc(), categoria: 'Amador', soLinha: true }).cor, 'verde');
+});
+
+test('R01: motivo de irregularidade da lista aponta o art. 37 do Decreto 6.514 para a multa', () => {
+  const m = av({ pescador: null }).motivos.find(x => x.nivel === 'vermelho');
+  assert.equal(m.artigo, 37);
+  assert.equal(m.regra, 'R01');
+});
+
+test('corDe junta motivos de origens diferentes', () => {
+  const { corDe } = globalThis.Semaforo;
+  assert.equal(corDe([{ nivel: 'ok' }, { nivel: 'amarelo' }]), 'amarelo');
+  assert.equal(corDe([{ nivel: 'amarelo' }, { nivel: 'vermelho' }]), 'vermelho');
+  assert.equal(corDe([{ nivel: 'ok' }]), 'verde');
+});

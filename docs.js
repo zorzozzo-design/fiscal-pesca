@@ -26,7 +26,7 @@ function itensDaAbordagem(ab) {
 // Motivos de irregularidade; sem nenhum, os pontos a conferir.
 function motivoSugerido(ab) {
   const ms = ab.semaforo?.motivos || [];
-  const de = nivel => ms.filter(m => m.nivel === nivel).map(m => m.texto);
+  const de = nivel => ms.filter(m => m.nivel === nivel).map(m => m.norma ? `${m.texto} (${m.norma})` : m.texto);
   return (de('vermelho').length ? de('vermelho') : de('amarelo')).join(' ');
 }
 

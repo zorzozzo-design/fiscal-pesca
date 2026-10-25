@@ -1,5 +1,6 @@
 const { ler, mesclar, temporadaAtual, situacao, buscar, parecido, cpfValido, criar, lerConsulta, AVISO_TXT } = window.Lista;
-const { avaliar, ultimaConsulta, AREAS_COM_LISTA } = window.Semaforo;
+const { avaliar, ultimaConsulta, corDe, AREAS_COM_LISTA } = window.Semaforo;
+const { checar, multaReferencia, LOCAIS } = window.Normas;
 const { itensDaAbordagem, termoApreensao, notificacao, motivoSugerido, DESTINOS } = window.Docs;
 
 // ---------- utilitários ----------
@@ -22,8 +23,8 @@ const PARTICULAS = new Set(['de', 'da', 'do', 'das', 'dos', 'e', 'di', 'du', 'de
 const nomeProprio = s => String(s ?? '').toLowerCase().trim().split(/\s+/).map((w, i) => i && PARTICULAS.has(w) ? w
   : w.replace(/(^|['\-])(\p{L})/gu, (_, sep, l) => sep + l.toUpperCase())).join(' ');
 
-const AREAS = { tramandai: 'Bacia do Rio Tramandaí (IN MMA 17/2004)', mar: 'Mar (sem lista nominal)' };
-const AREA_CURTA = { tramandai: 'Tramandaí', mar: 'Mar' };
+const AREAS = { tramandai: 'Bacia do Rio Tramandaí (IN MMA 17/2004)', mar: 'Mar (sem lista nominal)', outras: 'Outras lagoas e rios (fora da bacia)' };
+const AREA_CURTA = { tramandai: 'Tramandaí', mar: 'Mar', outras: 'Outras águas' };
 const SIT = { atual: ['Na lista atual', 'ok'], saiu: ['Saiu da lista atual', 'alerta'], nunca: ['Sem licença na área', 'aviso'] };
 
 // ---------- armazenamento criptografado (IndexedDB + AES-GCM), mesmo modelo do Fiscal Passeriformes ----------
@@ -234,8 +235,14 @@ function telaFicha(id) {
 // ---------- abordagem em campo ----------
 const PESQBRASIL = 'https://pesqbrasil-pescadorprofissional.mpa.gov.br/acesso-externo';
 const SITUACOES = ['Ativo', 'Suspenso', 'Cancelado', 'Em análise', 'Não encontrado'];
-const PETRECHOS = ['Rede de emalhe', 'Tarrafa', 'Espinhel', 'Aviãozinho', 'Rede de arrasto', 'Linha e anzol', 'Covo/armadilha', 'Outro'];
-const ESPECIES = ['Tainha', 'Camarão-rosa', 'Bagre', 'Corvina', 'Peixe-rei', 'Traíra', 'Jundiá', 'Linguado', 'Pescada', 'Papa-terra', 'Siri'];
+const PETRECHOS = ['Rede de emalhe', 'Tarrafa', 'Tarrafa de camarão', 'Espinhel', 'Aviãozinho', 'Rede de arrasto', 'Linha e anzol', 'Covo/armadilha', 'Outro'];
+// Nomes iguais aos da tabela de tamanho mínimo (normas.js) para a checagem funcionar.
+const ESPECIES = ['Tainha', 'Camarão-rosa', 'Bagre', 'Bagre-branco', 'Corvina', 'Peixe-rei', 'Traíra', 'Jundiá', 'Linguado', 'Pescadinha',
+  'Pescada-olhuda', 'Papa-terra', 'Anchova', 'Miraguaia', 'Parati', 'Robalo-peva', 'Robalo-flecha', 'Siri'];
+const EMBARCACOES = ['Nenhuma', 'A remo', 'Motorizada'];
+const CATEGORIAS = ['Profissional', 'Amador'];
+const CAMARAO_PADRAO = { inicio: '2026-01-23', fim: '2026-06-21' }; // Portaria Interministerial MPA/MMA 48/2026
+const fmtReais = v => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const PROVIDENCIAS = ['Nenhuma (regular)', 'Orientação', 'Notificação', 'Auto de infração', 'Apreensão', 'Outra'];
 const COR_TXT = { verde: 'Pode pescar', amarelo: 'Conferir', vermelho: 'Irregular' };
 const fmtCpf = c => c ? `${c.slice(0, 3)}.${c.slice(3, 6)}.${c.slice(6, 9)}-${c.slice(9)}` : '';
@@ -283,11 +290,18 @@ function telaAbordagem(param) {
   const pInicial = new URLSearchParams(query || '').get('p');
   const ab = existente ? structuredClone(existente) : { id: novoId(), data: agoraLocal(), area: 'tramandai', local: '', gps: null,
     pescadorId: db.pescadores[pInicial] ? pInicial : null, identificadoPor: 'nome', cpfInformado: '', petrechos: [], pescado: [],
-    providencia: '', documento: '', obs: '' };
+    providencia: '', documento: '', obs: '', localTipo: '', embarcacao: 'Nenhuma', categoria: 'Profissional' };
   const pesc = () => db.pescadores[ab.pescadorId] || null;
   const atualDe = area => AREAS_COM_LISTA.has(area) ? temporadaAtual(db.importacoes, area) : null;
-  const semaforo = () => avaliar({ pescador: pesc(), area: ab.area, atual: atualDe(ab.area), data: ab.data, identificadoPor: ab.identificadoPor,
-    outrosMesmosDigitos: pesc()?.digitos ? Object.values(db.pescadores).filter(o => o.digitos === pesc().digitos && o.id !== ab.pescadorId).length : 0 });
+  // Lista e PesqBrasil (semaforo.js) + regras de pesca R02 a R17 (normas.js).
+  const semaforo = () => {
+    const s = avaliar({ pescador: pesc(), area: ab.area, atual: atualDe(ab.area), data: ab.data, identificadoPor: ab.identificadoPor,
+      outrosMesmosDigitos: pesc()?.digitos ? Object.values(db.pescadores).filter(o => o.digitos === pesc().digitos && o.id !== ab.pescadorId).length : 0,
+      categoria: ab.categoria || 'Profissional', soLinha: ab.petrechos.every(p => p.tipo === 'Linha e anzol') });
+    const motivos = [...s.motivos, ...checar(ab, { camarao: db.cfg.camarao || CAMARAO_PADRAO })];
+    return { cor: corDe(motivos), motivos };
+  };
+  const opcoesLocal = () => `<option value="">(não informado)</option>${opcoes(LOCAIS[ab.area], ab.localTipo)}`;
 
   app.innerHTML = `<div class="card">
       <p class="peq"><a href="#/abordagens">← Abordagens</a></p>
@@ -295,6 +309,9 @@ function telaAbordagem(param) {
       <div class="grade">
         <div><label for="a-area">Área</label><select id="a-area">${Object.entries(AREAS).map(([k, v]) => `<option value="${k}"${k === ab.area ? ' selected' : ''}>${esc(v)}</option>`).join('')}</select></div>
         <div><label for="a-data">Data e hora</label><input id="a-data" type="datetime-local" value="${esc(ab.data)}"></div>
+        <div style="grid-column:1/-1"><label for="a-loc">Local na área</label><select id="a-loc">${opcoesLocal()}</select></div>
+        <div><label for="a-emb">Embarcação</label><select id="a-emb">${opcoes(EMBARCACOES, ab.embarcacao || 'Nenhuma')}</select></div>
+        <div><label for="a-cat">Categoria</label><select id="a-cat">${opcoes(CATEGORIAS, ab.categoria || 'Profissional')}</select></div>
       </div></div>
     <div class="card"><h2>Pessoa</h2><div id="pessoa"></div></div>
     <div class="card" id="c-qual" hidden><h2>Qualificação</h2><p class="muted peq">Usada na notificação e no termo. Fica salva no cadastro da pessoa.</p><div id="qual" class="grade"></div></div>
@@ -326,7 +343,9 @@ function telaAbordagem(param) {
   const desenharSem = () => {
     const s = semaforo();
     $('#sem').innerHTML = `<div class="card sem sem-${s.cor}"><div class="sem-cor">${COR_TXT[s.cor]}</div>
-      <ul>${s.motivos.map(m => `<li class="m-${m.nivel}">${esc(m.texto)}</li>`).join('')}</ul></div>`;
+      <ul>${s.motivos.map(m => `<li class="m-${m.nivel}">${esc(m.texto)}${m.norma ? `<div class="sem-norma">${esc(m.norma)}${m.enquadramento ? ' · ' + esc(m.enquadramento) : ''}</div>` : ''}</li>`).join('')}</ul>
+      ${(() => { const kg = ab.pescado.reduce((t, x) => t + (+x.kg || 0), 0), mr = multaReferencia(s.motivos, kg);
+        return mr ? `<div class="sem-multa">Multa mínima de referência: ${fmtReais(mr.minimo)} (Dec. 6.514/2008, art. ${mr.artigo}: ${mr.artigo === 35 ? 'R$ 700' : 'R$ 300'} + R$ 20 por kg, ${String(kg).replace('.', ',')} kg)</div>` : ''; })()}</div>`;
   };
 
   const desenharConsulta = () => {
@@ -500,22 +519,24 @@ function telaAbordagem(param) {
     $('#p-q').focus();
   };
 
-  const desenharLinhas = (lista, alvo, campos) => {
+  const desenharLinhas = (lista, alvo, campos, aoMudar = () => {}) => {
     $(alvo).innerHTML = lista.map((item, i) => `<div class="grade linha-item">${campos.map(([k, rot, tipo, extra]) => `<div><label>${rot}</label>${
       tipo === 'select' ? `<select data-i="${i}" data-k="${k}">${opcoes(extra, item[k])}</select>`
         : `<input data-i="${i}" data-k="${k}" type="${tipo}" ${extra || ''} value="${esc(item[k] ?? '')}">`}</div>`).join('')}
       <div><label>&nbsp;</label><button class="sec" type="button" data-rm="${i}">Remover</button></div></div>`).join('');
     $(alvo).querySelectorAll('[data-k]').forEach(el => el.oninput = el.onchange = () => {
       lista[+el.dataset.i][el.dataset.k] = el.type === 'number' ? (el.value === '' ? null : +el.value) : el.value;
+      aoMudar();
     });
-    $(alvo).querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { lista.splice(+b.dataset.rm, 1); desenharLinhas(lista, alvo, campos); });
+    $(alvo).querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { lista.splice(+b.dataset.rm, 1); desenharLinhas(lista, alvo, campos, aoMudar); aoMudar(); });
   };
   const CAMPOS_PET = [['tipo', 'Tipo', 'select', PETRECHOS], ['malhaMm', 'Malha (mm, nós opostos)', 'number', 'min="0" step="1" inputmode="numeric"'],
-    ['comprimentoM', 'Comprimento (m)', 'number', 'min="0" step="1" inputmode="numeric"'], ['qtd', 'Quantidade', 'number', 'min="1" step="1" inputmode="numeric"']];
+    ['comprimentoM', 'Comprimento (m)', 'number', 'min="0" step="1" inputmode="numeric"'], ['qtd', 'Quantidade', 'number', 'min="1" step="1" inputmode="numeric"'],
+    ['alturaM', 'Altura (m, emalhe no mar)', 'number', 'min="0" step="0.1" inputmode="decimal"'], ['rgpTralha', 'RGP na tralha (emalhe no mar)', 'select', ['', 'Sim', 'Não']]];
   const CAMPOS_PES = [['especie', 'Espécie', 'text', 'list="especies"'], ['kg', 'Peso (kg)', 'number', 'min="0" step="0.1" inputmode="decimal"'],
     ['menorCm', 'Menor exemplar (cm)', 'number', 'min="0" step="0.5" inputmode="decimal"']];
-  $('#b-pet').onclick = () => { ab.petrechos.push({ tipo: PETRECHOS[0], malhaMm: null, comprimentoM: null, qtd: 1 }); desenharLinhas(ab.petrechos, '#petrechos', CAMPOS_PET); };
-  $('#b-pes').onclick = () => { ab.pescado.push({ especie: '', kg: null, menorCm: null }); desenharLinhas(ab.pescado, '#pescado', CAMPOS_PES); };
+  $('#b-pet').onclick = () => { ab.petrechos.push({ tipo: PETRECHOS[0], malhaMm: null, comprimentoM: null, qtd: 1, alturaM: null, rgpTralha: '' }); desenharLinhas(ab.petrechos, '#petrechos', CAMPOS_PET, desenharSem); desenharSem(); };
+  $('#b-pes').onclick = () => { ab.pescado.push({ especie: '', kg: null, menorCm: null }); desenharLinhas(ab.pescado, '#pescado', CAMPOS_PES, desenharSem); };
 
   const mostrarGps = () => { $('#gps').innerHTML = ab.gps ? `<a href="https://maps.google.com/?q=${ab.gps.lat},${ab.gps.lon}" target="_blank" rel="noopener">${ab.gps.lat.toFixed(5)}, ${ab.gps.lon.toFixed(5)}</a> (±${Math.round(ab.gps.prec)} m)` : ''; };
   $('#b-gps').onclick = () => {
@@ -527,7 +548,10 @@ function telaAbordagem(param) {
       { enableHighAccuracy: true, timeout: 20000 });
   };
 
-  $('#a-area').onchange = e => { ab.area = e.target.value; desenharSem(); };
+  $('#a-area').onchange = e => { ab.area = e.target.value; ab.localTipo = ''; $('#a-loc').innerHTML = opcoesLocal(); desenharSem(); };
+  $('#a-loc').onchange = e => { ab.localTipo = e.target.value; desenharSem(); };
+  $('#a-emb').onchange = e => { ab.embarcacao = e.target.value; desenharSem(); };
+  $('#a-cat').onchange = e => { ab.categoria = e.target.value; desenharSem(); desenharConsulta(); };
   $('#a-data').onchange = e => { ab.data = e.target.value || ab.data; desenharSem(); desenharConsulta(); };
   $('#a-local').oninput = e => { ab.local = e.target.value; };
   $('#a-prov').onchange = e => { ab.providencia = e.target.value; };
@@ -549,7 +573,7 @@ function telaAbordagem(param) {
   };
 
   desenharPessoa(); desenharSem(); desenharConsulta(); desenharQual(); mostrarGps();
-  desenharLinhas(ab.petrechos, '#petrechos', CAMPOS_PET); desenharLinhas(ab.pescado, '#pescado', CAMPOS_PES);
+  desenharLinhas(ab.petrechos, '#petrechos', CAMPOS_PET, desenharSem); desenharLinhas(ab.pescado, '#pescado', CAMPOS_PES, desenharSem);
   desenharApreensao(); desenharNotificacao();
   if (existente) $('#m-ab').textContent = `Salva em ${fmtDH(existente.atualizadoEm)}.`;
 }
@@ -670,6 +694,14 @@ function telaDados() {
       </div>
       <p><button id="b-docs" type="button">Salvar</button> <span id="m-docs" class="muted peq"></span></p></div>
 
+    <div class="card"><h2>5. Temporada do camarão (Bacia do Tramandaí)</h2>
+      <p class="muted peq">A abertura sai por portaria todo ano; o fim é 21/06 (IN 17/2004, art. 20). Atualize quando sair a portaria nova.</p>
+      <div class="grade">
+        <div><label for="cm-ini">Abertura</label><input id="cm-ini" type="date" value="${esc((db.cfg.camarao || CAMARAO_PADRAO).inicio)}"></div>
+        <div><label for="cm-fim">Encerramento</label><input id="cm-fim" type="date" value="${esc((db.cfg.camarao || CAMARAO_PADRAO).fim)}"></div>
+      </div>
+      <p><button id="b-cm" type="button">Salvar</button> <span id="m-cm" class="muted peq"></span></p></div>
+
     <div class="card"><h2>Apagar</h2>
       <p class="muted peq">Remove todos os dados deste aparelho. Exporte um backup antes.</p>
       <button class="perigo" id="b-apagar" type="button">Apagar todos os dados</button></div>`;
@@ -757,6 +789,13 @@ function telaDados() {
     db.cfg.logos = logos;
     await salvar();
     $('#m-docs').textContent = 'Salvo.';
+  };
+  $('#b-cm').onclick = async () => {
+    const inicio = $('#cm-ini').value, fim = $('#cm-fim').value;
+    if (!inicio || !fim || fim < inicio) { $('#m-cm').textContent = 'Datas inválidas.'; return; }
+    db.cfg.camarao = { inicio, fim };
+    await salvar();
+    $('#m-cm').textContent = 'Salvo.';
   };
   $('#b-apagar').onclick = async () => {
     if (confirm('Apagar todos os dados deste aparelho?')) { await apagarTudo(); location.reload(); }

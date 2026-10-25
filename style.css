@@ -213,3 +213,5 @@ nav[hidden] { display: none; }
 .doc-motivo div { min-height: 220px; padding-top: 4px; }
 .doc-aviso { text-align: center; font-weight: 700; font-size: 10.5pt; padding: 8px; border-top: 1px solid #000; }
 .doc-vias { text-align: center; font-size: 8pt; padding: 4px; border-top: 1px solid #000; }
+.sem-norma { font-size: .78rem; opacity: .85; }
+.sem-multa { margin-top: 8px; font-size: .85rem; font-weight: 600; }
