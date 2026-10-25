@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import '../municipios-rs.js';
 import '../locais.js';
-const { REGIMES, LOCAIS_PESCA, MUNICIPIOS, proximos, trechoPatos, buscarLocal } = globalThis.Locais;
+const { REGIMES, LOCAIS_PESCA, MUNICIPIOS, proximos, trechoPatos, buscarLocal, buscarMunicipio, porId, regimeDaBacia, baciasDe } = globalThis.Locais;
 
 test('todo local tem regime conhecido, município cadastrado e base da classificação', () => {
   for (const l of LOCAIS_PESCA) {
@@ -47,4 +48,32 @@ test('busca por lagoa ou município, sem acento', () => {
   assert.ok(buscarLocal('quintao').some(l => l.nome === 'Lagoa do Quintão'));
   assert.ok(buscarLocal('osorio').some(l => l.nome.includes('Pinguela')));
   assert.equal(buscarLocal('').length, LOCAIS_PESCA.length);
+});
+
+test('RS inteiro: 497 municípios, cada um com bacia e regime', () => {
+  assert.equal(Object.keys(MUNICIPIOS).length, 497);
+  for (const m of Object.keys(MUNICIPIOS)) { const bs = baciasDe(m); assert.ok(bs.length, m); for (const [b] of bs) assert.ok(REGIMES[regimeDaBacia(b)], m + ' ' + b); }
+});
+
+test('bacia define o regime: Uruguai, Tramandaí e demais', () => {
+  assert.equal(regimeDaBacia('U050'), 'uruguai');
+  assert.equal(regimeDaBacia('L010'), 'tramandai');
+  assert.equal(regimeDaBacia('G080'), 'outras');
+  assert.equal(regimeDaBacia('L040'), 'outras');
+  assert.deepEqual(baciasDe('Uruguaiana').map(b => b[0]), ['U050', 'U060']);
+});
+
+test('município vira local de pesca, pela bacia escolhida', () => {
+  const l = porId('m:Uruguaiana:U060');
+  assert.equal(l.regime, 'uruguai'); assert.deepEqual(l.municipios, ['Uruguaiana']); assert.match(l.nome, /Quaraí/);
+  assert.equal(porId('m:Porto Alegre:G080').regime, 'outras');
+  assert.equal(porId('m:Xangri-lá:L010').regime, 'tramandai');
+  assert.equal(porId('m:Nada:G080'), null);
+  assert.equal(porId('lagoamirim').regime, 'mirim');
+});
+
+test('busca de município sem acento', () => {
+  assert.deepEqual(buscarMunicipio('sao borja'), ['São Borja']);
+  assert.ok(buscarLocal('guaiba').some(l => l.nome === 'Lago Guaíba'));
+  assert.equal(proximos(-29.76, -57.08)[0], 'Uruguaiana');
 });

@@ -228,3 +228,58 @@ test('R28 não vale onde há norma própria', () => {
   for (const area of ['tramandai', 'patos', 'peixe', 'mampituba', 'mar'])
     assert.ok(!tem(ab({ area, petrechos: [pet('Rede de emalhe', { malhaMm: 50 })] }), 'R28'), area);
 });
+
+const uru = x => ab({ area: 'uruguai', localTipo: 'Lagoa ou rio', ...x });
+const outras = x => ab({ area: 'outras', localTipo: 'Lagoa ou rio', ...x });
+const niveis = (a, r) => checar(a, cfg).filter(m => m.regra === r).map(m => m.nivel);
+
+test('R28 (IN 43) vale também na bacia do Uruguai', () => {
+  assert.deepEqual(niveis(uru({ data: '2026-07-10T10:00', petrechos: [pet('Rede de emalhe', { malhaMm: 60 })] }), 'R28'), ['vermelho']);
+});
+
+test('R29: piracema do Uruguai de 1º/10 a 31/01, só linha, até 5 kg, sem motor', () => {
+  const out = '2026-10-10T08:00';
+  assert.ok(tem(uru({ data: out, petrechos: [pet('Rede de emalhe', { malhaMm: 100 })] }), 'R29'));
+  assert.ok(!tem(uru({ data: out, petrechos: [pet('Linha e anzol')] }), 'R29'));
+  assert.ok(tem(uru({ data: out, petrechos: [pet('Linha e anzol')], pescado: [{ especie: 'Traíra', kg: 6 }] }), 'R29'));
+  assert.ok(tem(uru({ data: out, embarcacao: 'Motorizada', petrechos: [pet('Linha e anzol')] }), 'R29'));
+  assert.ok(!tem(uru({ data: '2026-09-30T08:00', petrechos: [pet('Rede de emalhe', { malhaMm: 100 })] }), 'R29'));
+  assert.ok(!tem(uru({ data: out, petrechos: [pet('Rede de emalhe', { malhaMm: 100 })] }), 'R16'), 'IN 197 não vale no Uruguai');
+});
+
+test('R30: áreas vedadas na piracema (IN 193, arts. 3º e 4º; IN 197, art. 5º)', () => {
+  const linha = [pet('Linha e anzol')];
+  assert.ok(tem(uru({ data: '2026-10-10T08:00', localTipo: 'Lagoa marginal', petrechos: linha }), 'R30'));
+  assert.ok(tem(uru({ data: '2026-10-10T08:00', localTipo: 'Até 500 m de confluência com o rio Uruguai', petrechos: linha }), 'R30'));
+  assert.ok(!tem(uru({ data: '2026-03-10T08:00', localTipo: 'Lagoa marginal', petrechos: linha }), 'R30'));
+  assert.ok(tem(outras({ data: '2026-11-10T08:00', localTipo: 'Entre 200 e 1.500 m de barragem, cachoeira ou corredeira', petrechos: linha }), 'R30'));
+  assert.ok(!tem(outras({ data: '2026-10-10T08:00', localTipo: 'Lagoa marginal', petrechos: linha }), 'R30'), 'IN 197 começa em 1º/11');
+});
+
+test('R31: a menos de 200 m de barragem, cachoeira ou corredeira, o ano todo (IN 43, art. 2º)', () => {
+  for (const f of [uru, outras]) assert.deepEqual(niveis(f({ data: '2026-07-10T08:00', localTipo: 'Até 200 m de barragem, cachoeira ou corredeira', petrechos: [pet('Linha e anzol')] }), 'R31'), ['vermelho']);
+});
+
+test('R32: lambari em reservatório de 1º/11 a 28/02 (IN 51/2004)', () => {
+  const res = (data, especie) => uru({ data, localTipo: 'Reservatório de hidrelétrica ou açude público', pescado: [{ especie, kg: 1 }] });
+  assert.ok(tem(res('2027-02-20T08:00', 'Lambari'), 'R32'));
+  assert.ok(!tem(res('2027-03-05T08:00', 'Lambari'), 'R32'));
+  assert.ok(!tem(res('2027-02-20T08:00', 'Traíra'), 'R32'));
+});
+
+test('R33: Lagoa Mirim e Mangueira, defeso de 1º/11 a 31/01 e norma a conferir', () => {
+  const mir = x => ab({ area: 'mirim', localTipo: 'Lagoa Mirim', ...x });
+  assert.deepEqual(niveis(mir({ data: '2026-07-10T08:00' }), 'R33'), ['amarelo']);
+  assert.ok(niveis(mir({ data: '2026-12-10T08:00', petrechos: [pet('Rede de emalhe', { malhaMm: 100 })] }), 'R33').includes('vermelho'));
+});
+
+test('R27: peixes de água doce ameaçados no RS', () => {
+  for (const sp of ['Dourado', 'Surubim', 'Pintado', 'Suruvi', 'Piracanjuba'])
+    assert.equal(checar(uru({ pescado: [{ especie: sp, kg: 1 }] }), cfg).find(m => m.regra === 'R27')?.nivel, 'vermelho', sp);
+});
+
+test('R27: bagre de água doce não pede conferência; dourado do mar não é o Salminus', () => {
+  assert.equal(checar(uru({ pescado: [{ especie: 'Bagre', kg: 1 }] }), cfg).find(m => m.regra === 'R27'), undefined);
+  assert.equal(checar(uru({ pescado: [{ especie: 'Pintado-amarelo (Pimelodus maculatus)', kg: 1 }] }), cfg).find(m => m.regra === 'R27'), undefined);
+  assert.equal(checar(ab({ area: 'mar', localTipo: 'Praia (desembarcado)', pescado: [{ especie: 'Dourado', kg: 1 }] }), cfg).find(m => m.regra === 'R27'), undefined);
+});

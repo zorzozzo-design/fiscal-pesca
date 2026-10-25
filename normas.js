@@ -1,4 +1,4 @@
-// Regras de pesca checadas na abordagem (R02 a R28; a R01 fica no semáforo, junto da lista).
+// Regras de pesca checadas na abordagem (R02 a R33; a R01 fica no semáforo, junto da lista).
 // Fonte de cada regra: aba "Legislação" do documento do projeto. Indica, não autua.
 (() => {
 
@@ -8,7 +8,11 @@ const LOCAIS = {
     'Canal de 200 m na Laguna do Armazém (art. 5º)', 'Faixa de 150 m das margens: Itapeva, Quadros, Pinguela, Malva, Palmital, Passo (art. 6º)',
     'Rio Cornélio, Lagoa Boa Vista ou áreas do art. 7º', 'Raio de 200 m da foz de rio ou canal (art. 9º)', 'Braço Morto do Imbé (art. 10)'],
   mar: ['Praia (desembarcado)', 'Embarcado até 1 milha da costa', 'Embarcado além de 1 milha', 'Barra ou desembocadura (fora de Tramandaí)'],
-  outras: ['Lagoa ou rio', 'Barra ou desembocadura (fora de Tramandaí)'],
+  outras: ['Lagoa ou rio', 'Reservatório de hidrelétrica ou açude público', 'Lagoa marginal', 'Até 200 m de barragem, cachoeira ou corredeira',
+    'Entre 200 e 1.500 m de barragem, cachoeira ou corredeira', 'Barra ou desembocadura (fora de Tramandaí)'],
+  uruguai: ['Lagoa ou rio', 'Reservatório de hidrelétrica ou açude público', 'Lagoa marginal', 'Até 200 m de barragem, cachoeira ou corredeira',
+    'Entre 200 e 1.500 m de barragem, cachoeira ou corredeira', 'Até 500 m de confluência com o rio Uruguai', 'Trecho vedado na piracema (IN 193, art. 3º, V a VIII)'],
+  mirim: ['Lagoa Mirim', 'Lagoa Mangueira', 'Canal São Gonçalo'],
   patos: ['Estuário', 'Barra ou desembocadura (fora de Tramandaí)'],
   peixe: ['Lagoa do Peixe', 'Barra ou desembocadura (fora de Tramandaí)'],
   mampituba: ['Barra do Mampituba até a Figueirinha'],
@@ -39,7 +43,13 @@ const TAMANHO_MINIMO = { 'tainha': 35, 'anchova': 35, 'linguado': 35, 'corvina':
 const AMEACADAS = [
   [/bagre-branco|barbus/, 'Genidens barbus'], [/planifrons/, 'Genidens planifrons'], [/miraguaia|pogonias/, 'Pogonias cromis'],
   [/garoupa-verdadeira|marginatus/, 'Epinephelus marginatus'], [/bicudo/, 'Odontesthes bicudo'],
+  // Água doce. "Dourado" no mar é outro peixe (Coryphaena), por isso só fora do mar.
+  [/^dourado|salminus/, 'Salminus brasiliensis', 'continental'], [/surubim|^pintado(?![- ]amarelo)|pseudoplatystoma/, 'Pseudoplatystoma corruscans', 'continental'],
+  [/suruvi|steindachneridi/, 'Steindachneridion scriptum'], [/piracanjuba|bracanjuva|orbignyanus|salmao-crioulo/, 'Brycon orbignyanus'],
+  [/cherne-poveiro|polyprion/, 'Polyprion americanus'], [/namorado|pseudopercis/, 'Pseudopercis semifasciata'],
+  [/peixe-batata|lopholatilus/, 'Lopholatilus villarii'], [/peixe-folha|lobotes/, 'Lobotes surinamensis'],
 ];
+// Só nas águas costeiras e estuarinas: nas bacias interiores "bagre" e "raia" são outras espécies.
 const CONFERIR_ESPECIE = /^(bagre|garoupa|cacao|raia|viola|tubarao)/;
 const NORMA_AMEACADAS = 'Lei RS 15.223/2018, art. 30, III; Decreto RS 51.797/2014; Portaria MMA 445/2014';
 
@@ -144,7 +154,8 @@ function checar(ab, cfg = {}) {
     add('R15', 'vermelho', 'Desembocadura de lagoa ou estuário de 15/03 a 15/08: só tarrafa.', 'IN IBAMA 171/2008, art. 2º', CRIME_34);
 
   // R28: águas continentais sem norma própria, o ano todo (IN IBAMA 43/2004, § 2º com redação da IN 120/2006).
-  if (ab.area === 'outras') {
+  const continental = ab.area === 'outras' || ab.area === 'uruguai';
+  if (continental) {
     const in43 = inc => `IN IBAMA 43/2004, art. 1º, ${inc}`;
     if (de('Rede de arrasto').length) add('R28', 'vermelho', 'Rede de arrasto ou de lance em águas continentais.', in43('I'), CRIME_34_II);
     for (const r of de('Rede de emalhe')) if (r.malhaMm != null && r.malhaMm < 70)
@@ -157,6 +168,34 @@ function checar(ab, cfg = {}) {
       add('R28', 'amarelo', 'Espinhel: confira se passa de 1/3 da largura do corpo d\'água e se os anzóis capturam peixes imaturos.', in43('VI'), CRIME_34_II);
   }
 
+  // R31: IN 43/2004, art. 2º, o ano todo.
+  if (continental && local.startsWith('Até 200 m de barragem'))
+    add('R31', 'vermelho', 'Pesca a menos de 200 m de barragem, cachoeira ou corredeira.', 'IN IBAMA 43/2004, art. 2º', CRIME_34);
+
+  // R29 e R30: piracema da bacia do Uruguai (IN 193/2008).
+  if (ab.area === 'uruguai' && entre(data, '10-01', '01-31')) {
+    const in193 = a => `IN IBAMA 193/2008, ${a}`;
+    if (pets.some(p => p.tipo !== 'Linha e anzol') || pets.length > 1)
+      add('R29', 'vermelho', 'Piracema do Uruguai (1º/10 a 31/01): só linha de mão, vara ou linha e anzol, um por pescador.', in193('art. 6º, II e § 3º'), CRIME_34);
+    if (ab.embarcacao === 'Motorizada') add('R29', 'vermelho', 'Piracema do Uruguai: embarcação só sem motor.', in193('art. 6º, § 1º'), CRIME_34);
+    if (kg > 5) add('R29', 'vermelho', `Piracema do Uruguai: ${num(kg)} kg (máximo 5 kg).`, in193('art. 7º'), CRIME_34);
+    const vedado = [['Lagoa marginal', 'art. 3º, I'], ['Entre 200 e 1.500 m', 'art. 3º, II'], ['Trecho vedado', 'art. 3º, V a VIII'], ['Até 500 m de confluência', 'art. 4º']].find(([ini]) => local.startsWith(ini));
+    if (vedado) add('R30', 'vermelho', `Piracema: pesca proibida neste ponto (${local}), com qualquer petrecho.`, in193(vedado[1]), CRIME_34);
+  }
+  if (ab.area === 'outras' && entre(data, '11-01', '01-31') && (local === 'Lagoa marginal' || local.startsWith('Entre 200 e 1.500 m')))
+    add('R30', 'vermelho', `Piracema: pesca proibida neste ponto (${local}), com qualquer petrecho.`, 'IN IBAMA 197/2008, art. 5º', CRIME_34);
+
+  // R32: lambari em reservatório público (IN IBAMA 51/2004), 1º/11 a 28/02.
+  if (local.startsWith('Reservatório') && entre(data, '11-01', '02-29') && especie('lambari'))
+    add('R32', 'vermelho', 'Lambari em reservatório no defeso (1º/11 a 28/02).', 'IN IBAMA 51/2004', CRIME_34);
+
+  // R33: Lagoa Mirim e Mangueira (INC MMA/SEAP 02/2004, texto não localizado; defeso pela planilha do MPA).
+  if (ab.area === 'mirim') {
+    add('R33', 'amarelo', 'Lagoa Mirim e Mangueira: norma própria (INC MMA/SEAP 02/2004), texto não localizado. Confira malha, petrechos e licença.', 'INC MMA/SEAP 02/2004', CRIME_34);
+    if (entre(data, '11-01', '01-31') && pets.some(p => p.tipo !== 'Linha e anzol'))
+      add('R33', 'vermelho', 'Defeso da Lagoa Mirim e Mangueira (1º/11 a 31/01), todas as espécies.', 'INC MMA/SEAP 02/2004 (planilha de defesos do MPA)', CRIME_34);
+  }
+
   if (ab.area === 'outras' && entre(data, '11-01', '01-31')) {
     if (pets.some(p => p.tipo !== 'Linha e anzol'))
       add('R16', 'vermelho', 'Piracema (1º/11 a 31/01): só anzol simples, um petrecho por pescador.', 'IN IBAMA 197/2008, art. 4º', CRIME_34);
@@ -166,9 +205,9 @@ function checar(ab, cfg = {}) {
   // R27: espécie ameaçada, proibida em qualquer local e época (acima dos calendários da IN 17 e da INC 03).
   for (const p of pes) {
     const k = chave(p.especie);
-    const am = AMEACADAS.find(([re]) => re.test(k));
+    const am = AMEACADAS.find(([re, , onde]) => re.test(k) && !(onde === 'continental' && ab.area === 'mar'));
     if (am) add('R27', 'vermelho', `${p.especie}: espécie ameaçada${k.includes(chave(am[1])) ? '' : ` (${am[1]})`}, pesca proibida em qualquer local e época.`, NORMA_AMEACADAS, CRIME_34_I);
-    else if (CONFERIR_ESPECIE.test(k)) add('R27', 'amarelo', `${p.especie}: confira a espécie. Há espécies ameaçadas neste grupo, proibidas o ano todo.`, NORMA_AMEACADAS, CRIME_34_I);
+    else if (CONFERIR_ESPECIE.test(k) && !['outras', 'uruguai', 'mirim'].includes(ab.area)) add('R27', 'amarelo', `${p.especie}: confira a espécie. Há espécies ameaçadas neste grupo, proibidas o ano todo.`, NORMA_AMEACADAS, CRIME_34_I);
   }
 
   if (ab.categoria === 'Amador') {

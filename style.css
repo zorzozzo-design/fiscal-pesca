@@ -239,3 +239,6 @@ details.local p { margin: 4px 0; }
 .linha-item > div:first-child { grid-column: 1 / -1; }
 @media (max-width: 460px) { .marca { display: none; } .topo { justify-content: center; } nav { gap: 2px; } }
 @media (min-width: 421px) and (max-width: 460px) { nav a { padding: 6px 7px; } }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0; }
+.chip { background: var(--bg); color: var(--txt); border: 1px solid var(--borda); border-radius: 99px; padding: 4px 10px; min-height: 32px; font-weight: 500; font-size: .85rem; }
+.chip.ativo { background: var(--pri); color: var(--pri-txt); border-color: var(--pri); }
