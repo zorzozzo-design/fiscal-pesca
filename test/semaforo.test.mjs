@@ -106,3 +106,13 @@ test('corDe junta motivos de origens diferentes', () => {
   assert.equal(corDe([{ nivel: 'amarelo' }, { nivel: 'vermelho' }]), 'vermelho');
   assert.equal(corDe([{ nivel: 'ok' }]), 'verde');
 });
+
+test('estuário da Lagoa dos Patos tem lista própria; linha e anzol fora da lista fica para conferir', () => {
+  const p = pesc([{ area: 'patos', temporada: '2025/2026', n: 7, nomeLista: 'X', rgp: 'R' }], [consulta('2026-10-20')]);
+  assert.equal(av({ area: 'patos', atual: '2025/2026', pescador: p }).cor, 'verde');
+  const fora = av({ area: 'patos', atual: '2025/2026', pescador: null, soLinha: false });
+  assert.equal(fora.cor, 'vermelho');
+  assert.ok(fora.motivos.find(m => m.nivel === 'vermelho').norma.includes('INC 03/2004'));
+  const linha = av({ area: 'patos', atual: '2025/2026', pescador: pesc([], [consulta('2026-10-20')]), soLinha: true });
+  assert.equal(linha.cor, 'amarelo');
+});

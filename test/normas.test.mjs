@@ -139,3 +139,74 @@ test('multa de referência: mínimo do artigo mais R$ 20 por quilo', () => {
   assert.deepEqual(multaReferencia([{ nivel: 'vermelho', artigo: 37 }, { nivel: 'vermelho', artigo: 35 }], 0), { artigo: 35, minimo: 700 });
   assert.equal(multaReferencia([{ nivel: 'amarelo', artigo: 35 }], 10), null);
 });
+
+const est = extra => ab({ area: 'patos', localTipo: 'Estuário', data: '2026-11-10T10:00', ...extra });
+
+test('R18: estuário, rede de espera abaixo de 100 mm; 140 com bagre; 40 só com peixe-rei', () => {
+  assert.ok(tem(est({ petrechos: [pet('Rede de emalhe', { malhaMm: 90 })] }), 'R18'));
+  assert.ok(!tem(est({ petrechos: [pet('Rede de emalhe', { malhaMm: 100 })] }), 'R18'));
+  assert.ok(tem(est({ petrechos: [pet('Rede de emalhe', { malhaMm: 120 })], pescado: [{ especie: 'Bagre', kg: 5 }] }), 'R18'));
+  assert.ok(!tem(est({ petrechos: [pet('Rede de emalhe', { malhaMm: 45 })], pescado: [{ especie: 'Peixe-rei', kg: 2 }] }), 'R18'));
+  assert.ok(!tem(ab({ petrechos: [pet('Rede de emalhe', { malhaMm: 90 })] }), 'R18'));
+});
+
+test('R19: estuário, rede de saco ou aviãozinho abaixo de 24 mm ou mais de 10 redes', () => {
+  const e = x => est({ data: '2026-03-10T10:00', petrechos: [pet('Rede de saco', { malhaMm: 24, qtd: 10, ...x })] });
+  assert.ok(!tem(e({}), 'R19'));
+  assert.ok(tem(e({ malhaMm: 20 }), 'R19'));
+  assert.ok(tem(e({ qtd: 11 }), 'R19'));
+});
+
+test('R20 e R21: estuário, arrasto e embarcação acima de 12 m', () => {
+  assert.ok(tem(est({ petrechos: [pet('Rede de arrasto')] }), 'R20'));
+  assert.ok(tem(est({ embarcacao: 'Motorizada', comprimentoEmbM: 13 }), 'R21'));
+  assert.ok(!tem(est({ embarcacao: 'Motorizada', comprimentoEmbM: 12 }), 'R21'));
+});
+
+test('R22: estuário, mais de 1.830 m de rede de espera', () => {
+  assert.ok(tem(est({ petrechos: [pet('Rede de emalhe', { malhaMm: 100, comprimentoM: 1000, qtd: 2 })] }), 'R22'));
+  assert.ok(!tem(est({ petrechos: [pet('Rede de emalhe', { malhaMm: 100, comprimentoM: 900, qtd: 2 })] }), 'R22'));
+});
+
+test('R23: estuário, calendário por espécie', () => {
+  const e = (data, especie) => est({ data, pescado: [{ especie, kg: 5 }] });
+  assert.ok(!tem(e('2026-11-10T10:00', 'Tainha'), 'R23'));
+  assert.ok(tem(e('2026-07-10T10:00', 'Tainha'), 'R23'));
+  assert.ok(tem(e('2026-03-10T10:00', 'Corvina'), 'R23'));
+  assert.ok(!tem(e('2026-02-10T10:00', 'Corvina'), 'R23'));
+  assert.ok(tem(e('2026-12-10T10:00', 'Bagre'), 'R23'));
+  assert.ok(!tem(e('2026-04-10T10:00', 'Bagre'), 'R23'));
+  assert.ok(tem(e('2026-06-10T10:00', 'Camarão-rosa'), 'R23'));
+  assert.ok(!tem(e('2026-03-10T10:00', 'Camarão-rosa'), 'R23'));
+});
+
+test('R24: estuário, camarão-rosa abaixo de 9 cm fica amarelo', () => {
+  const r = checar(est({ data: '2026-03-10T10:00', pescado: [{ especie: 'Camarão-rosa', kg: 2, menorCm: 8 }] }), cfg).find(m => m.regra === 'R24');
+  assert.equal(r.nivel, 'amarelo');
+  assert.ok(!tem(est({ data: '2026-03-10T10:00', pescado: [{ especie: 'Camarão-rosa', kg: 2, menorCm: 9 }] }), 'R24'));
+});
+
+test('R25 e R26: Lagoa do Peixe e barra do Mampituba sempre pedem conferência', () => {
+  assert.equal(checar(ab({ area: 'peixe', localTipo: 'Lagoa do Peixe' }), cfg).find(m => m.regra === 'R25').nivel, 'amarelo');
+  assert.equal(checar(ab({ area: 'mampituba', localTipo: 'Barra do Mampituba até a Figueirinha' }), cfg).find(m => m.regra === 'R26').nivel, 'amarelo');
+});
+
+test('piracema não vale no estuário, na Lagoa do Peixe nem na barra do Mampituba', () => {
+  for (const area of ['patos', 'peixe', 'mampituba']) assert.ok(!tem(ab({ area, petrechos: [pet('Tarrafa')] }), 'R16'), area);
+});
+
+test('R27: espécie ameaçada é vermelho em qualquer local e época', () => {
+  const peixe = especie => ({ especie, kg: 1, menorCm: null });
+  for (const area of ['tramandai', 'patos', 'outras', 'mar', 'peixe'])
+    for (const sp of ['Bagre-branco', 'Bagre (Genidens planifrons)', 'Miraguaia', 'Garoupa-verdadeira', 'Peixe-rei (Odontesthes bicudo)']) {
+      const r = checar(ab({ area, data: '2026-07-10T10:00', pescado: [peixe(sp)] }), cfg).find(m => m.regra === 'R27');
+      assert.equal(r?.nivel, 'vermelho', `${sp} em ${area}`);
+      assert.match(r.norma, /15\.223/);
+    }
+});
+
+test('R27: bagre, garoupa, cação e raia sem espécie pedem conferência; peixe-rei comum não', () => {
+  const nivel = sp => checar(ab({ pescado: [{ especie: sp, kg: 1 }] }), cfg).find(m => m.regra === 'R27')?.nivel;
+  for (const sp of ['Bagre (espécie não identificada)', 'Garoupa', 'Cação', 'Raia', 'Viola']) assert.equal(nivel(sp), 'amarelo', sp);
+  for (const sp of ['Peixe-rei', 'Tainha', 'Jundiá']) assert.equal(nivel(sp), undefined, sp);
+});
