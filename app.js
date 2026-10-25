@@ -1,5 +1,6 @@
 const { ler, mesclar, temporadaAtual, situacao, buscar, parecido, cpfValido, criar, lerConsulta, AVISO_TXT } = window.Lista;
 const { avaliar, ultimaConsulta, AREAS_COM_LISTA } = window.Semaforo;
+const { itensDaAbordagem, termoApreensao, notificacao, motivoSugerido, DESTINOS } = window.Docs;
 
 // ---------- utilitários ----------
 const $ = s => document.querySelector(s);
@@ -206,6 +207,7 @@ function telaFicha(id) {
         <div><span>CPF (dígitos publicados)</span>${esc(fmtDig(p.digitos))}</div>
         <div><span>Temporada atual da área</span>${esc(atual || '-')}</div>
         ${p.cpf ? `<div><span>CPF conferido em campo</span>${esc(fmtCpf(p.cpf))}</div>` : ''}
+        ${QUALIFICACAO.filter(([k]) => p[k]).map(([k, rot]) => `<div><span>${rot}</span>${esc(p[k])}</div>`).join('')}
       </div>
       <p><a class="btn" href="#/ab/novo?p=${encodeURIComponent(p.id)}">Nova abordagem</a></p></div>
     ${outros.length ? `<div class="card revisar"><h2>Mesmos dígitos de CPF</h2>
@@ -252,7 +254,21 @@ const listaAbordagens = abs => !abs.length ? '<p class="muted peq">Nenhuma abord
   .sort((a, b) => b.data.localeCompare(a.data)).map(a => { const p = db.pescadores[a.pescadorId]; return `<li><a href="#/ab/${a.id}">
     <div class="nome">${esc(p ? nomeProprio(p.nome) : 'Pessoa removida')}</div>
     <div class="info">${fmtData(a.data)} ${esc(a.data.slice(11, 16))} · ${esc(AREA_CURTA[a.area])}${a.local ? ' · ' + esc(a.local) : ''}${a.providencia ? ' · ' + esc(a.providencia) : ''}</div>
-    <span class="tag sem-${a.semaforo.cor}">${COR_TXT[a.semaforo.cor]}</span></a></li>`; }).join('')}</ul>`;
+    <span class="tag sem-${a.semaforo.cor}">${COR_TXT[a.semaforo.cor]}</span>${a.apreensao?.itens?.length ? '<span class="tag">Apreensão</span>' : ''}${a.notificacao ? '<span class="tag">Notificação</span>' : ''}</a></li>`; }).join('')}</ul>`;
+
+// Imprime (ou salva em PDF) só o documento, escondendo o app.
+function imprimir(html) {
+  let d = $('#impressao');
+  if (!d) { d = Object.assign(document.createElement('div'), { id: 'impressao' }); document.body.appendChild(d); }
+  d.innerHTML = html;
+  document.body.classList.add('imprimindo');
+  const fim = () => { document.body.classList.remove('imprimindo'); removeEventListener('afterprint', fim); };
+  addEventListener('afterprint', fim);
+  print();
+}
+
+const QUALIFICACAO = [['rg', 'RG'], ['telefone', 'Telefone'], ['endereco', 'Endereço'], ['bairro', 'Bairro'], ['municipio', 'Município']];
+const UNIDADES = ['un', 'kg', 'm'];
 
 function telaAbordagens() {
   app.innerHTML = `<div class="card"><h1>Abordagens</h1>
@@ -281,6 +297,7 @@ function telaAbordagem(param) {
         <div><label for="a-data">Data e hora</label><input id="a-data" type="datetime-local" value="${esc(ab.data)}"></div>
       </div></div>
     <div class="card"><h2>Pessoa</h2><div id="pessoa"></div></div>
+    <div class="card" id="c-qual" hidden><h2>Qualificação</h2><p class="muted peq">Usada na notificação e no termo. Fica salva no cadastro da pessoa.</p><div id="qual" class="grade"></div></div>
     <div id="sem"></div>
     <div class="card" id="c-consulta" hidden><h2>Consulta ao PesqBrasil</h2><div id="consulta"></div></div>
     <div class="card"><h2>Local</h2>
@@ -291,6 +308,12 @@ function telaAbordagem(param) {
     <div class="card"><h2>Pescado</h2><div id="pescado"></div>
       <button class="sec" id="b-pes" type="button">Adicionar pescado</button>
       <datalist id="especies">${ESPECIES.map(e => `<option value="${esc(e)}">`).join('')}</datalist></div>
+    <div class="card"><h2>Apreensão</h2>
+      <label class="chk"><input type="checkbox" id="ap-on"${ab.apreensao ? ' checked' : ''}> Houve apreensão</label>
+      <div id="ap"></div></div>
+    <div class="card"><h2>Notificação</h2>
+      <label class="chk"><input type="checkbox" id="nt-on"${ab.notificacao ? ' checked' : ''}> Notificar a pessoa</label>
+      <div id="nt"></div></div>
     <div class="card"><h2>Providência</h2>
       <div class="grade">
         <div><label for="a-prov">Providência</label><select id="a-prov"><option value=""></option>${opcoes(PROVIDENCIAS, ab.providencia)}</select></div>
@@ -359,7 +382,67 @@ function telaAbordagem(param) {
     ab.pescadorId = p.id;
     ab.identificadoPor = porCpf ? 'cpf' : 'nome';
     ab.cpfInformado = porCpf ? cpf : '';
-    desenharPessoa(); desenharSem(); desenharConsulta();
+    desenharPessoa(); desenharSem(); desenharConsulta(); desenharQual();
+  };
+
+  const desenharQual = () => {
+    const p = pesc();
+    $('#c-qual').hidden = !p;
+    if (!p) return;
+    $('#qual').innerHTML = QUALIFICACAO.map(([k, rot]) => `<div><label for="q-${k}">${rot}</label><input id="q-${k}" data-q="${k}" value="${esc(p[k] || '')}"></div>`).join('');
+    $('#qual').querySelectorAll('[data-q]').forEach(el => el.oninput = () => { p[el.dataset.q] = el.value.trim(); p.atualizadoEm = agora(); sujos.add(p.id); });
+  };
+
+  const exigePessoa = msgId => { if (pesc()) return true; $(msgId).textContent = 'Selecione a pessoa abordada antes.'; $(msgId).className = 'msg erro'; return false; };
+
+  const CAMPOS_AP = [['tipo', 'Tipo', 'select', ['Petrecho', 'Pescado', 'Outro']], ['descricao', 'Descrição', 'text', ''],
+    ['quantidade', 'Quantidade', 'number', 'min="0" step="0.1" inputmode="decimal"'], ['unidade', 'Unidade', 'select', UNIDADES]];
+  const FIEL = [['nome', 'Nome'], ['rg', 'RG'], ['cpf', 'CPF'], ['telefone', 'Telefone'], ['endereco', 'Endereço'], ['municipioUf', 'Município/UF']];
+  const desenharApreensao = () => {
+    const a = ab.apreensao;
+    if (!a) { $('#ap').innerHTML = ''; return; }
+    $('#ap').innerHTML = `
+      <div class="grade">
+        <div><label for="ap-tipo">Documento lavrado</label><select id="ap-tipo">${opcoes(['BO/TC-COP', 'BA'], a.docTipo)}</select></div>
+        <div><label for="ap-num">Nº</label><input id="ap-num" value="${esc(a.docNumero)}"></div></div>
+      <h3>Itens apreendidos</h3><div id="ap-itens"></div>
+      <div class="linha"><button class="sec" id="b-ap-add" type="button">Adicionar item</button>
+        <button class="sec" id="b-ap-trazer" type="button">Trazer petrechos e pescado da abordagem</button></div>
+      <details${a.fiel?.nome ? ' open' : ''}><summary>Fiel depositário</summary><div class="grade">
+        ${FIEL.map(([k, rot]) => `<div><label for="fd-${k}">${rot}</label><input id="fd-${k}" data-f="${k}" value="${esc(a.fiel?.[k] || '')}"></div>`).join('')}</div></details>
+      <label for="ap-dest">Destinação, quando não houver fiel depositário</label>
+      <select id="ap-dest"><option value=""></option>${opcoes(DESTINOS, a.destinacao)}</select>
+      <p><button class="sec" id="b-ap-imp" type="button">Imprimir termo de apreensão</button></p><p id="m-ap" class="msg"></p>`;
+    desenharLinhas(a.itens, '#ap-itens', CAMPOS_AP);
+    $('#ap-tipo').onchange = e => { a.docTipo = e.target.value; };
+    $('#ap-num').oninput = e => { a.docNumero = e.target.value; };
+    $('#ap-dest').onchange = e => { a.destinacao = e.target.value; };
+    $('#ap').querySelectorAll('[data-f]').forEach(el => el.oninput = () => { (a.fiel ||= {})[el.dataset.f] = el.value; });
+    $('#b-ap-add').onclick = () => { a.itens.push({ tipo: 'Petrecho', descricao: '', quantidade: 1, unidade: 'un' }); desenharLinhas(a.itens, '#ap-itens', CAMPOS_AP); };
+    $('#b-ap-trazer').onclick = () => { a.itens.push(...itensDaAbordagem(ab)); desenharLinhas(a.itens, '#ap-itens', CAMPOS_AP); };
+    $('#b-ap-imp').onclick = () => { if (exigePessoa('#m-ap')) imprimir(termoApreensao(ab, pesc(), db.cfg)); };
+  };
+  $('#ap-on').onchange = e => {
+    ab.apreensao = e.target.checked ? (ab.apreensao || { docTipo: 'BO/TC-COP', docNumero: ab.documento || '', itens: itensDaAbordagem(ab), fiel: {}, destinacao: '' }) : null;
+    desenharApreensao();
+  };
+
+  const desenharNotificacao = () => {
+    const n = ab.notificacao;
+    if (!n) { $('#nt').innerHTML = ''; return; }
+    $('#nt').innerHTML = `
+      <label for="nt-mot">Motivo</label><textarea id="nt-mot" rows="6">${esc(n.motivo)}</textarea>
+      <p><button class="sec" id="b-nt-sem" type="button">Usar os motivos do semáforo</button></p>
+      <label for="nt-comp">Endereço de comparecimento e apresentação dos documentos</label><input id="nt-comp" value="${esc(n.comparecimento)}">
+      <p><button class="sec" id="b-nt-imp" type="button">Imprimir notificação</button></p><p id="m-nt" class="msg"></p>`;
+    $('#nt-mot').oninput = e => { n.motivo = e.target.value; };
+    $('#nt-comp').oninput = e => { n.comparecimento = e.target.value; };
+    $('#b-nt-sem').onclick = () => { n.motivo = motivoSugerido({ semaforo: semaforo() }); $('#nt-mot').value = n.motivo; };
+    $('#b-nt-imp').onclick = () => { if (exigePessoa('#m-nt')) imprimir(notificacao(ab, pesc(), db.cfg)); };
+  };
+  $('#nt-on').onchange = e => {
+    ab.notificacao = e.target.checked ? (ab.notificacao || { motivo: motivoSugerido({ semaforo: semaforo() }), comparecimento: db.cfg.comparecimento || '' }) : null;
+    desenharNotificacao();
   };
 
   const desenharPessoa = () => {
@@ -371,7 +454,7 @@ function telaAbordagem(param) {
           <div class="linha"><input id="p-cpf" inputmode="numeric" placeholder="000.000.000-00" style="flex:1"><button class="sec" id="b-cpf" type="button">Conferir</button></div>
           <p id="m-cpf" class="msg"></p>`}
         <p><button class="sec" id="b-trocar" type="button">Trocar pessoa</button></p>`;
-      $('#b-trocar').onclick = () => { ab.pescadorId = null; ab.identificadoPor = 'nome'; ab.cpfInformado = ''; desenharPessoa(); desenharSem(); desenharConsulta(); };
+      $('#b-trocar').onclick = () => { ab.pescadorId = null; ab.identificadoPor = 'nome'; ab.cpfInformado = ''; desenharPessoa(); desenharSem(); desenharConsulta(); desenharQual(); };
       $('#b-cpf')?.addEventListener('click', () => {
         const v = $('#p-cpf').value.replace(/\D/g, '');
         if (!cpfValido(v)) { $('#m-cpf').textContent = 'CPF inválido.'; $('#m-cpf').className = 'msg erro'; return; }
@@ -417,22 +500,22 @@ function telaAbordagem(param) {
     $('#p-q').focus();
   };
 
-  const desenharLinhas = (chaveLista, alvo, campos) => {
-    $(alvo).innerHTML = ab[chaveLista].map((item, i) => `<div class="grade linha-item">${campos.map(([k, rot, tipo, extra]) => `<div><label>${rot}</label>${
+  const desenharLinhas = (lista, alvo, campos) => {
+    $(alvo).innerHTML = lista.map((item, i) => `<div class="grade linha-item">${campos.map(([k, rot, tipo, extra]) => `<div><label>${rot}</label>${
       tipo === 'select' ? `<select data-i="${i}" data-k="${k}">${opcoes(extra, item[k])}</select>`
         : `<input data-i="${i}" data-k="${k}" type="${tipo}" ${extra || ''} value="${esc(item[k] ?? '')}">`}</div>`).join('')}
       <div><label>&nbsp;</label><button class="sec" type="button" data-rm="${i}">Remover</button></div></div>`).join('');
     $(alvo).querySelectorAll('[data-k]').forEach(el => el.oninput = el.onchange = () => {
-      ab[chaveLista][+el.dataset.i][el.dataset.k] = el.type === 'number' ? (el.value === '' ? null : +el.value) : el.value;
+      lista[+el.dataset.i][el.dataset.k] = el.type === 'number' ? (el.value === '' ? null : +el.value) : el.value;
     });
-    $(alvo).querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { ab[chaveLista].splice(+b.dataset.rm, 1); desenharLinhas(chaveLista, alvo, campos); });
+    $(alvo).querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { lista.splice(+b.dataset.rm, 1); desenharLinhas(lista, alvo, campos); });
   };
   const CAMPOS_PET = [['tipo', 'Tipo', 'select', PETRECHOS], ['malhaMm', 'Malha (mm, nós opostos)', 'number', 'min="0" step="1" inputmode="numeric"'],
     ['comprimentoM', 'Comprimento (m)', 'number', 'min="0" step="1" inputmode="numeric"'], ['qtd', 'Quantidade', 'number', 'min="1" step="1" inputmode="numeric"']];
   const CAMPOS_PES = [['especie', 'Espécie', 'text', 'list="especies"'], ['kg', 'Peso (kg)', 'number', 'min="0" step="0.1" inputmode="decimal"'],
     ['menorCm', 'Menor exemplar (cm)', 'number', 'min="0" step="0.5" inputmode="decimal"']];
-  $('#b-pet').onclick = () => { ab.petrechos.push({ tipo: PETRECHOS[0], malhaMm: null, comprimentoM: null, qtd: 1 }); desenharLinhas('petrechos', '#petrechos', CAMPOS_PET); };
-  $('#b-pes').onclick = () => { ab.pescado.push({ especie: '', kg: null, menorCm: null }); desenharLinhas('pescado', '#pescado', CAMPOS_PES); };
+  $('#b-pet').onclick = () => { ab.petrechos.push({ tipo: PETRECHOS[0], malhaMm: null, comprimentoM: null, qtd: 1 }); desenharLinhas(ab.petrechos, '#petrechos', CAMPOS_PET); };
+  $('#b-pes').onclick = () => { ab.pescado.push({ especie: '', kg: null, menorCm: null }); desenharLinhas(ab.pescado, '#pescado', CAMPOS_PES); };
 
   const mostrarGps = () => { $('#gps').innerHTML = ab.gps ? `<a href="https://maps.google.com/?q=${ab.gps.lat},${ab.gps.lon}" target="_blank" rel="noopener">${ab.gps.lat.toFixed(5)}, ${ab.gps.lon.toFixed(5)}</a> (±${Math.round(ab.gps.prec)} m)` : ''; };
   $('#b-gps').onclick = () => {
@@ -465,8 +548,9 @@ function telaAbordagem(param) {
     else { m.textContent = 'Abordagem salva.'; m.className = 'msg'; }
   };
 
-  desenharPessoa(); desenharSem(); desenharConsulta(); mostrarGps();
-  desenharLinhas('petrechos', '#petrechos', CAMPOS_PET); desenharLinhas('pescado', '#pescado', CAMPOS_PES);
+  desenharPessoa(); desenharSem(); desenharConsulta(); desenharQual(); mostrarGps();
+  desenharLinhas(ab.petrechos, '#petrechos', CAMPOS_PET); desenharLinhas(ab.pescado, '#pescado', CAMPOS_PES);
+  desenharApreensao(); desenharNotificacao();
   if (existente) $('#m-ab').textContent = `Salva em ${fmtDH(existente.atualizadoEm)}.`;
 }
 
@@ -532,6 +616,7 @@ function mesclarBackup(outro) {
     if (b.obs && b.obs !== a.obs && b.atualizadoEm > a.atualizadoEm) { a.obs = b.obs; a.atualizadoEm = b.atualizadoEm; }
     for (const c of b.consultas || []) if (!(a.consultas ||= []).some(x => x.id === c.id)) a.consultas.push(c);
     if (b.cpf && !a.cpf) a.cpf = b.cpf;
+    for (const [k] of QUALIFICACAO) if (b[k] && !a[k]) a[k] = b[k];
     if (JSON.stringify(a) !== antes) { sujos.add(a.id); n++; }
   }
   for (const i of outro.importacoes || []) if (!db.importacoes.some(x => x.hash === i.hash)) db.importacoes.push(i);
@@ -570,6 +655,20 @@ function telaDados() {
         <button class="sec" id="b-exp" type="button">Baixar backup</button>
         <label class="btn sec" style="margin:0">Importar backup<input type="file" id="f-bak" accept=".json,application/json" hidden></label></div>
       <p id="m-bak" class="msg"></p></div>
+
+    <div class="card"><h2>4. Documentos (termo de apreensão e notificação)</h2>
+      <p class="muted peq">Preenchem os documentos impressos. O brasão e o logo ficam só neste aparelho, criptografados; não vão para o GitHub.</p>
+      <div class="grade">
+        <div><label for="g-nome">Nome do agente</label><input id="g-nome" value="${esc(db.cfg.agente?.nome || '')}" placeholder="Ex.: Sd PM Fulano de Tal"></div>
+        <div><label for="g-id">Id Func.</label><input id="g-id" value="${esc(db.cfg.agente?.idFunc || '')}"></div>
+        <div><label for="g-fr">Fração</label><input id="g-fr" value="${esc(db.cfg.agente?.fracao || '')}" placeholder="Ex.: 4º Pel / 1º BABM"></div>
+      </div>
+      <label for="g-comp">Endereço de comparecimento (padrão da notificação)</label><input id="g-comp" value="${esc(db.cfg.comparecimento || '')}">
+      <div class="grade">
+        <div><label for="g-bras">Brasão (esquerda)</label><input id="g-bras" type="file" accept="image/*"><div id="v-bras"></div></div>
+        <div><label for="g-cmd">Logo do Comando (direita)</label><input id="g-cmd" type="file" accept="image/*"><div id="v-cmd"></div></div>
+      </div>
+      <p><button id="b-docs" type="button">Salvar</button> <span id="m-docs" class="muted peq"></span></p></div>
 
     <div class="card"><h2>Apagar</h2>
       <p class="muted peq">Remove todos os dados deste aparelho. Exporte um backup antes.</p>
@@ -630,6 +729,34 @@ function telaDados() {
       msg('#m-bak', `Backup mesclado (${n} alteração(ões)).`);
     } catch (err) { msg('#m-bak', err.message, true); }
     e.target.value = '';
+  };
+  const logos = { ...(db.cfg.logos || {}) };
+  const verLogos = () => {
+    $('#v-bras').innerHTML = logos.brasao ? `<img src="${esc(logos.brasao)}" alt="" style="height:56px;margin-top:6px">` : '';
+    $('#v-cmd').innerHTML = logos.comando ? `<img src="${esc(logos.comando)}" alt="" style="height:56px;margin-top:6px">` : '';
+  };
+  // Reduz a imagem para no máximo 300 px: o documento usa poucos centímetros e o backup fica leve.
+  const lerImagem = arq => new Promise((ok, erro) => {
+    const img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, 300 / Math.max(img.width, img.height));
+      const c = Object.assign(document.createElement('canvas'), { width: Math.round(img.width * k), height: Math.round(img.height * k) });
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(img.src);
+      ok(c.toDataURL('image/png'));
+    };
+    img.onerror = () => erro(new Error('Imagem inválida.'));
+    img.src = URL.createObjectURL(arq);
+  });
+  $('#g-bras').onchange = async e => { if (e.target.files[0]) { logos.brasao = await lerImagem(e.target.files[0]); verLogos(); } };
+  $('#g-cmd').onchange = async e => { if (e.target.files[0]) { logos.comando = await lerImagem(e.target.files[0]); verLogos(); } };
+  verLogos();
+  $('#b-docs').onclick = async () => {
+    db.cfg.agente = { nome: $('#g-nome').value.trim(), idFunc: $('#g-id').value.trim(), fracao: $('#g-fr').value.trim() };
+    db.cfg.comparecimento = $('#g-comp').value.trim();
+    db.cfg.logos = logos;
+    await salvar();
+    $('#m-docs').textContent = 'Salvo.';
   };
   $('#b-apagar').onclick = async () => {
     if (confirm('Apagar todos os dados deste aparelho?')) { await apagarTudo(); location.reload(); }

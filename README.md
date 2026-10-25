@@ -15,7 +15,8 @@ Os dados ficam só no aparelho, criptografados com a senha (AES-GCM, chave PBKDF
    - **Irregular:** fora da lista da área (inclusive quem saiu dela) ou RGP suspenso, cancelado ou não encontrado.
    No mar não há lista: o semáforo usa só a consulta. O semáforo indica, não autua.
 5. **Consulta ao PesqBrasil:** o botão copia o CPF e abre a consulta pública. Depois do resultado, selecione tudo na página, copie e cole no campo do app: ele preenche situação, município, data do 1º RGP, categoria, forma de atuação e locais de pesca, e recusa resultado de outro CPF.
-6. **Backup:** exportar no PC e importar no celular (ou o contrário). Os dados são mesclados, e as abordagens são religadas à pessoa reconhecida no outro aparelho.
+6. **Apreensão e notificação** (na abordagem): marque "Houve apreensão" ou "Notificar a pessoa". Os petrechos e o pescado registrados viram itens do termo; dá para editar, nomear fiel depositário e escolher a destinação. "Imprimir" gera o termo de apreensão e a notificação no layout dos modelos do Comando Ambiental (no celular, salve como PDF). Antes, preencha em **Dados → Documentos** o nome, Id funcional e fração do agente, o endereço de comparecimento e carregue o brasão e o logo do Comando (as imagens ficam só no aparelho).
+7. **Backup:** exportar no PC e importar no celular (ou o contrário). Os dados são mesclados, e as abordagens são religadas à pessoa reconhecida no outro aparelho.
 
 ## Como o app reconhece a mesma pessoa
 
