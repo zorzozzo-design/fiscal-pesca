@@ -96,7 +96,7 @@ function notificacao(ab, p, cfg) {
 }
 
 // Abordagem com vários envolvidos: local, data e GPS uma vez; cada envolvido com pessoa, ponto, petrechos, pescado e providências.
-const PESSOAIS = ['pescadorId', 'identificadoPor', 'cpfInformado', 'categoria', 'embarcacao', 'comprimentoEmbM', 'embarcacaoId', 'localTipo',
+const PESSOAIS = ['pescadorId', 'identificadoPor', 'cpfInformado', 'categoria', 'embarcacao', 'comprimentoEmbM', 'embarcacaoId', 'veiculoId', 'localTipo',
   'petrechos', 'pescado', 'apreensao', 'notificacao', 'providencias', 'semaforo'];
 // Abordagens gravadas antes (uma pessoa só) viram uma com um envolvido. A providência única vira lista.
 function normalizarAb(a) {

@@ -313,20 +313,23 @@ function telaFicha(id) {
       <div class="tabela"><table><thead><tr><th>Temporada</th><th>Área</th><th>Nº</th><th>Nome na lista</th><th>RGP na lista</th></tr></thead>
       <tbody>${lics.map(l => `<tr><td>${esc(l.temporada)}</td><td>${esc(AREA_CURTA[l.area] || l.area)}</td><td>${l.n}</td><td>${esc(l.nomeLista)}</td><td>${esc(l.rgp)}</td></tr>`).join('')}</tbody></table></div>
       ${lics.length ? '' : '<p class="muted peq">Em nenhuma lista importada.</p>'}</div>
-    <div class="card"><h2>Embarcações</h2><div id="f-embs"></div>
-      <details><summary>Cadastrar embarcação</summary><div id="f-emb-form"></div></details></div>
+    ${['embarcacoes', 'veiculos'].map(t => `<div class="card"><h2>${t === 'veiculos' ? 'Veículos' : 'Embarcações'}</h2><div id="f-${t}"></div>
+      <details><summary>Cadastrar ${BENS[t].nome}</summary><div id="f-${t}-form"></div></details></div>`).join('')}
+    <div class="card"><h2>Vínculos</h2><p class="muted peq">Pessoas, embarcações, veículos, abordagens e denúncias ligados a esta pessoa.</p>
+      <p><a class="btn sec" href="#/vinculos/${encodeURIComponent('p:' + p.id)}">Ver grafo de vínculos</a></p></div>
     <div class="card"><h2>Consultas ao PesqBrasil</h2>${tabelaConsultas(p)}
       <details><summary>Colar consulta</summary><div id="f-colar"></div></details></div>
     <div class="card"><h2>Abordagens</h2>${listaAbordagens(Object.values(db.abordagens).filter(a => normalizarAb(a).envolvidos.some(e => e.pescadorId === p.id)))}</div>
     <div class="card"><h2>Observações</h2>
       <textarea id="obs" placeholder="Anotações de fiscalização">${esc(p.obs)}</textarea>
       <p><button id="b-obs" type="button">Salvar</button> <span id="m-obs" class="muted peq"></span></p></div>`;
-  const listarEmbs = () => { $('#f-embs').innerHTML = (p.embarcacoes || []).length
-    ? `<ul class="peq">${p.embarcacoes.map(e => `<li>${esc(descEmb(e))}${e.rgp ? ` · RGP ${esc(e.rgp)}` : ''}</li>`).join('')}</ul>` : '<p class="muted peq">Nenhuma embarcação cadastrada.</p>'; };
-  listarEmbs();
   colarConsulta($('#f-colar'), p);
-  const novoForm = () => formEmbarcacao($('#f-emb-form'), p, () => { listarEmbs(); novoForm(); });
-  novoForm();
+  for (const t of ['embarcacoes', 'veiculos']) {
+    const listar = () => { $(`#f-${t}`).innerHTML = (p[t] || []).length ? `<ul class="peq">${p[t].map(x => `<li>${esc(descBem(t, x))}</li>`).join('')}</ul>`
+      : `<p class="muted peq">Nenhum${t === 'veiculos' ? '' : 'a'} ${BENS[t].nome} cadastrad${t === 'veiculos' ? 'o' : 'a'}.</p>`; };
+    const novoForm = () => formBem(t, $(`#f-${t}-form`), p, () => { listar(); novoForm(); });
+    listar(); novoForm();
+  }
   $('#b-obs').onclick = async () => {
     p.obs = $('#obs').value.trim();
     p.atualizadoEm = agora();
@@ -336,28 +339,32 @@ function telaFicha(id) {
   };
 }
 
-// ---------- embarcações do pescador ----------
+// ---------- embarcações e veículos do pescador ----------
 const PROPULSAO = ['A remo', 'Motorizada'];
-const descEmb = e => [e.nome || 'Sem nome', e.inscricao && `inscrição ${e.inscricao}`, e.comprimentoM && `${String(e.comprimentoM).replace('.', ',')} m`, e.propulsao].filter(Boolean).join(' · ');
-// Monta o formulário de nova embarcação em `alvo`; ao salvar, grava no cadastro da pessoa e chama aoSalvar(embarcação).
-function formEmbarcacao(alvo, p, aoSalvar) {
-  alvo.innerHTML = `<div class="grade">
-      <div><label for="e-nome">Nome da embarcação</label><input id="e-nome"></div>
-      <div><label for="e-insc">Inscrição na Capitania</label><input id="e-insc" autocapitalize="characters"></div>
-      <div><label for="e-rgp">RGP da embarcação</label><input id="e-rgp" autocapitalize="characters"></div>
-      <div><label for="e-comp">Comprimento (m)</label><input id="e-comp" type="number" min="0" step="0.1" inputmode="decimal"></div>
-      <div><label for="e-prop">Propulsão</label><select id="e-prop">${opcoes(PROPULSAO, 'Motorizada')}</select></div></div>
-    <p><button id="b-emb" type="button">Salvar embarcação</button> <span id="m-emb" class="msg peq"></span></p>`;
-  alvo.querySelector('#b-emb').onclick = async () => {
-    const v = id => alvo.querySelector(id).value.trim();
-    if (!v('#e-nome') && !v('#e-insc')) { alvo.querySelector('#m-emb').textContent = 'Informe o nome ou a inscrição.'; return; }
-    const e = { id: novoId(), nome: v('#e-nome'), inscricao: v('#e-insc').toUpperCase(), rgp: v('#e-rgp').toUpperCase(),
-      comprimentoM: v('#e-comp') === '' ? null : +v('#e-comp'), propulsao: v('#e-prop'), criadoEm: agora() };
-    (p.embarcacoes ||= []).push(e);
+const TIPOS_VEICULO = ['Carro', 'Caminhonete', 'Caminhão', 'Moto', 'Reboque', 'Outro'];
+// [campo, rótulo, tipo de entrada, opções]; o primeiro ou o segundo campo é obrigatório.
+const BENS = {
+  embarcacoes: { nome: 'embarcação', campos: [['nome', 'Nome da embarcação'], ['inscricao', 'Inscrição na Capitania', 'maiusc'], ['rgp', 'RGP da embarcação', 'maiusc'],
+    ['comprimentoM', 'Comprimento (m)', 'num'], ['propulsao', 'Propulsão', 'sel', PROPULSAO, 'Motorizada']] },
+  veiculos: { nome: 'veículo', campos: [['placa', 'Placa', 'maiusc'], ['modelo', 'Modelo'], ['cor', 'Cor'], ['tipo', 'Tipo', 'sel', TIPOS_VEICULO, 'Carro']] },
+};
+const descBem = (tipo, x) => tipo === 'veiculos' ? [x.placa, x.modelo, x.cor, x.tipo].filter(Boolean).join(' · ')
+  : [x.nome || 'Sem nome', x.inscricao && `inscrição ${x.inscricao}`, x.comprimentoM && `${String(x.comprimentoM).replace('.', ',')} m`, x.propulsao, x.rgp && `RGP ${x.rgp}`].filter(Boolean).join(' · ');
+// Formulário de nova embarcação ou veículo em `alvo`; grava no cadastro da pessoa e chama aoSalvar(item).
+function formBem(tipo, alvo, p, aoSalvar) {
+  const { nome, campos } = BENS[tipo];
+  alvo.innerHTML = `<div class="grade">${campos.map(([k, rot, t, ops, pad]) => `<div><label>${rot}</label>${t === 'sel'
+      ? `<select data-b="${k}">${opcoes(ops, pad)}</select>` : `<input data-b="${k}"${t === 'num' ? ' type="number" min="0" step="0.1" inputmode="decimal"' : ''}${t === 'maiusc' ? ' autocapitalize="characters"' : ''}>`}</div>`).join('')}</div>
+    <p><button data-salvar type="button">Salvar ${nome}</button> <span data-m class="msg peq"></span></p>`;
+  alvo.querySelector('[data-salvar]').onclick = async () => {
+    const x = { id: novoId(), criadoEm: agora() };
+    for (const [k, , t] of campos) { const v = alvo.querySelector(`[data-b="${k}"]`).value.trim(); x[k] = t === 'num' ? (v === '' ? null : +v) : t === 'maiusc' ? v.toUpperCase() : v; }
+    if (!x[campos[0][0]] && !x[campos[1][0]]) { alvo.querySelector('[data-m]').textContent = `Informe ${campos[0][1].toLowerCase()} ou ${campos[1][1].toLowerCase()}.`; return; }
+    (p[tipo] ||= []).push(x);
     p.atualizadoEm = agora();
     sujos.add(p.id);
     await salvar();
-    aoSalvar(e);
+    aoSalvar(x);
   };
 }
 
@@ -417,15 +424,108 @@ function imprimir(html) {
 const QUALIFICACAO = [['rg', 'RG'], ['telefone', 'Telefone'], ['endereco', 'Endereço'], ['bairro', 'Bairro'], ['municipio', 'Município']];
 const UNIDADES = ['un', 'kg', 'm'];
 
+const abasAbordagens = (aba, nPend = null) => { if (nPend == null) nPend = todasPendencias().reduce((t, x) => t + x.ps.length, 0) + (db.cfg.tarefas || []).filter(t => !t.feito).length;
+  return `<div class="abas-seg">${[['lista', '#/abordagens', 'Abordagens'], ['den', '#/denuncias', 'Denúncias'], ['pend', '#/pendencias', 'Pendências'], ['vinc', '#/vinculos', 'Vínculos']]
+    .map(([k, h, t]) => `<a href="${h}" class="${aba === k ? 'ativo' : ''}">${t}${k === 'pend' && nPend ? ` <span class="cont">${nPend}</span>` : ''}</a>`).join('')}</div>`; };
+
+// ---------- denúncias ----------
+const TIPOS_DEN = ['Transporte de pescado', 'Pesca irregular', 'Comércio de pescado', 'Embarcação', 'Veículo', 'Pessoa', 'Outro'];
+const ORIGENS_DEN = ['190', 'Disque-denúncia', 'WhatsApp', 'Pessoalmente', 'Outro órgão', 'Outra'];
+const SITUACOES_DEN = ['Nova', 'Em apuração', 'Atendida', 'Improcedente'];
+const lista = s => String(s || '').split(/[,;\n]/).map(x => x.trim()).filter(Boolean);
+function telaDenuncias() {
+  const ds = (db.cfg.denuncias ||= []).slice().sort((a, b) => (b.data || '').localeCompare(a.data || ''));
+  app.innerHTML = `<div class="card">${abasAbordagens('den')}<p><a class="btn" href="#/denuncia/novo">Nova denúncia</a></p>
+    <ul class="lista">${ds.map(d => `<li><a href="#/denuncia/${d.id}"><div class="nome">${esc(d.tipo)} · ${esc(d.situacao)}</div>
+      <div class="info">${fmtData(d.data)} · ${esc([d.municipio, d.local].filter(Boolean).join(', '))}${d.placas?.length ? ' · ' + esc(d.placas.join(', ')) : ''}</div>
+      <div class="info">${esc((d.descricao || '').slice(0, 90))}</div></a></li>`).join('') || '<li class="muted peq" style="padding:10px">Nenhuma denúncia.</li>'}</ul></div>`;
+}
+function telaDenuncia(id) {
+  const ex = (db.cfg.denuncias ||= []).find(d => d.id === id);
+  const d = ex ? structuredClone(ex) : { id: novoId(), data: agoraLocal().slice(0, 10), tipo: TIPOS_DEN[0], origem: ORIGENS_DEN[0], situacao: 'Nova',
+    municipio: '', local: '', descricao: '', pescadorIds: [], pessoas: [], placas: [], embarcacoes: [], obs: '' };
+  app.innerHTML = `<div class="card"><p class="peq"><a href="#/denuncias">← Denúncias</a></p><h1>${ex ? 'Denúncia' : 'Nova denúncia'}</h1>
+    <div class="grade">
+      <div><label for="d-data">Data</label><input id="d-data" type="date" value="${esc(d.data)}"></div>
+      <div><label for="d-sit">Situação</label><select id="d-sit">${opcoes(SITUACOES_DEN, d.situacao)}</select></div>
+      <div><label for="d-tipo">Tipo</label><select id="d-tipo">${opcoes(TIPOS_DEN, d.tipo)}</select></div>
+      <div><label for="d-orig">Origem</label><select id="d-orig">${opcoes(ORIGENS_DEN, d.origem)}</select></div>
+      <div><label for="d-mun">Município</label><input id="d-mun" list="d-muns" value="${esc(d.municipio)}"></div>
+      <div><label for="d-local">Local</label><input id="d-local" value="${esc(d.local)}" placeholder="Rua, estrada, lagoa, praia"></div></div>
+    <datalist id="d-muns">${Object.keys(window.Locais.MUNICIPIOS).map(m => `<option value="${esc(m)}">`).join('')}</datalist>
+    <label for="d-desc">Relato</label><textarea id="d-desc" rows="4">${esc(d.descricao)}</textarea>
+    <h2 class="sec-tit">Quem e o quê</h2>
+    <label for="d-q">Pescadores da base citados</label><div id="d-pes" class="chips"></div>
+    <input id="d-q" type="search" placeholder="Buscar por nome, CPF ou RGP" autocomplete="off"><ul id="d-res" class="lista lista-compacta"></ul>
+    <label for="d-pessoas">Outras pessoas (uma por linha)</label><textarea id="d-pessoas" rows="2">${esc(d.pessoas.join('\n'))}</textarea>
+    <label for="d-placas">Placas de veículos (separe por vírgula)</label><input id="d-placas" autocapitalize="characters" value="${esc(d.placas.join(', '))}">
+    <label for="d-embs">Embarcações: nome ou inscrição (separe por vírgula)</label><input id="d-embs" value="${esc(d.embarcacoes.join(', '))}">
+    <label for="d-obs">Providências e observações</label><textarea id="d-obs" rows="2">${esc(d.obs)}</textarea>
+    <p><button id="b-den" type="button">Salvar denúncia</button> <span id="m-den" class="msg peq"></span></p></div>`;
+  const chips = () => { $('#d-pes').innerHTML = d.pescadorIds.map(id => `<button type="button" class="chip ativo" data-rm="${esc(id)}">${esc(nomeProprio(db.pescadores[id]?.nome || id))} ✕</button>`).join('');
+    $('#d-pes').querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { d.pescadorIds = d.pescadorIds.filter(x => x !== b.dataset.rm); chips(); }); };
+  chips();
+  $('#d-q').oninput = e => {
+    const q = e.target.value.trim(), res = q.length < 3 ? [] : buscar(Object.values(db.pescadores), q).slice(0, 15);
+    $('#d-res').innerHTML = res.map(p => `<li><a href="#" data-id="${esc(p.id)}"><span class="nome">${esc(nomeProprio(p.nome))}</span><span class="info">${esc(p.rgp || fmtDig(p.digitos))}</span></a></li>`).join('');
+    $('#d-res').querySelectorAll('a').forEach(a => a.onclick = ev => { ev.preventDefault(); if (!d.pescadorIds.includes(a.dataset.id)) d.pescadorIds.push(a.dataset.id); chips(); $('#d-q').value = ''; $('#d-res').innerHTML = ''; });
+  };
+  $('#b-den').onclick = async () => {
+    Object.assign(d, { data: $('#d-data').value, situacao: $('#d-sit').value, tipo: $('#d-tipo').value, origem: $('#d-orig').value, municipio: $('#d-mun').value.trim(),
+      local: $('#d-local').value.trim(), descricao: $('#d-desc').value.trim(), pessoas: lista($('#d-pessoas').value), placas: lista($('#d-placas').value).map(x => x.toUpperCase()),
+      embarcacoes: lista($('#d-embs').value), obs: $('#d-obs').value.trim(), atualizadoEm: agora() });
+    d.criadoEm ||= agora();
+    const i = db.cfg.denuncias.findIndex(x => x.id === d.id);
+    if (i >= 0) db.cfg.denuncias[i] = d; else db.cfg.denuncias.push(d);
+    await salvar();
+    if (!ex) location.hash = '#/denuncia/' + d.id; else $('#m-den').textContent = 'Salva.';
+  };
+}
+
+// ---------- vínculos (grafo) ----------
+let cyInst = null;
+async function telaVinculos(centro) {
+  const g = window.Vinculos.montarVinculos({ pescadores: db.pescadores, abordagens: Object.fromEntries(Object.entries(db.abordagens).map(([k, a]) => [k, normalizarAb(a)])), denuncias: db.cfg.denuncias || [] });
+  app.innerHTML = `<div class="card">${abasAbordagens('vinc')}
+    <p class="muted peq">Liga pescadores, embarcações (mesma inscrição), veículos (mesma placa), abordagens conjuntas e denúncias. Toque num ponto para abrir.</p>
+    <input id="v-q" type="search" placeholder="Pescador, placa ou embarcação" autocomplete="off"><ul id="v-res" class="lista lista-compacta"></ul>
+    ${centro ? `<label class="chk"><input type="checkbox" id="v-mais"> Mais um nível</label><div id="grafo" class="grafo-box"></div>
+      <p class="peq"><span class="leg leg-p"></span> pescador <span class="leg leg-e"></span> embarcação <span class="leg leg-v"></span> veículo <span class="leg leg-a"></span> abordagem <span class="leg leg-d"></span> denúncia <span class="leg leg-x"></span> pessoa citada</p>` : ''}</div>`;
+  $('#v-q').oninput = e => {
+    const q = e.target.value.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+    const res = q.length < 2 ? [] : g.nodes.filter(n => ['pescador', 'embarcacao', 'veiculo', 'pessoa'].includes(n.tipo) && n.label.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().includes(q)).slice(0, 15);
+    $('#v-res').innerHTML = res.map(n => `<li><a href="#/vinculos/${encodeURIComponent(n.id)}"><span class="nome">${esc(n.tipo === 'pescador' ? nomeProprio(n.label) : n.label)}</span><span class="info">${esc(n.tipo)}</span></a></li>`).join('')
+      || (q.length >= 2 ? '<li class="muted peq" style="padding:8px">Nada com vínculo encontrado.</li>' : '');
+  };
+  if (!centro) return;
+  if (!g.nodes.some(n => n.id === centro)) { $('#grafo').innerHTML = '<p class="muted peq" style="padding:10px">Sem vínculos registrados para este item.</p>'; return; }
+  if (!window.cytoscape) await carregarScript('vendor/cytoscape.min.js');
+  const COR = { pescador: '#0b4f7a', embarcacao: '#157f3b', veiculo: '#9a6700', abordagem: '#5d6b64', denuncia: '#b42318', pessoa: '#8a3ffc' };
+  const desenhar = () => {
+    const v = window.Vinculos.vizinhanca(g, centro, $('#v-mais').checked ? 2 : 1);
+    const escuro = matchMedia('(prefers-color-scheme: dark)').matches;
+    if (cyInst) cyInst.destroy();
+    cyInst = cytoscape({ container: $('#grafo'),
+      elements: [...v.nodes.map(n => ({ data: { ...n, label: n.tipo === 'pescador' ? nomeProprio(n.label) : n.label, central: n.id === centro } })), ...v.edges.map(e => ({ data: e }))],
+      style: [{ selector: 'node', style: { 'background-color': n => COR[n.data('tipo')], label: 'data(label)', 'font-size': 8, 'text-wrap': 'wrap', 'text-max-width': 90,
+        color: escuro ? '#e6ece9' : '#16211c', 'text-valign': 'bottom', 'text-margin-y': 2, width: n => n.data('central') ? 26 : 16, height: n => n.data('central') ? 26 : 16 } },
+        { selector: 'edge', style: { width: 1.5, 'line-color': escuro ? '#3a4a43' : '#b9c4bd', 'curve-style': 'bezier' } }],
+      layout: { name: 'concentric', concentric: n => n.data('central') ? 10 : 1, levelWidth: () => 1, minNodeSpacing: 36, padding: 12 } });
+    cyInst.on('tap', 'node', ev => { const d = ev.target.data();
+      location.hash = d.tipo === 'pescador' && d.id !== centro ? '#/vinculos/' + encodeURIComponent(d.id) : d.tipo === 'pescador' ? '#/p/' + encodeURIComponent(d.pescadorId)
+        : d.tipo === 'abordagem' ? '#/ab/' + d.abordagemId : d.tipo === 'denuncia' ? '#/denuncia/' + d.denunciaId : '#/vinculos/' + encodeURIComponent(d.id); });
+  };
+  $('#v-mais').onchange = desenhar;
+  desenhar();
+}
+
 // Pendências: o que falta em cada abordagem para o processo administrativo, mais tarefas livres da equipe.
 const todasPendencias = () => Object.values(db.abordagens).map(normalizarAb)
   .map(a => ({ a, ps: pendenciasDe(a, id => db.pescadores[id]) })).filter(x => x.ps.length).sort((x, y) => y.a.data.localeCompare(x.a.data));
 function telaAbordagens(aba = 'lista') {
   const pend = todasPendencias(), tarefas = (db.cfg.tarefas ||= []);
   const nPend = pend.reduce((t, x) => t + x.ps.length, 0) + tarefas.filter(t => !t.feito).length;
-  app.innerHTML = `<div class="card"><div class="abas-seg">
-      <a href="#/abordagens" class="${aba === 'lista' ? 'ativo' : ''}">Abordagens</a>
-      <a href="#/pendencias" class="${aba === 'pend' ? 'ativo' : ''}">Pendências${nPend ? ` <span class="cont">${nPend}</span>` : ''}</a></div>
+  app.innerHTML = `<div class="card">${abasAbordagens(aba, nPend)}
     ${aba === 'lista' ? `<p><a class="btn" href="#/ab/novo">Nova abordagem</a></p>${listaAbordagens(Object.values(db.abordagens))}` : `
       <h2>Tarefas</h2>
       <div class="linha"><input id="t-txt" placeholder="Ex.: levar termo ao IBAMA" style="flex:2"><input id="t-prazo" type="date" style="flex:1"><button id="b-tarefa" type="button">Adicionar</button></div>
@@ -681,16 +781,19 @@ function telaAbordagem(param) {
     if (e) { ab.embarcacao = e.propulsao; ab.comprimentoEmbM = e.comprimentoM; $('#a-emb').value = e.propulsao; $('#a-comp').value = e.comprimentoM ?? ''; $('#d-comp').hidden = false; }
     desenharSem();
   };
+  // Embarcação e veículo usados: escolhidos do cadastro da pessoa ou cadastrados na hora.
+  const SEL_BEM = { embarcacoes: ['embarcacaoId', 'Embarcação usada', aplicarEmb], veiculos: ['veiculoId', 'Veículo usado', x => { ab.veiculoId = x?.id || ''; }] };
   const desenharEmb = () => {
-    const p = pesc(), embs = p.embarcacoes || [];
-    $('#embs').innerHTML = `<label for="a-embid">Embarcação usada</label>
-      <select id="a-embid"><option value="">${embs.length ? 'Nenhuma ou não informada' : 'Nenhuma cadastrada'}</option>
-        ${embs.map(e => `<option value="${esc(e.id)}"${e.id === ab.embarcacaoId ? ' selected' : ''}>${esc(descEmb(e))}</option>`).join('')}
-        <option value="+">Cadastrar embarcação…</option></select><div id="emb-form"></div>`;
-    $('#a-embid').onchange = e => {
-      if (e.target.value !== '+') { $('#emb-form').innerHTML = ''; aplicarEmb(embs.find(x => x.id === e.target.value)); return; }
-      formEmbarcacao($('#emb-form'), p, nova => { desenharEmb(); aplicarEmb(nova); $('#a-embid').value = nova.id; });
-    };
+    const p = pesc();
+    $('#embs').innerHTML = Object.entries(SEL_BEM).map(([t, [campo, rot]]) => { const xs = p[t] || [];
+      return `<label>${rot}</label><select data-sel="${t}"><option value="">${xs.length ? 'Nenhum ou não informado' : 'Nenhum cadastrado'}</option>
+        ${xs.map(x => `<option value="${esc(x.id)}"${x.id === ab[campo] ? ' selected' : ''}>${esc(descBem(t, x))}</option>`).join('')}
+        <option value="+">Cadastrar ${BENS[t].nome}…</option></select><div data-form="${t}"></div>`; }).join('');
+    $('#embs').querySelectorAll('[data-sel]').forEach(sel => sel.onchange = () => {
+      const t = sel.dataset.sel, [, , aplicar] = SEL_BEM[t], form = $(`#embs [data-form="${t}"]`);
+      if (sel.value !== '+') { form.innerHTML = ''; aplicar((p[t] || []).find(x => x.id === sel.value)); return; }
+      formBem(t, form, p, novo => { aplicar(novo); desenharEmb(); });
+    });
   };
 
   const desenharPessoa = () => {
@@ -702,7 +805,7 @@ function telaAbordagem(param) {
           <div class="linha"><input id="p-cpf" inputmode="numeric" placeholder="000.000.000-00" style="flex:1"><button class="sec" id="b-cpf" type="button">Conferir</button></div>
           <p id="m-cpf" class="msg"></p>`}
         <p><button class="sec" id="b-trocar" type="button">Trocar pessoa</button></p>`;
-      $('#b-trocar').onclick = () => { ab.pescadorId = null; ab.identificadoPor = 'nome'; ab.cpfInformado = ''; ab.embarcacaoId = ''; desenharPessoa(); desenharSem(); desenharConsulta(); desenharQual(); };
+      $('#b-trocar').onclick = () => { ab.pescadorId = null; ab.identificadoPor = 'nome'; ab.cpfInformado = ''; ab.embarcacaoId = ''; ab.veiculoId = ''; desenharPessoa(); desenharSem(); desenharConsulta(); desenharQual(); };
       $('#b-cpf')?.addEventListener('click', () => {
         const v = $('#p-cpf').value.replace(/\D/g, '');
         if (!cpfValido(v)) { $('#m-cpf').textContent = 'CPF inválido.'; $('#m-cpf').className = 'msg erro'; return; }
@@ -948,12 +1051,16 @@ function mesclarBackup(outro) {
     for (const l of b.licencas) if (!a.licencas.some(x => x.area === l.area && x.temporada === l.temporada)) a.licencas.push(l);
     if (b.obs && b.obs !== a.obs && b.atualizadoEm > a.atualizadoEm) { a.obs = b.obs; a.atualizadoEm = b.atualizadoEm; }
     for (const c of b.consultas || []) if (!(a.consultas ||= []).some(x => x.id === c.id)) a.consultas.push(c);
-    for (const e of b.embarcacoes || []) if (!(a.embarcacoes ||= []).some(x => x.id === e.id)) a.embarcacoes.push(e);
+    for (const t of ['embarcacoes', 'veiculos']) for (const x of b[t] || []) if (!(a[t] ||= []).some(y => y.id === x.id)) a[t].push(x);
     if (b.cpf && !a.cpf) a.cpf = b.cpf;
     for (const [k] of QUALIFICACAO) if (b[k] && !a[k]) a[k] = b[k];
     if (JSON.stringify(a) !== antes) { sujos.add(a.id); n++; }
   }
   for (const i of outro.importacoes || []) if (!db.importacoes.some(x => x.hash === i.hash)) db.importacoes.push(i);
+  for (const k of ['denuncias', 'tarefas']) for (const x of outro.cfg?.[k] || []) { // vale a versão editada por último
+    const l = (db.cfg[k] ||= []), i = l.findIndex(y => y.id === x.id);
+    if (i < 0) { l.push(x); n++; } else if ((x.atualizadoEm || '') > (l[i].atualizadoEm || '')) { l[i] = x; n++; }
+  }
   for (const [id, b] of Object.entries(outro.abordagens || {})) { // vale a versão editada por último
     const a = db.abordagens[id];
     if (!a || b.atualizadoEm > a.atualizadoEm) {
@@ -1198,7 +1305,7 @@ function telaNormas() {
 
 // ---------- roteamento e bloqueio ----------
 function marcarNav() {
-  const h = location.hash.startsWith('#/dados') ? '#/dados' : location.hash.startsWith('#/normas') || location.hash.startsWith('#/guia') ? '#/guia' : location.hash.startsWith('#/ab') || location.hash.startsWith('#/pendencias') ? '#/abordagens' : '#/';
+  const h = location.hash.startsWith('#/dados') ? '#/dados' : location.hash.startsWith('#/normas') || location.hash.startsWith('#/guia') ? '#/guia' : /^#\/(ab|pendencias|denuncia|vinculos)/.test(location.hash) ? '#/abordagens' : '#/';
   document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('ativo', a.getAttribute('href') === h));
 }
 function rotear() {
@@ -1212,6 +1319,10 @@ function rotear() {
   if (h === '#/dados') return telaDados();
   if (h === '#/abordagens') return telaAbordagens();
   if (h === '#/pendencias') return telaAbordagens('pend');
+  if (h === '#/denuncias') return telaDenuncias();
+  if (h.startsWith('#/denuncia/')) return telaDenuncia(h.slice(11));
+  if (h === '#/vinculos') return telaVinculos('');
+  if (h.startsWith('#/vinculos/')) return telaVinculos(decodeURIComponent(h.slice(11)));
   if (h.startsWith('#/ab/')) return telaAbordagem(h.slice(5));
   return telaLista();
 }

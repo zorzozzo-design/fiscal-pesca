@@ -1,6 +1,6 @@
-const CACHE = 'fpesca-v11';
-const ARQUIVOS = ['./', 'index.html', 'app.js', 'lista.js', 'semaforo.js', 'normas.js', 'docs.js', 'municipios-rs.js', 'locais.js', 'style.css', 'manifest.webmanifest',
-  'vendor/pdf.min.js', 'vendor/pdf.worker.min.js', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png'];
+const CACHE = 'fpesca-v12';
+const ARQUIVOS = ['./', 'index.html', 'app.js', 'lista.js', 'semaforo.js', 'normas.js', 'docs.js', 'municipios-rs.js', 'locais.js', 'vinculos.js', 'style.css', 'manifest.webmanifest',
+  'vendor/pdf.min.js', 'vendor/pdf.worker.min.js', 'vendor/cytoscape.min.js', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png'];
 
 // Instala a versão nova baixando tudo do servidor (cache:'reload' ignora a cópia antiga do navegador).
 self.addEventListener('install', e => e.waitUntil(caches.open(CACHE)

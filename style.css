@@ -277,3 +277,10 @@ input[type=checkbox], input[type=radio] { min-height: 0; width: 18px; height: 18
 .pend ul { margin: 4px 0 0; padding-left: 18px; }
 button.mini { padding: 2px 8px; min-height: 28px; font-size: .8rem; }
 .quem { color: var(--pri); font-weight: 600; }
+.grafo-box { height: 60vh; min-height: 320px; border: 1px solid var(--borda); border-radius: 8px; background: var(--bg); margin-top: 8px; }
+.leg { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin: 0 2px 0 8px; vertical-align: middle; }
+.leg-p { background: #0b4f7a; } .leg-e { background: #157f3b; } .leg-v { background: #9a6700; } .leg-a { background: #5d6b64; } .leg-d { background: #b42318; } .leg-x { background: #8a3ffc; }
+.abas-seg { flex-wrap: wrap; } .abas-seg a { font-size: .85rem; padding: 7px 4px; min-width: 70px; }
+.abas-seg { display: grid; grid-template-columns: repeat(4, 1fr); }
+.abas-seg a { min-width: 0; white-space: nowrap; }
+@media (max-width: 480px) { .abas-seg { grid-template-columns: 1fr 1fr; } }
