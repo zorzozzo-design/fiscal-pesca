@@ -1,6 +1,6 @@
 const { ler, mesclar, temporadaAtual, situacao, buscar, parecido, cpfValido, criar, lerConsulta, identificar, AVISO_TXT } = window.Lista;
 const { avaliar, ultimaConsulta, corDe, AREAS_COM_LISTA } = window.Semaforo;
-const { checar, multaReferencia, defesosDe, RESUMO, RESUMO_TODOS, LOCAIS } = window.Normas;
+const { checar, multaReferencia, defesosDe, DEFESOS, RESUMO, RESUMO_TODOS, AMEACADAS_GUIA, TAMANHO_MINIMO, LOCAIS } = window.Normas;
 const { itensDaAbordagem, termoApreensao, notificacao, motivoSugerido, DESTINOS } = window.Docs;
 
 // ---------- utilitários ----------
@@ -1045,6 +1045,49 @@ function telaDados() {
   };
 }
 
+// ---------- guia de consulta rápida (colegas de reforço; funciona sem internet) ----------
+const CAT = { CR: 'criticamente em perigo', EN: 'em perigo', VU: 'vulnerável' };
+function telaGuia() {
+  const hoje = agoraLocal().slice(0, 10);
+  const agora = Object.keys(REGIMES).map(r => [r, defesosDe(r, hoje)]).filter(([, ds]) => ds.length);
+  const ameacadas = new Set(['bagre-branco', 'miraguaia']);
+  app.innerHTML = `<div class="card"><h1>Guia</h1>
+      <p class="muted peq">Consulta rápida para a fiscalização. Funciona sem internet. Regras completas, com artigos: <a href="#/normas">Normas por local</a>.</p>
+      <input id="g-q" type="search" placeholder="Buscar peixe, local ou regra" autocomplete="off"></div>
+    <div class="card"><h2>Agora (${fmtData(hoje)})</h2>${agora.length ? agora.map(([r, ds]) => `<p class="peq"><b>${esc(REGIMES[r].nome)}</b><br>
+      ${ds.map(d => `${esc(d.nome)}: ${d.estado === 'vigente' ? '<b>em vigor</b>' : 'começa em breve'}, ${esc(d.periodo)}. ${esc(d.texto)} (${esc(d.norma)})`).join('<br>')}</p>`).join('')
+      : '<p class="muted peq">Nenhum defeso em vigor ou próximo.</p>'}</div>
+    <details class="card card-dobra g" open><summary><h2 style="display:inline">Peixes ameaçados: pesca proibida</h2></summary>
+      <p class="muted peq">Proibidos em todo o RS, o ano todo, em qualquer tamanho (Lei RS 15.223/2018, art. 30, III; Decreto RS 51.797/2014). Na dúvida sobre a espécie, fotografe e registre.</p>
+      <ul class="lista g-lista">${AMEACADAS_GUIA.map(([pop, cie, amb, cat]) => `<li class="g-item"><div class="nome">${esc(pop)}</div>
+        <div class="info"><i>${esc(cie)}</i> · ${esc(amb)} · ${esc(cat.split(' e ').map(c => CAT[c] || c).join(' / '))}</div></li>`).join('')}</ul>
+      <p class="muted peq">Também na lista: peixes-anuais, lambaris (<i>Bryconamericus lambari</i>, <i>Diapoma pyrrhopteryx</i>), lambari-listrado, canivete, joana e cambeva.</p></details>
+    <details class="card card-dobra g"><summary><h2 style="display:inline">Defesos por região</h2></summary>
+      ${Object.entries(DEFESOS).filter(([, ds]) => ds.length).map(([r, ds]) => `<p class="peq g-item"><b>${esc(REGIMES[r].nome)}</b><br>${ds.map(([n, de, ate, t, norma]) =>
+        `${esc(n)}: ${esc(de.split('-').reverse().join('/'))} a ${esc(ate.split('-').reverse().join('/').replace('29/02', '28/02'))}. ${esc(t)} (${esc(norma)})`).join('<br>')}</p>`).join('')}
+      <p class="peq g-item"><b>Lagoa dos Patos, estuário</b><br>Tainha de out a mai; corvina de out a fev; camarão-rosa de fev a mai (INC 03/2004, art. 2º).</p>
+      <p class="peq g-item"><b>Bacia do Tramandaí</b><br>Camarão: só na temporada da portaria anual (cadastrada em Dados).</p></details>
+    <details class="card card-dobra g"><summary><h2 style="display:inline">Tamanho mínimo no mar</h2></summary>
+      <p class="muted peq">IN MMA 53/2005. Comprimento total. Tolerância de 10% do peso (20% nas espécies do Anexo II).</p>
+      <ul class="lista g-lista">${Object.entries(TAMANHO_MINIMO).filter(([k]) => !ameacadas.has(k)).map(([k, cm]) => `<li class="g-item"><div class="nome">${esc(k[0].toUpperCase() + k.slice(1))}: ${cm} cm</div></li>`).join('')}</ul></details>
+    <details class="card card-dobra g"><summary><h2 style="display:inline">Petrechos e malhas por local</h2></summary>
+      ${Object.entries(RESUMO).map(([r, ts]) => `<div class="g-item"><p class="peq"><b>${esc(REGIMES[r].nome)}</b></p><ul class="peq">${ts.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>`).join('')}</details>
+    <details class="card card-dobra g"><summary><h2 style="display:inline">Enquadramento</h2></summary>
+      <ul class="peq g-item"><li><b>Crime:</b> Lei 9.605/98, art. 34 (período proibido ou local interditado), p. ún. I (espécie protegida ou abaixo do tamanho), II (quantidade acima, petrecho ou método proibido), III (transporte ou comércio). Art. 36: pesca é todo ato tendente a retirar peixe, inclui a tentativa.</li>
+        <li><b>Infração:</b> Dec. 6.514/2008, art. 35: R$ 700 a R$ 100.000, mais R$ 20 por kg ou fração. Art. 37 (pescar sem autorização ou registro): R$ 300 a R$ 10.000, mais R$ 20 por kg.</li>
+        <li>O app indica; quem decide e autua é a equipe.</li></ul></details>`;
+  // Busca: mostra só os itens que contêm o texto e abre as seções onde há resultado.
+  const sem = t => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  $('#g-q').oninput = e => {
+    const q = sem(e.target.value.trim());
+    document.querySelectorAll('.g').forEach(sec => {
+      let algum = false;
+      sec.querySelectorAll('.g-item').forEach(i => { const ok = !q || sem(i.textContent).includes(q); i.hidden = !ok; algum ||= ok; });
+      if (q) sec.open = algum;
+    });
+  };
+}
+
 // ---------- normas por local (consulta rápida, sem abordagem) ----------
 function telaNormas() {
   const regimes = Object.keys(REGIMES);
@@ -1084,7 +1127,7 @@ function telaNormas() {
 
 // ---------- roteamento e bloqueio ----------
 function marcarNav() {
-  const h = location.hash.startsWith('#/dados') ? '#/dados' : location.hash.startsWith('#/normas') ? '#/normas' : location.hash.startsWith('#/ab') ? '#/abordagens' : '#/';
+  const h = location.hash.startsWith('#/dados') ? '#/dados' : location.hash.startsWith('#/normas') || location.hash.startsWith('#/guia') ? '#/guia' : location.hash.startsWith('#/ab') ? '#/abordagens' : '#/';
   document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('ativo', a.getAttribute('href') === h));
 }
 function rotear() {
@@ -1093,6 +1136,7 @@ function rotear() {
   document.body.classList.remove('com-barra');
   const h = location.hash;
   if (h === '#/normas') return telaNormas();
+  if (h === '#/guia') return telaGuia();
   if (h.startsWith('#/p/')) return telaFicha(decodeURIComponent(h.slice(4)));
   if (h === '#/dados') return telaDados();
   if (h === '#/abordagens') return telaAbordagens();

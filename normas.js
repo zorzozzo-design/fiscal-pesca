@@ -290,5 +290,26 @@ const RESUMO = {
 const RESUMO_TODOS = ['Espécies ameaçadas: proibidas em qualquer lugar (bagre-branco, miraguaia, dourado, surubim, garoupa-verdadeira e outras).',
   'Amador: até 10 kg (15 kg no mar) mais 1 exemplar.'];
 
-globalThis.Normas = { checar, multaReferencia, defesosDe, DEFESOS, RESUMO, RESUMO_TODOS, LOCAIS, TAMANHO_MINIMO, CALENDARIO_PATOS };
+// Guia: peixes ameaçados do RS que aparecem na pesca (Decreto RS 51.797/2014, Anexo I). [popular, científico, ambiente, categoria].
+// Ficaram de fora os peixes-anuais, rivulídeos, lambaris e cascudos pequenos (não são alvo de pesca), citados em nota no Guia.
+const AMEACADAS_GUIA = [
+  ['Bagre-branco, bagre-rosado', 'Genidens barbus', 'Estuário e mar', 'EN'], ['Bagre-boca-larga, bagre-cachorro', 'Genidens planifrons', 'Estuário e mar', 'CR'],
+  ['Miraguaia, corvina-negra', 'Pogonias cromis', 'Estuário e mar', 'EN'], ['Garoupa-verdadeira', 'Epinephelus marginatus', 'Mar', 'EN'],
+  ['Peixe-rei (bicudo)', 'Odontesthes bicudo', 'Lagoas do litoral', 'EN'], ['Dourado', 'Salminus brasiliensis', 'Rios: bacias da Laguna dos Patos e do Uruguai', 'EN e VU'],
+  ['Surubim, pintado', 'Pseudoplatystoma corruscans', 'Rio Uruguai', 'EN'], ['Suruvi, surubim, bocudo', 'Steindachneridion scriptum', 'Rio Uruguai', 'EN'],
+  ['Piracanjuba, bracanjuva, salmão-crioulo', 'Brycon orbignyanus', 'Rio Uruguai', 'CR'], ['Cascudo-preto', 'Pogonopoma obscurum', 'Rios', 'VU'],
+  ['Cherne-poveiro', 'Polyprion americanus', 'Mar', 'CR'], ['Namorado', 'Pseudopercis semifasciata', 'Mar', 'VU'], ['Peixe-batata', 'Lopholatilus villarii', 'Mar', 'VU'],
+  ['Peixe-folha, prejereba', 'Lobotes surinamensis', 'Mar', 'CR'],
+  ['Cação-anjo (3 espécies)', 'Squatina argentina, S. guggenheim, S. occulta', 'Mar', 'CR'], ['Cação-mangona', 'Carcharias taurus', 'Mar', 'CR'],
+  ['Cação-bico-doce', 'Galeorhinus galeus', 'Mar', 'CR'], ['Cação-sebastião, canejo', 'Mustelus schmitti', 'Mar', 'CR'], ['Cação-malhado, cação-listrado', 'Mustelus fasciatus', 'Mar', 'CR'],
+  ['Boca-de-velha, bodinho', 'Mustelus canis', 'Mar', 'EN'], ['Tubarão-galhudo, cação-galhudo', 'Carcharhinus plumbeus', 'Mar', 'CR'], ['Cação', 'Carcharhinus signatus', 'Mar', 'CR'],
+  ['Tubarão-martelo (2 espécies)', 'Sphyrna lewini, S. zygaena', 'Mar', 'CR'], ['Tubarão-azul, mole-mole', 'Prionace glauca', 'Mar', 'VU'],
+  ['Tubarão-galha-branca-oceânico', 'Carcharhinus longimanus', 'Mar', 'VU'],
+  ['Viola, raia-viola', 'Rhinobatos horkelii', 'Mar', 'CR'], ['Viola-banjo', 'Zapteryx brevirostris', 'Mar', 'CR'], ['Raia-pintada, raia-chita', 'Atlantoraja castelnaui', 'Mar', 'EN'],
+  ['Raia-manteiga, raia-borboleta', 'Gymnura altavela', 'Mar', 'EN'], ['Ticonha', 'Rhinoptera brasiliensis', 'Mar', 'CR'], ['Raia-sapo, emplastro-amarelo', 'Myliobatis freminvillii, M. goodei', 'Mar', 'CR'],
+  ['Emplastro, raia-lisa', 'Rioraja agassizii', 'Mar', 'EN'], ['Emplastro-bicudo', 'Sympterygia acuta', 'Mar', 'EN'], ['Emplastro-amarelo', 'Sympterygia bonapartii', 'Mar', 'CR'],
+  ['Raia', 'Dasyatis centroura', 'Mar', 'EN'],
+];
+
+globalThis.Normas = { checar, multaReferencia, defesosDe, DEFESOS, RESUMO, RESUMO_TODOS, AMEACADAS_GUIA, LOCAIS, TAMANHO_MINIMO, CALENDARIO_PATOS };
 })();
