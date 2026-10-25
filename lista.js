@@ -173,10 +173,22 @@ function lerConsulta(texto) {
     if (!m) break;
     locais.push({ tipo: ls[i], uf: m[1], municipio: m[2] });
   }
-  return { digitos: digitos(t.match(/\*{3}\d{6}\*{2}/)?.[0]), rgp, situacao, tipoRegistro: campo('Tipo de registro'),
+  // Nome (o site mostra só o primeiro nome e a inicial): a linha antes do CPF mascarado sozinho.
+  const ls0 = t.split('\n').map(l => l.trim());
+  const iCpf = ls0.findIndex(l => /^\*{3}\d{6}\*{2}$/.test(l));
+  const nome = iCpf > 0 ? (ls0.slice(0, iCpf).filter(l => l && !/^(Resultado|Imagem|CPF|Nº do RGP|Limpar|Consultar|Consulte)/.test(l)).at(-1) || '') : '';
+  return { nome, digitos: digitos(t.match(/\*{3}\d{6}\*{2}/)?.[0]), rgp, situacao, tipoRegistro: campo('Tipo de registro'),
     uf: campo('UF do pescador\\(a\\)'), municipio: campo('Município do pescador\\(a\\)'), categoria: campo('Categoria'),
     formaAtuacao: campo('Forma de atuação'), produto: campo('Produto de pesca'), anoNascimento: campo('Ano de nascimento'),
     primeiroRgp: pri ? `${pri[3]}-${pri[2]}-${pri[1]}` : '', locais };
+}
+
+// Pessoas da base com os mesmos 6 dígitos da consulta; primeiro as cujo nome começa como o nome mostrado pelo site.
+function identificar(ps, lido) {
+  if (!lido?.digitos) return [];
+  const n = normNome(lido.nome);
+  return ps.filter(p => p.digitos === lido.digitos).map(p => ({ p, nomeConfere: !!n && p.nomeNorm.startsWith(n) }))
+    .sort((a, b) => b.nomeConfere - a.nomeConfere || a.p.nomeNorm.localeCompare(b.p.nomeNorm));
 }
 
 // Busca por nome parcial (sem acento), dígitos do CPF, CPF completo ou RGP.
@@ -193,5 +205,5 @@ function buscar(ps, q) {
   return ps.filter(p => p.nomeNorm.includes(n) || (p.licencas || []).some(l => normNome(l.nomeLista).includes(n)));
 }
 
-globalThis.Lista = { normNome, digitos, linhas, ler, parecido, mesclar, temporadaAtual, situacao, buscar, cpfValido, criar, lerConsulta, AVISO_TXT };
+globalThis.Lista = { normNome, digitos, linhas, ler, parecido, mesclar, temporadaAtual, situacao, buscar, cpfValido, criar, lerConsulta, identificar, AVISO_TXT };
 })();

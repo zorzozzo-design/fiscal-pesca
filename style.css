@@ -242,3 +242,23 @@ details.local p { margin: 4px 0; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0; }
 .chip { background: var(--bg); color: var(--txt); border: 1px solid var(--borda); border-radius: 99px; padding: 4px 10px; min-height: 32px; font-weight: 500; font-size: .85rem; }
 .chip.ativo { background: var(--pri); color: var(--pri-txt); border-color: var(--pri); }
+#aviso-versao { position: fixed; left: 12px; right: 12px; bottom: calc(80px + env(safe-area-inset-bottom)); z-index: 20; box-shadow: 0 6px 16px rgba(0,0,0,.2); }
+/* Tela inicial: topo fixo e lista rolando na caixa. */
+.lista.caixa { background: var(--card); border: 1px solid var(--borda); border-radius: 10px; }
+.tela-lista .lista-topo .filtros { margin-bottom: 4px; }
+.faixa { display: grid; gap: 2px; padding: 8px 12px; margin-bottom: 8px; border-radius: 10px; text-decoration: none; color: var(--ok); background: var(--ok-bg); font-size: .9rem; }
+.faixa.vigente { color: var(--aviso); background: var(--aviso-bg); border-left: 4px solid var(--aviso); }
+.faixa .peq { color: inherit; opacity: .85; }
+.colar { margin: 6px 0 10px; }
+.provs { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 12px; }
+.prov { display: grid; gap: 2px; align-content: start; }
+.prov .chk { margin: 6px 0; }
+.prov input:not([type=checkbox]) { min-height: 36px; padding: 6px 8px; }
+details.resumo { border-top: 0; padding: 2px 0; }
+details.resumo ul { margin: 4px 0 2px; padding-left: 18px; }
+input[type=checkbox], input[type=radio] { min-height: 0; width: 18px; height: 18px; padding: 0; }
+.chk { align-items: center; }
+.chk input { margin-top: 0; }
+.ba-cor { flex: 0 0 auto; }
+.barra-ab .msg { font-size: .78rem; line-height: 1.2; white-space: normal; max-height: 2.4em; }
+.chk input { flex: 0 0 18px; }

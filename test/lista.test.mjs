@@ -141,11 +141,22 @@ test('lê o resultado colado da consulta pública do PesqBrasil', async () => {
   const { lerConsulta } = globalThis.Lista;
   const txt = readFileSync(new URL('./fixtures/consulta-pesqbrasil.txt', import.meta.url), 'utf8');
   assert.deepEqual(lerConsulta(txt), {
-    digitos: '111222', rgp: 'RSPA***111222**', situacao: 'Ativo', tipoRegistro: 'Registro inicial', uf: 'RS', municipio: 'Tramandaí',
+    nome: 'JOAO F', digitos: '111222', rgp: 'RSPA***111222**', situacao: 'Ativo', tipoRegistro: 'Registro inicial', uf: 'RS', municipio: 'Tramandaí',
     categoria: 'Artesanal', formaAtuacao: 'Embarcado', produto: 'Camarão', anoNascimento: '1975', primeiroRgp: '2010-02-03',
     locais: [{ tipo: 'Lago', uf: 'RS', municipio: 'Tramandaí' }, { tipo: 'Rio', uf: 'RS', municipio: 'Imbé' }],
   });
   // copiado com espaços depois dos dois-pontos e quebras de linha do Windows
   assert.equal(lerConsulta(txt.replace(/:/g, ': ').replace(/\n/g, '\r\n')).situacao, 'Ativo');
   assert.equal(lerConsulta('texto qualquer'), null);
+});
+
+test('consulta colada com nome: lê o nome e acha a pessoa pelos dígitos e pelo começo do nome', () => {
+  const { lerConsulta, identificar } = globalThis.Lista;
+  const lido = lerConsulta(readFileSync(new URL('./fixtures/consulta-pesqbrasil-nome.txt', import.meta.url), 'utf8'));
+  assert.equal(lido.nome, 'JOSE P');
+  assert.equal(lido.digitos, '456789');
+  assert.deepEqual([...new Set(lido.locais.map(l => l.tipo))], ['Rio']);
+  const ps = [{ id: 'a', nome: 'MARIA SOUZA', nomeNorm: 'MARIA SOUZA', digitos: '456789' }, { id: 'b', nome: 'JOSE PEREIRA', nomeNorm: 'JOSE PEREIRA', digitos: '456789' },
+    { id: 'c', nome: 'JOSE PEREIRA', nomeNorm: 'JOSE PEREIRA', digitos: '111111' }];
+  assert.deepEqual(identificar(ps, lido).map(x => [x.p.id, x.nomeConfere]), [['b', true], ['a', false]]);
 });

@@ -53,9 +53,10 @@ const AMEACADAS = [
 const CONFERIR_ESPECIE = /^(bagre|garoupa|cacao|raia|viola|tubarao)/;
 const NORMA_AMEACADAS = 'Lei RS 15.223/2018, art. 30, III; Decreto RS 51.797/2014; Portaria MMA 445/2014';
 
-const CRIME_34 ='Lei 9.605/98, art. 34; Dec. 6.514/2008, art. 35';
-const CRIME_34_II = 'Lei 9.605/98, art. 34, p. ún., II; Dec. 6.514/2008, art. 35, p. ún., II';
-const CRIME_34_I = 'Lei 9.605/98, art. 34, p. ún., I; Dec. 6.514/2008, art. 35, p. ún., I';
+// Crime e infração administrativa separados. Art. 36 da Lei 9.605: pesca é todo ato tendente a retirar peixe (inclui a tentativa).
+const CRIME_34 = 'Crime: Lei 9.605/98, art. 34 c/c art. 36 · Infração: Dec. 6.514/2008, art. 35';
+const CRIME_34_II = 'Crime: Lei 9.605/98, art. 34, p. ún., II c/c art. 36 · Infração: Dec. 6.514/2008, art. 35, p. ún., II';
+const CRIME_34_I = 'Crime: Lei 9.605/98, art. 34, p. ún., I c/c art. 36 · Infração: Dec. 6.514/2008, art. 35, p. ún., I';
 
 const chave = s => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 const mmdd = data => data.slice(5, 10);
@@ -225,5 +226,69 @@ function multaReferencia(motivos, kg) {
   return { artigo, minimo: (artigo === 35 ? 700 : 300) + 20 * (+kg || 0) };
 }
 
-globalThis.Normas = { checar, multaReferencia, LOCAIS, TAMANHO_MINIMO, CALENDARIO_PATOS };
+// Defesos e períodos por regime, para a faixa da tela inicial e o Guia. [nome, início MM-DD, fim MM-DD, texto, norma].
+const DEFESOS = {
+  tramandai: [['Bagre', '12-15', '03-31', 'Pesca de bagre proibida', 'IN MMA 17/2004, art. 14']],
+  outras: [['Piracema', '11-01', '01-31', 'Só anzol simples, 1 petrecho, até 5 kg; nada em lagoa marginal nem a 1.500 m de barragem', 'IN IBAMA 197/2008'],
+    ['Lambari em reservatório', '11-01', '02-29', 'Lambari proibido em reservatório público', 'IN IBAMA 51/2004']],
+  uruguai: [['Piracema', '10-01', '01-31', 'Só linha, 1 por pescador, até 5 kg, barco sem motor; nada em lagoa marginal, a 1.500 m de barragem ou a 500 m de confluência', 'IN IBAMA 193/2008'],
+    ['Lambari em reservatório', '11-01', '02-29', 'Lambari proibido em reservatório público', 'IN IBAMA 51/2004']],
+  mirim: [['Defeso de todas as espécies', '11-01', '01-31', 'Pesca proibida na Lagoa Mirim e Mangueira', 'INC MMA/SEAP 02/2004']],
+  mar: [['Anchova', '12-01', '03-31', 'Pesca de anchova proibida', 'INI MPA/MMA 02/2009'],
+    ['Barras e desembocaduras', '03-15', '08-15', 'Só tarrafa nas desembocaduras', 'IN IBAMA 171/2008']],
+  patos: [['Barras e desembocaduras', '03-15', '08-15', 'Só tarrafa nas desembocaduras', 'IN IBAMA 171/2008']],
+  peixe: [['Barras e desembocaduras', '03-15', '08-15', 'Só tarrafa nas desembocaduras', 'IN IBAMA 171/2008']],
+  mampituba: [],
+};
+const dataMMDD = d => d.slice(5, 10);
+const diasAte = (data, mmdd) => { // dias até a próxima ocorrência de MM-DD
+  const d = new Date(data.slice(0, 10) + 'T12:00'), alvo = new Date(`${d.getFullYear()}-${mmdd}T12:00`);
+  if (alvo < d) alvo.setFullYear(alvo.getFullYear() + 1);
+  return Math.round((alvo - d) / 864e5);
+};
+const fmtDM = mmdd => mmdd.split('-').reverse().join('/').replace(/^01\//, '1º/').replace('29/02', '28/02');
+// estado: 'vigente' ou 'proximo' (começa em até 30 dias). Os demais não entram.
+function defesosDe(area, data) {
+  const out = [];
+  for (const [nome, de, ate, texto, norma] of DEFESOS[area] || []) {
+    const estado = entre(data, de, ate) ? 'vigente' : diasAte(data, de) <= 30 ? 'proximo' : '';
+    if (estado) out.push({ nome, estado, periodo: `${fmtDM(de)} a ${fmtDM(ate)}`, texto, norma });
+  }
+  if (area === 'patos') {
+    const mes = +data.slice(5, 7), fora = Object.entries(CALENDARIO_PATOS).filter(([, ms]) => !ms.includes(mes)).map(([sp]) => sp === 'camarao' ? 'camarão-rosa' : sp);
+    if (fora.length) out.push({ nome: 'Fora do calendário do estuário', estado: 'vigente', periodo: `em ${MESES[mes]}`, texto: `Proibido agora: ${fora.join(', ')}`, norma: 'INC 03/2004, art. 2º' });
+  }
+  return out;
+}
+
+// Resumo para "bater o olho" ao escolher o local (mesmo conteúdo das regras acima).
+const RESUMO = {
+  tramandai: ['Licença: só quem está na lista atual (IN 17, art. 22). Amador com linha e anzol é dispensado (art. 26, II).',
+    'Rede de espera: malha mínima 80 mm; na Lagoa Tramandaí, 90 mm e até 500 m. Proibida em rio, canal e foz.',
+    'Tarrafa de peixe: malha mínima 60 mm. Arrasto proibido.', 'Aviãozinho: só na Laguna do Armazém, malha mínima 25 mm, até 10 por pescador.',
+    'Camarão: só na temporada da portaria anual. Bagre: proibido de 15/12 a 31/03.',
+    'Locais proibidos: canal e boca da barra, ponte Giuseppe Garibaldi, Lagoa Gentil, Braço Morto do Imbé, 200 m da foz de rios (arts. 2º a 10).'],
+  patos: ['Licença: só quem está na lista do estuário (INC 03/2004).', 'Rede de espera: malha mínima 100 mm (bagre 140, peixe-rei 40); até 1.830 m por embarcação.',
+    'Rede de saco e aviãozinho: malha mínima 24 mm, andaina de até 10.', 'Arrasto proibido. Embarcação de até 12 m.',
+    'Calendário: tainha out a mai, corvina out a fev, camarão-rosa fev a mai (mínimo 9 cm).'],
+  outras: ['Rede de espera: malha mínima 70 mm. Tarrafa e covo: 50 mm. Arrasto proibido (IN 43/2004).',
+    'Proibido pescar a menos de 200 m de barragem, cachoeira ou corredeira.',
+    'Piracema 1º/11 a 31/01: só anzol simples, 1 petrecho, até 5 kg; nada em lagoa marginal nem a 1.500 m de barragem (IN 197/2008).',
+    'Lambari em reservatório: proibido de 1º/11 a 28/02.'],
+  uruguai: ['Rede de espera: malha mínima 70 mm. Tarrafa e covo: 50 mm. Arrasto proibido (IN 43/2004).',
+    'Proibido pescar a menos de 200 m de barragem, cachoeira ou corredeira.',
+    'Piracema 1º/10 a 31/01: só linha, 1 por pescador, até 5 kg, barco sem motor; nada em lagoa marginal, a 1.500 m de barragem, a 500 m de confluência com o Uruguai e nos trechos do art. 3º (IN 193/2008).',
+    'Lambari em reservatório: proibido de 1º/11 a 28/02.'],
+  mirim: ['Defeso de todas as espécies de 1º/11 a 31/01.', 'Malha, petrechos e licença: INC MMA/SEAP 02/2004 (texto não localizado). Confira.'],
+  peixe: ['Parque Nacional: só pesca quem está no Termo de Compromisso do ICMBio.'],
+  mampituba: ['Barra do Mampituba até a Figueirinha: Portaria SUDEPE 006/1984 (texto não localizado). Confira.'],
+  mar: ['Emalhe: malha de 70 a 140 mm, altura até 4 m, RGP na tralha superior (IN 12/2012).', 'Barco motorizado: emalhe só além de 1 milha da costa.',
+    'Arrasto por barco motorizado: proibido nas 12 milhas do RS (Lei RS 15.223/2018).',
+    'Tamanho mínimo: tainha, anchova e linguado 35 cm; corvina e pescadinha 25 cm (IN 53/2005).',
+    'Anchova: defeso de 1º/12 a 31/03. Barras: de 15/03 a 15/08, só tarrafa.'],
+};
+const RESUMO_TODOS = ['Espécies ameaçadas: proibidas em qualquer lugar (bagre-branco, miraguaia, dourado, surubim, garoupa-verdadeira e outras).',
+  'Amador: até 10 kg (15 kg no mar) mais 1 exemplar.'];
+
+globalThis.Normas = { checar, multaReferencia, defesosDe, DEFESOS, RESUMO, RESUMO_TODOS, LOCAIS, TAMANHO_MINIMO, CALENDARIO_PATOS };
 })();

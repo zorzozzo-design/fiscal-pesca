@@ -1,0 +1,31 @@
+Resultado da consulta pública do CPF ***456789** e Nº do RGP RSPA***456789**
+Imagem de um avatar padrão
+JOSE P
+
+***456789**
+
+RSPA***456789**
+
+Situação do RGP:Ativo
+
+Tipo de registro:Registro inicial
+
+UF do pescador(a):RS
+
+Município do pescador(a):Tramandaí
+
+Categoria:Artesanal
+
+Forma de atuação:Embarcado
+
+Produto de pesca:PeixesPeixes
+
+Ano de nascimento:1980
+
+Data do 1º RGP:10/05/2012
+
+Local de pesca	UF	Município
+Rio
+RS	Tramandaí
+Rio
+RS	Tramandaí

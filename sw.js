@@ -1,15 +1,15 @@
-const CACHE = 'fpesca-v8';
+const CACHE = 'fpesca-v9';
 const ARQUIVOS = ['./', 'index.html', 'app.js', 'lista.js', 'semaforo.js', 'normas.js', 'docs.js', 'municipios-rs.js', 'locais.js', 'style.css', 'manifest.webmanifest',
   'vendor/pdf.min.js', 'vendor/pdf.worker.min.js', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png'];
 
-self.addEventListener('install', e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(ARQUIVOS)).then(() => self.skipWaiting())));
+// Instala a versão nova baixando tudo do servidor (cache:'reload' ignora a cópia antiga do navegador).
+self.addEventListener('install', e => e.waitUntil(caches.open(CACHE)
+  .then(c => c.addAll(ARQUIVOS.map(a => new Request(a, { cache: 'reload' })))).then(() => self.skipWaiting())));
 self.addEventListener('activate', e => e.waitUntil(
   caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())));
+// Cache primeiro: abre na hora, mesmo com sinal fraco. Atualização chega por uma versão nova deste arquivo (CACHE),
+// e a página avisa para recarregar.
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET' || new URL(e.request.url).origin !== location.origin) return;
-  // Rede primeiro, revalidando com o servidor (cache:'no-cache') para não pegar a cópia antiga
-  // que o GitHub Pages deixa no cache do navegador por alguns minutos. Sem internet, usa o cache do SW.
-  e.respondWith(fetch(e.request, { cache: 'no-cache' })
-    .then(r => { if (r.ok) { const c = r.clone(); caches.open(CACHE).then(k => k.put(e.request, c)); } return r; })
-    .catch(() => caches.match(e.request, { ignoreSearch: true })));
+  e.respondWith(caches.match(e.request, { ignoreSearch: true }).then(c => c || fetch(e.request)));
 });

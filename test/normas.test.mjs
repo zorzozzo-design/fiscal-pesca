@@ -283,3 +283,17 @@ test('R27: bagre de água doce não pede conferência; dourado do mar não é o 
   assert.equal(checar(uru({ pescado: [{ especie: 'Pintado-amarelo (Pimelodus maculatus)', kg: 1 }] }), cfg).find(m => m.regra === 'R27'), undefined);
   assert.equal(checar(ab({ area: 'mar', localTipo: 'Praia (desembarcado)', pescado: [{ especie: 'Dourado', kg: 1 }] }), cfg).find(m => m.regra === 'R27'), undefined);
 });
+
+test('defesos por regime: vigente e próximo', () => {
+  const { defesosDe } = globalThis.Normas;
+  const nomes = (a, d) => defesosDe(a, d).map(x => `${x.nome}:${x.estado}`);
+  assert.ok(nomes('tramandai', '2026-12-20').includes('Bagre:vigente'));
+  assert.ok(nomes('tramandai', '2026-11-20').includes('Bagre:proximo'));
+  assert.ok(nomes('outras', '2026-11-10').includes('Piracema:vigente'));
+  assert.ok(nomes('uruguai', '2026-10-10').includes('Piracema:vigente'));
+  assert.ok(nomes('uruguai', '2026-09-10').includes('Piracema:proximo'));
+  assert.ok(nomes('mirim', '2027-01-10').includes('Defeso de todas as espécies:vigente'));
+  assert.ok(nomes('mar', '2027-01-10').includes('Anchova:vigente'));
+  assert.ok(!defesosDe('outras', '2026-06-10').some(x => x.nome === 'Piracema'));
+  assert.ok(defesosDe('patos', '2026-07-10').some(x => x.nome === 'Fora do calendário do estuário' && /corvina/.test(x.texto)));
+});
