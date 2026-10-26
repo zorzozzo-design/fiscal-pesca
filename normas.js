@@ -340,7 +340,7 @@ const RESUMO_TODOS = ['Espécies ameaçadas: pesca proibida em qualquer local e 
 const AMEACADAS_GUIA = [
   ['Bagre-branco, bagre-rosado', 'Genidens barbus', 'Estuário e mar', 'EN'], ['Bagre-boca-larga, bagre-cachorro', 'Genidens planifrons', 'Estuário e mar', 'CR'],
   ['Miraguaia, corvina-negra', 'Pogonias cromis', 'Estuário e mar', 'EN'], ['Garoupa-verdadeira', 'Epinephelus marginatus', 'Mar', 'EN'],
-  ['Peixe-rei (bicudo)', 'Odontesthes bicudo', 'Lagoas do litoral', 'EN'], ['Dourado', 'Salminus brasiliensis', 'Rios: bacias da Laguna dos Patos e do Uruguai', 'EN e VU'],
+  ['Peixe-rei-bicudo', 'Odontesthes bicudo', 'Só nas lagoas Emboaba, Caconde, do Horácio e do Lessa (Osório e Tramandaí)', 'EN'], ['Dourado', 'Salminus brasiliensis', 'Rios: bacias da Laguna dos Patos e do Uruguai', 'EN e VU'],
   ['Surubim, pintado', 'Pseudoplatystoma corruscans', 'Rio Uruguai', 'EN'], ['Suruvi, surubim, bocudo', 'Steindachneridion scriptum', 'Rio Uruguai', 'EN'],
   ['Piracanjuba, bracanjuva, salmão-crioulo', 'Brycon orbignyanus', 'Rio Uruguai', 'CR'], ['Cascudo-preto', 'Pogonopoma obscurum', 'Rios', 'VU'],
   ['Cherne-poveiro', 'Polyprion americanus', 'Mar', 'CR'], ['Namorado', 'Pseudopercis semifasciata', 'Mar', 'VU'], ['Peixe-batata', 'Lopholatilus villarii', 'Mar', 'VU'],
