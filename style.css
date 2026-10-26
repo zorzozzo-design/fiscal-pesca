@@ -299,3 +299,24 @@ button.mini { padding: 2px 8px; min-height: 28px; font-size: .8rem; }
 @media (max-width: 480px) { .abas-seg { grid-template-columns: 1fr 1fr; } }
 /* Celular estreito: cabem as 4 abas, o tema e o cadeado. */
 @media (max-width: 420px) { nav a { padding: 6px 4px; font-size: .82rem; } #btn-tema, #btn-bloquear { padding: 6px 6px; min-height: 34px; } }
+/* Aviso de ação executada (rodapé) e tela de carregamento com peixe. */
+#aviso { position: fixed; left: 50%; bottom: calc(76px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 30;
+  width: max-content; max-width: calc(100% - 32px); padding: 10px 16px; border-radius: 10px; text-align: center; font-weight: 600; box-shadow: 0 4px 16px rgba(0,0,0,.25);
+  background: var(--ok-bg); color: var(--ok); border: 1px solid var(--ok); animation: aviso-in .18s ease-out; }
+#aviso.aviso-erro { background: var(--alerta-bg); color: var(--alerta); border-color: var(--alerta); }
+@keyframes aviso-in { from { opacity: 0; transform: translate(-50%, 8px); } }
+#carregando { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; background: rgba(0,0,0,.35); }
+#carregando[hidden] { display: none; }
+.car-caixa { background: var(--card); border: 1px solid var(--borda); border-radius: 14px; padding: 16px 22px 12px; text-align: center; min-width: 200px; }
+.car-caixa p { margin: 4px 0 0; font-weight: 600; }
+.car-agua { width: 160px; height: 70px; overflow: hidden; }
+.car-corpo, .car-cauda { fill: var(--pri); } .car-olho { fill: var(--card); }
+.car-bolha { fill: none; stroke: var(--pri); stroke-width: 1; opacity: 0; animation: bolha 1.6s ease-in infinite; }
+.b2 { animation-delay: .4s; } .b3 { animation-delay: .8s; }
+.car-onda { fill: none; stroke: var(--muted); stroke-width: 1.5; opacity: .5; }
+.car-peixe { animation: nadar 2.4s ease-in-out infinite alternate; }
+.car-cauda { transform-origin: 20px 35px; animation: cauda .35s ease-in-out infinite alternate; }
+@keyframes nadar { from { transform: translate(0, 2px); } to { transform: translate(60px, -4px); } }
+@keyframes cauda { from { transform: rotate(-14deg); } to { transform: rotate(14deg); } }
+@keyframes bolha { 0% { opacity: 0; transform: translateY(0); } 30% { opacity: .9; } 100% { opacity: 0; transform: translateY(-34px); } }
+@media (prefers-reduced-motion: reduce) { .car-peixe, .car-cauda, .car-bolha { animation: none; } .car-bolha { opacity: .6; } }

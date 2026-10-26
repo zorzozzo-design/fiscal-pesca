@@ -25,6 +25,13 @@
   </nav>
 </header>
 <main id="app"><p class="muted">Carregando…</p></main>
+<div id="aviso" role="status" aria-live="polite" hidden></div>
+<div id="carregando" hidden><div class="car-caixa" role="alert" aria-busy="true">
+  <svg class="car-agua" viewBox="0 0 160 70" aria-hidden="true">
+    <g class="car-peixe"><path class="car-corpo" d="M20 35c14-16 40-18 56 0-16 18-42 16-56 0z"/><path class="car-cauda" d="M20 35 6 24v22z"/><circle class="car-olho" cx="64" cy="31" r="2.6"/></g>
+    <circle class="car-bolha b1" cx="96" cy="40" r="2.5"/><circle class="car-bolha b2" cx="104" cy="44" r="1.8"/><circle class="car-bolha b3" cx="100" cy="48" r="1.4"/>
+    <path class="car-onda" d="M0 64c20-6 40 6 60 0s40-6 60 0 40 6 40 0"/>
+  </svg><p>Aguarde</p></div></div>
 <script>
   // Se os scripts não carregarem (ex.: arquivo aberto pelo gerenciador de arquivos no Android), explica em vez de travar.
   setTimeout(function () {

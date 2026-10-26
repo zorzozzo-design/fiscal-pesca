@@ -126,14 +126,11 @@ async function telaSenha() {
     try {
       if (meta) {
         salt = unb64(meta.salt);
-        chave = await derivar(s1, salt);
-        await carregar(meta);
+        await ocupado(async () => { chave = await derivar(s1, salt); await carregar(meta); }, 'Abrindo os dados');
       } else {
-        if (s1 !== $('#s2').value) throw new Error('As senhas não conferem.');
+        if (s1 !== $('#s2').value) throw new Error('As senhas não conferem. Digite a mesma senha duas vezes.');
         salt = crypto.getRandomValues(new Uint8Array(16));
-        chave = await derivar(s1, salt);
-        db = { cfg: {}, importacoes: [], pescadores: {}, abordagens: {} };
-        await salvar();
+        await ocupado(async () => { chave = await derivar(s1, salt); db = { cfg: {}, importacoes: [], pescadores: {}, abordagens: {} }; await salvar(); }, 'Criando a base');
       }
       $('#nav').hidden = false;
       rotear();
@@ -173,6 +170,22 @@ const infoConsulta = p => {
 };
 // Colar o resultado da consulta pública do PesqBrasil: o app acha a pessoa pelos 6 dígitos do CPF e pelo nome,
 // e grava a consulta na ficha. Sem ninguém na base, oferece cadastrar.
+// Aviso curto de ação executada. Fica no rodapé, também quando a tela muda depois de salvar.
+let tAviso;
+function aviso(texto, tipo = 'ok') {
+  const el = $('#aviso');
+  el.textContent = texto; el.className = tipo === 'erro' ? 'aviso-erro' : ''; el.hidden = false;
+  clearTimeout(tAviso); tAviso = setTimeout(() => { el.hidden = true; }, 2600);
+}
+// Tela de carregamento (peixe): só aparece se a ação passar de 0,4 s, para não piscar nas ações rápidas.
+async function ocupado(fn, texto = 'Aguarde') {
+  const el = $('#carregando');
+  const t = setTimeout(() => { el.querySelector('p').textContent = texto; el.hidden = false; }, 400);
+  try { return await fn(); } finally { clearTimeout(t); el.hidden = true; }
+}
+// Gravação pedida pelo usuário: peixe se demorar e aviso no fim. O salvamento automático usa salvar() direto.
+const salvarCom = async texto => { await ocupado(salvar, 'Salvando'); aviso(texto); };
+
 function colarConsulta(alvo, fixa = null) {
   alvo.innerHTML = `<div class="colar"><label for="cc-txt">No site, selecione tudo a partir do "Resultado da consulta", copie e cole aqui</label>
     <textarea id="cc-txt" rows="4" placeholder="Resultado da consulta pública do CPF ***000000** ..."></textarea><div id="cc-res"></div></div>`;
@@ -181,13 +194,13 @@ function colarConsulta(alvo, fixa = null) {
     if (!p.rgp && lido.rgp) p.rgp = lido.rgp;
     p.atualizadoEm = agora();
     sujos.add(p.id);
-    await salvar();
+    await salvarCom('Consulta salva.');
     alvo.innerHTML = `<p class="msg">Consulta gravada em <a href="#/p/${encodeURIComponent(p.id)}">${esc(nomeProprio(p.nome))}</a>.</p>`;
   };
   alvo.querySelector('#cc-txt').oninput = e => {
     const lido = lerConsulta(e.target.value), r = alvo.querySelector('#cc-res');
     if (!e.target.value.trim()) { r.innerHTML = ''; return; }
-    if (!lido) { r.innerHTML = '<p class="msg erro">Não reconheci o resultado. Copie a página a partir de "Resultado da consulta".</p>'; return; }
+    if (!lido) { r.innerHTML = '<p class="msg erro">O app não reconheceu o resultado. Copie a página a partir de "Resultado da consulta" e cole de novo.</p>'; return; }
     const resumo = `<p class="peq"><b>${esc(lido.nome || 'Sem nome')}</b> · ${esc(fmtDig(lido.digitos))} · ${esc(lido.rgp)}<br>
       ${[lido.situacao, lido.categoria, lido.formaAtuacao, lido.produto].filter(Boolean).map(esc).join(' · ')}
       ${lido.locais.length ? `<br>Locais: ${[...new Set(lido.locais.map(l => `${l.tipo} (${l.municipio})`))].map(esc).join(', ')}` : ''}</p>`;
@@ -307,7 +320,7 @@ function telaFicha(id) {
       </div>
       <p><a class="btn" href="#/ab/novo?p=${encodeURIComponent(p.id)}">Nova abordagem</a></p></div>
     ${outros.length ? `<div class="card revisar"><h2>Mesmos dígitos de CPF</h2>
-      <p class="muted peq">As listas publicam só 6 dígitos do CPF. Pode ser outra pessoa ou a mesma com nome escrito diferente: confira o documento.</p>
+      <p class="muted peq">As listas mostram só 6 dígitos do CPF. Pode ser outra pessoa, ou a mesma pessoa com outra grafia do nome. Confira o documento.</p>
       <ul class="lista">${outros.map(o => `<li><a href="#/p/${encodeURIComponent(o.id)}">${esc(nomeProprio(o.nome))} <span class="info">${esc(o.rgp)}</span></a></li>`).join('')}</ul></div>` : ''}
     <div class="card"><h2>Licenças por temporada</h2>
       <div class="tabela"><table><thead><tr><th>Temporada</th><th>Área</th><th>Nº</th><th>Nome na lista</th><th>RGP na lista</th></tr></thead>
@@ -334,8 +347,7 @@ function telaFicha(id) {
     p.obs = $('#obs').value.trim();
     p.atualizadoEm = agora();
     sujos.add(p.id);
-    await salvar();
-    $('#m-obs').textContent = 'Salvo.';
+    await salvarCom('Observação salva.');
   };
 }
 
@@ -363,7 +375,7 @@ function formBem(tipo, alvo, p, aoSalvar) {
     (p[tipo] ||= []).push(x);
     p.atualizadoEm = agora();
     sujos.add(p.id);
-    await salvar();
+    await salvarCom(tipo === 'veiculos' ? 'Veículo salvo.' : 'Embarcação salva.');
     aoSalvar(x);
   };
 }
@@ -477,7 +489,7 @@ function telaDenuncia(id) {
     d.criadoEm ||= agora();
     const i = db.cfg.denuncias.findIndex(x => x.id === d.id);
     if (i >= 0) db.cfg.denuncias[i] = d; else db.cfg.denuncias.push(d);
-    await salvar();
+    await salvarCom('Denúncia salva.');
     if (!ex) location.hash = '#/denuncia/' + d.id; else $('#m-den').textContent = 'Salva.';
   };
 }
@@ -537,16 +549,16 @@ function telaAbordagens(aba = 'lista') {
         <ul class="peq">${ps.map(p => `<li>${esc(p.texto)}${p.resolvivel ? ` <button class="sec mini" type="button" data-ab="${a.id}" data-res="${esc(p.chave)}">Resolvida</button>` : ''}</li>`).join('')}</ul></div>`).join('')
         || '<p class="muted peq">Nenhuma pendência nas abordagens.</p>'}`}</div>`;
   if (aba !== 'pend') return;
-  const gravarTarefas = async () => { await salvar(); telaAbordagens('pend'); };
+  const gravarTarefas = async (texto = 'Tarefa salva.') => { await salvarCom(texto); telaAbordagens('pend'); };
   $('#b-tarefa').onclick = () => { const texto = $('#t-txt').value.trim(); if (!texto) return $('#t-txt').focus();
-    tarefas.push({ id: novoId(), texto, prazo: $('#t-prazo').value, feito: false, criadoEm: agora() }); gravarTarefas(); };
-  app.querySelectorAll('[data-t]').forEach(c => c.onchange = () => { tarefas.find(t => t.id === c.dataset.t).feito = c.checked; gravarTarefas(); });
-  app.querySelectorAll('[data-rmt]').forEach(b => b.onclick = () => { tarefas.splice(tarefas.findIndex(t => t.id === b.dataset.rmt), 1); gravarTarefas(); });
+    tarefas.push({ id: novoId(), texto, prazo: $('#t-prazo').value, feito: false, criadoEm: agora() }); gravarTarefas('Tarefa adicionada.'); };
+  app.querySelectorAll('[data-t]').forEach(c => c.onchange = () => { tarefas.find(t => t.id === c.dataset.t).feito = c.checked; gravarTarefas(c.checked ? 'Tarefa concluída.' : 'Tarefa reaberta.'); });
+  app.querySelectorAll('[data-rmt]').forEach(b => b.onclick = () => { tarefas.splice(tarefas.findIndex(t => t.id === b.dataset.rmt), 1); gravarTarefas('Tarefa removida.'); });
   app.querySelectorAll('[data-res]').forEach(b => b.onclick = async () => {
     const a = normalizarAb(db.abordagens[b.dataset.ab]);
     a.resolvidas = [...(a.resolvidas || []), b.dataset.res];
     db.abordagens[a.id] = a; sujosAb.add(a.id);
-    await salvar(); telaAbordagens('pend');
+    await salvarCom('Pendência resolvida.'); telaAbordagens('pend');
   });
 }
 
@@ -686,7 +698,7 @@ function telaAbordagem(param) {
       lido = lerConsulta(e.target.value);
       const m = $('#c-lido');
       if (!e.target.value.trim()) { m.textContent = ''; return; }
-      if (!lido) { m.textContent = 'Não reconheci o resultado. Copie a página inteira depois de consultar.'; m.className = 'msg erro'; return; }
+      if (!lido) { m.textContent = 'O app não reconheceu o resultado. Faça a consulta, copie a página inteira e cole de novo.'; m.className = 'msg erro'; return; }
       if (lido.digitos && p.digitos && lido.digitos !== p.digitos) {
         m.textContent = `Este resultado é de outro CPF (${fmtDig(lido.digitos)}), não de ${nomeProprio(p.nome)}.`; m.className = 'msg erro'; lido = null; return;
       }
@@ -701,7 +713,7 @@ function telaAbordagem(param) {
         primeiroRgp: $('#c-pri').value, obs: $('#c-obs').value.trim() });
       p.atualizadoEm = agora();
       sujos.add(p.id);
-      await salvar();
+      await salvarCom('Consulta registrada.');
       desenharConsulta(); desenharSem();
       $('#m-cons').textContent = 'Consulta registrada.';
     };
@@ -848,7 +860,7 @@ function telaAbordagem(param) {
       if (cpf && !cpfValido(cpf)) { m.textContent = 'CPF inválido.'; m.className = 'msg erro'; return; }
       const p = criar(db.pescadores, { nome, cpf });
       sujos.add(p.id);
-      await salvar();
+      await salvarCom('Pessoa cadastrada.');
       escolher(p, !!cpf, cpf);
     };
     $('#p-q').focus();
@@ -908,7 +920,7 @@ function telaAbordagem(param) {
     if (l) {
       const r = REGIMES[ab.area];
       const avisoPatos = (l.id === 'patos' || l.id === 'patosnorte') && ab.gps && trechoPatos(ab.gps.lat) !== l.regime
-        ? `<p class="msg erro">Pela posição do GPS, este ponto fica no ${trechoPatos(ab.gps.lat) === 'patos' ? 'estuário' : 'trecho norte'} da Lagoa dos Patos: aplicado esse regime.</p>` : '';
+        ? `<p class="msg erro">Pela posição do GPS, este ponto fica no ${trechoPatos(ab.gps.lat) === 'patos' ? 'estuário' : 'trecho norte'} da Lagoa dos Patos. O app aplicou as regras deste trecho.</p>` : '';
       $('#onde').innerHTML = `<div class="onde-sel">
           <div><b>${esc(l.nome)}</b> <span class="muted peq">${esc(l.municipios.join(', '))}</span></div>
           <div class="peq">${esc(r.nome)}: ${esc(r.normas.join('; '))}${r.lista ? ' · com lista nominal' : ''}</div>
@@ -989,7 +1001,7 @@ function telaAbordagem(param) {
     A.atualizadoEm = agora();
     db.abordagens[A.id] = structuredClone(A);
     sujosAb.add(A.id);
-    await salvar();
+    await salvarCom('Abordagem salva.');
     if (location.hash !== '#/ab/' + A.id) location.hash = '#/ab/' + A.id;
     else { m.textContent = 'Abordagem salva.'; m.className = 'msg'; }
   };
@@ -1028,7 +1040,7 @@ async function importarPdf(arquivo, area, temporada) {
   const ja = db.importacoes.find(i => i.hash === hash);
   if (ja) throw new Error(`Este arquivo já foi importado em ${fmtDH(ja.data)} (${ja.temporada}).`);
   const lido = ler(await itensDoPdf(buf));
-  if (!lido.registros.length) throw new Error('Nenhum pescador encontrado no PDF. Confira se é uma lista de licenciados do MPA.');
+  if (!lido.registros.length) throw new Error('Nenhum pescador encontrado no PDF. Confira se o arquivo é uma lista de licenciados do MPA.');
   const r = mesclar(db.pescadores, lido.registros, { area, temporada, importacao: hash });
   r.alterados.forEach(id => sujos.add(id));
   const imp = { hash, arquivo: arquivo.name, data: agora(), area, temporada, linhas: lido.linhas, registros: lido.registros.length,
@@ -1088,7 +1100,7 @@ function telaDados() {
     <div class="card"><h1>Dados</h1><p class="muted">${ps.length} pescadores · ${imps.length} lista(s) importada(s)</p></div>
 
     <div class="card"><h2>1. Lista de licenciados do MPA (PDF)</h2>
-      <p class="muted peq">Baixe a lista no site do Ministério da Pesca e importe aqui. Pessoas já na base são reconhecidas pelos dígitos do CPF + nome. Importar o mesmo arquivo de novo não duplica nada.</p>
+      <p class="muted peq">Baixe a lista no site do Ministério da Pesca. Importe o arquivo aqui. O app reconhece as pessoas da base pelos dígitos do CPF e pelo nome. Se você importar o mesmo arquivo de novo, o app não duplica os dados.</p>
       <div class="grade">
         <div><label for="i-area">Área</label><select id="i-area">${AREAS_LISTA.map(k => `<option value="${k}">${esc(AREAS[k])}</option>`).join('')}</select></div>
         <div><label for="i-temp">Temporada</label><input id="i-temp" placeholder="2026/2027" inputmode="numeric" pattern="\\d{4}/\\d{4}"></div>
@@ -1103,14 +1115,14 @@ function telaDados() {
         ${htmlAvisos(i)}</div>`).join('') : '<p class="muted peq">Nenhuma lista importada.</p>'}</div>
 
     <div class="card"><h2>3. Backup e sincronização</h2>
-      <p class="muted peq">O backup sai criptografado com a sua senha atual. No outro aparelho, importe o arquivo: os dados são mesclados.</p>
+      <p class="muted peq">O backup sai criptografado com a sua senha atual. No outro aparelho, importe o arquivo. O app mescla os dados.</p>
       <div class="linha"><button id="b-nuvem" type="button">Enviar para a nuvem</button>
         <button class="sec" id="b-exp" type="button">Baixar backup</button>
         <label class="btn sec" style="margin:0">Importar backup<input type="file" id="f-bak" accept=".json,application/json" hidden></label></div>
       <p id="m-bak" class="msg"></p></div>
 
     <div class="card"><h2>4. Documentos (termo de apreensão e notificação)</h2>
-      <p class="muted peq">Preenchem os documentos impressos. O brasão e o logo ficam só neste aparelho, criptografados; não vão para o GitHub.</p>
+      <p class="muted peq">Estes dados preenchem os documentos impressos. O brasão e o logo ficam só neste aparelho, criptografados. Eles não vão para o GitHub.</p>
       <div class="grade">
         <div><label for="g-nome">Nome do agente</label><input id="g-nome" value="${esc(db.cfg.agente?.nome || '')}" placeholder="Ex.: Sd PM Fulano de Tal"></div>
         <div><label for="g-id">Id Func.</label><input id="g-id" value="${esc(db.cfg.agente?.idFunc || '')}"></div>
@@ -1124,7 +1136,7 @@ function telaDados() {
       <p><button id="b-docs" type="button">Salvar</button> <span id="m-docs" class="muted peq"></span></p></div>
 
     <div class="card"><h2>5. Temporada do camarão (Bacia do Tramandaí)</h2>
-      <p class="muted peq">A abertura sai por portaria todo ano; o fim é 21/06 (IN 17/2004, art. 20). Atualize quando sair a portaria nova.</p>
+      <p class="muted peq">Todo ano, uma portaria abre a temporada. A temporada termina em 21/06 (IN 17/2004, art. 20). Atualize as datas quando a portaria nova sair.</p>
       <div class="grade">
         <div><label for="cm-ini">Abertura</label><input id="cm-ini" type="date" value="${esc((db.cfg.camarao || CAMARAO_PADRAO).inicio)}"></div>
         <div><label for="cm-fim">Encerramento</label><input id="cm-fim" type="date" value="${esc((db.cfg.camarao || CAMARAO_PADRAO).fim)}"></div>
@@ -1145,14 +1157,15 @@ function telaDados() {
     $('#r-pdf').innerHTML = '';
     const temp = $('#i-temp').value.trim();
     const m = temp.match(/^(\d{4})\/(\d{4})$/);
-    if (!m || +m[2] !== +m[1] + 1) return msg('#m-pdf', 'Informe a temporada no formato 2026/2027 antes de escolher o arquivo.', true);
+    if (!m || +m[2] !== +m[1] + 1) return msg('#m-pdf', 'Primeiro, informe a temporada no formato 2026/2027. Depois, escolha o arquivo.', true);
     msg('#m-pdf', 'Lendo o PDF…');
     try {
-      const imp = await importarPdf(arq, $('#i-area').value, temp);
+      const imp = await ocupado(() => importarPdf(arq, $('#i-area').value, temp), 'Lendo a lista');
+      aviso('Lista importada.');
       telaDados();
       msg('#m-pdf', `${imp.temporada}: ${imp.linhas} linhas lidas, ${imp.registros} pescadores, ${imp.novos} novos, ${imp.vinculados} já estavam na base.`);
       $('#r-pdf').innerHTML = htmlAvisos(imp);
-    } catch (err) { msg('#m-pdf', err.message, true); }
+    } catch (err) { msg('#m-pdf', err.message, true); aviso('A lista não foi importada.', 'erro'); }
   };
 
   const baixarBlob = (blob, nome) => {
@@ -1162,16 +1175,17 @@ function telaDados() {
   };
   const exportarBackup = async enviar => {
     const nome = `backup-pesca-${hojeIso()}.json`;
-    const blob = new Blob([JSON.stringify(await cifrar(chave, salt, db))], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(await ocupado(() => cifrar(chave, salt, db), 'Gerando o backup'))], { type: 'application/json' });
     // No celular, "Enviar para a nuvem" abre o menu de compartilhar (Google Drive, OneDrive, etc.).
     if (enviar && navigator.canShare) {
       const arq = new File([blob], nome, { type: 'application/json' });
       if (navigator.canShare({ files: [arq] })) {
-        try { await navigator.share({ files: [arq], title: nome }); return msg('#m-bak', 'Backup enviado. Salve no Google Drive ou OneDrive.'); }
+        try { await navigator.share({ files: [arq], title: nome }); aviso('Backup enviado.'); return msg('#m-bak', 'Backup enviado. Salve no Google Drive ou OneDrive.'); }
         catch (err) { if (err.name === 'AbortError') return; } // fallback para download
       }
     }
     baixarBlob(blob, nome);
+    aviso('Backup exportado.');
     msg('#m-bak', enviar ? 'Compartilhar indisponível neste aparelho: backup baixado. Salve o arquivo na pasta do Drive/OneDrive.' : 'Backup exportado.');
   };
   $('#b-exp').onclick = () => exportarBackup(false);
@@ -1179,16 +1193,16 @@ function telaDados() {
   $('#f-bak').onchange = async e => {
     try {
       const cofre = JSON.parse(await e.target.files[0].text());
-      if (cofre.app !== 'fiscal-pesca') throw new Error('Arquivo não é um backup deste app.');
+      if (cofre.app !== 'fiscal-pesca') throw new Error('Este arquivo não é um backup do Fiscal Pesca.');
       const senha = prompt('Senha usada no aparelho que gerou o backup:');
       if (!senha) return;
       let outro;
-      try { outro = await decifrar(await derivar(senha, unb64(cofre.salt)), cofre); } catch { throw new Error('Senha do backup incorreta.'); }
+      try { outro = await ocupado(async () => decifrar(await derivar(senha, unb64(cofre.salt)), cofre), 'Abrindo o backup'); } catch { throw new Error('Senha do backup incorreta.'); }
       const n = mesclarBackup(outro);
-      await salvar();
+      await salvarCom('Backup mesclado.');
       telaDados();
       msg('#m-bak', `Backup mesclado (${n} alteração(ões)).`);
-    } catch (err) { msg('#m-bak', err.message, true); }
+    } catch (err) { msg('#m-bak', err.message, true); aviso('O backup não foi mesclado.', 'erro'); }
     e.target.value = '';
   };
   const logos = { ...(db.cfg.logos || {}) };
@@ -1216,15 +1230,13 @@ function telaDados() {
     db.cfg.agente = { nome: $('#g-nome').value.trim(), idFunc: $('#g-id').value.trim(), fracao: $('#g-fr').value.trim() };
     db.cfg.comparecimento = $('#g-comp').value.trim();
     db.cfg.logos = logos;
-    await salvar();
-    $('#m-docs').textContent = 'Salvo.';
+    await salvarCom('Dados dos documentos salvos.');
   };
   $('#b-cm').onclick = async () => {
     const inicio = $('#cm-ini').value, fim = $('#cm-fim').value;
-    if (!inicio || !fim || fim < inicio) { $('#m-cm').textContent = 'Datas inválidas.'; return; }
+    if (!inicio || !fim || fim < inicio) { $('#m-cm').textContent = 'Datas inválidas. O encerramento deve ser depois da abertura.'; return; }
     db.cfg.camarao = { inicio, fim };
-    await salvar();
-    $('#m-cm').textContent = 'Salvo.';
+    await salvarCom('Temporada do camarão salva.');
   };
   $('#b-apagar').onclick = async () => {
     if (confirm('Apagar todos os dados deste aparelho?')) { await apagarTudo(); location.reload(); }
