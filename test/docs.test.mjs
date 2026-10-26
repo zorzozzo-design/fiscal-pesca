@@ -108,3 +108,11 @@ test('termo de apreensão mostra a embarcação e o veículo usados', () => {
   assert.match(h, /Veículo: ABC1D23, Saveiro/);
   assert.doesNotMatch(termoApreensao(ab, pe, {}), /Embarcação:/);
 });
+
+test('lembrete de backup: sem backup com dados, ou último backup com mais de 7 dias', () => {
+  const { lembreteBackup } = globalThis.Docs;
+  assert.equal(lembreteBackup(null, '2026-10-26', false), null); // base vazia: nada a guardar
+  assert.match(lembreteBackup(null, '2026-10-26', true), /Nenhum backup/);
+  assert.equal(lembreteBackup('2026-10-20T10:00', '2026-10-26', true), null);
+  assert.match(lembreteBackup('2026-10-10T10:00', '2026-10-26', true), /16 dias/);
+});

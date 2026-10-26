@@ -77,3 +77,10 @@ test('busca de município sem acento', () => {
   assert.ok(buscarLocal('guaiba').some(l => l.nome === 'Lago Guaíba'));
   assert.equal(proximos(-29.76, -57.08)[0], 'Uruguaiana');
 });
+
+test('lagoas do peixe-rei-bicudo estão nos locais (Emboaba e Caconde em peixoto; Horácio e Lessa em bicudo)', () => {
+  const { LOCAIS_PESCA } = globalThis.Locais;
+  assert.match(LOCAIS_PESCA.find(l => l.id === 'peixoto').nome, /Caconde/);
+  const b = LOCAIS_PESCA.find(l => l.id === 'bicudo');
+  assert.ok(b && /Horácio/.test(b.nome) && /Lessa/.test(b.nome) && b.regime === 'tramandai');
+});

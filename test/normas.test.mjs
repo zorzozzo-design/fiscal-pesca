@@ -336,3 +336,12 @@ test('R35: amador só com os petrechos da Portaria SAP/MAPA 616/2022 (fora de Tr
   assert.ok(!tem(a('tramandai', 'Rede de emalhe'), 'R35'));
   assert.ok(!tem(ab({ area: 'outras', data: '2026-06-10', categoria: 'Profissional', petrechos: [pet('Rede de emalhe', { malhaMm: 80 })] }), 'R35'));
 });
+
+test('R27: peixe-rei sem espécie nas lagoas do peixe-rei-bicudo fica amarelo', () => {
+  const r = local => checar(ab({ localPescaId: local, data: '2026-06-10', pescado: [{ especie: 'Peixe-rei', kg: 2 }] }), cfg);
+  for (const l of ['peixoto', 'bicudo']) assert.ok(r(l).some(m => m.regra === 'R27' && m.nivel === 'amarelo' && /bicudo/.test(m.texto)), l);
+  assert.ok(!r('tramandai').some(m => /bicudo/.test(m.texto)));
+  // espécie já informada como bicudo: vermelho, sem o amarelo
+  const v = checar(ab({ localPescaId: 'bicudo', data: '2026-06-10', pescado: [{ especie: 'Peixe-rei (Odontesthes bicudo)', kg: 2 }] }), cfg);
+  assert.ok(v.some(m => m.regra === 'R27' && m.nivel === 'vermelho') && !v.some(m => m.nivel === 'amarelo' && m.regra === 'R27'));
+});

@@ -77,6 +77,7 @@ const AMEACADAS = [
 ];
 // Só nas águas costeiras e estuarinas: nas bacias interiores "bagre" e "raia" são outras espécies.
 const CONFERIR_ESPECIE = /^(bagre|garoupa|cacao|raia|viola|tubarao)/;
+const LAGOAS_BICUDO = ['peixoto', 'bicudo'];
 const NORMA_AMEACADAS = 'Lei RS 15.223/2018, art. 30, III; Decreto RS 51.797/2014; Portaria MMA 445/2014';
 
 // Crime e infração administrativa separados. Art. 36 da Lei 9.605: pesca é todo ato tendente a retirar peixe (inclui a tentativa).
@@ -241,6 +242,8 @@ function checar(ab, cfg = {}) {
     const am = AMEACADAS.find(([re, , onde]) => re.test(k) && !(onde === 'continental' && ab.area === 'mar'));
     if (am) add('R27', 'vermelho', `${p.especie}: espécie ameaçada${k.includes(chave(am[1])) ? '' : ` (${am[1]})`}, pesca proibida em qualquer local e época.`, NORMA_AMEACADAS, CRIME_34_I);
     else if (CONFERIR_ESPECIE.test(k) && !['outras', 'uruguai', 'mirim'].includes(ab.area)) add('R27', 'amarelo', `${p.especie}: confira a espécie. Há espécies ameaçadas neste grupo, proibidas o ano todo.`, NORMA_AMEACADAS, CRIME_34_I);
+    // O peixe-rei-bicudo só existe nas lagoas Emboaba, Caconde, do Horácio e do Lessa (Malabarba e outros, 2013).
+    else if (k.startsWith('peixe-rei') && LAGOAS_BICUDO.includes(ab.localPescaId)) add('R27', 'amarelo', `${p.especie}: nesta lagoa vive o peixe-rei-bicudo (Odontesthes bicudo), ameaçado. Confira a espécie: focinho longo e pontudo.`, NORMA_AMEACADAS, CRIME_34_I);
   }
 
   if (ab.categoria === 'Amador') {

@@ -146,5 +146,13 @@ function pendenciasDe(a, pessoa) {
 }
 const diaMenos = (iso, n) => { const d = new Date(iso.slice(0, 10) + 'T12:00'); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); };
 
-globalThis.Docs = { NOTIF_ABERTURA, itensDaAbordagem, termoApreensao, notificacao, motivoSugerido, normalizarAb, pendenciasDe, PESSOAIS, DESTINOS };
+// Lembrete na tela inicial: os dados só existem no aparelho. Sem dados, não há o que guardar.
+function lembreteBackup(ultimo, hoje, temDados) {
+  if (!temDados) return null;
+  if (!ultimo) return 'Nenhum backup feito neste aparelho. Faça um backup.';
+  const dias = Math.round((Date.parse(hoje.slice(0, 10)) - Date.parse(ultimo.slice(0, 10))) / 864e5);
+  return dias > 7 ? `O último backup tem ${dias} dias. Faça um backup.` : null;
+}
+
+globalThis.Docs = { lembreteBackup, NOTIF_ABERTURA, itensDaAbordagem, termoApreensao, notificacao, motivoSugerido, normalizarAb, pendenciasDe, PESSOAIS, DESTINOS };
 })();

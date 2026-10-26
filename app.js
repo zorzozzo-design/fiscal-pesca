@@ -1,7 +1,7 @@
 const { ler, mesclar, temporadaAtual, situacao, buscar, parecido, cpfValido, criar, lerConsulta, identificar, AVISO_TXT } = window.Lista;
 const { avaliar, ultimaConsulta, corDe, AREAS_COM_LISTA } = window.Semaforo;
 const { checar, multaReferencia, defesosDe, DEFESOS, RESUMO, RESUMO_TODOS, AMEACADAS_GUIA, TAMANHO_MINIMO, LOCAIS } = window.Normas;
-const { NOTIF_ABERTURA, itensDaAbordagem, termoApreensao, notificacao, motivoSugerido, normalizarAb, pendenciasDe, PESSOAIS, DESTINOS } = window.Docs;
+const { lembreteBackup, NOTIF_ABERTURA, itensDaAbordagem, termoApreensao, notificacao, motivoSugerido, normalizarAb, pendenciasDe, PESSOAIS, DESTINOS } = window.Docs;
 
 // ---------- utilitários ----------
 const $ = s => document.querySelector(s);
@@ -172,10 +172,13 @@ const infoConsulta = p => {
 // e grava a consulta na ficha. Sem ninguém na base, oferece cadastrar.
 // Aviso curto de ação executada. Fica no rodapé, também quando a tela muda depois de salvar.
 let tAviso;
-function aviso(texto, tipo = 'ok') {
+// Com desfazer: o aviso traz o botão Desfazer e fica 6 s na tela.
+function aviso(texto, tipo = 'ok', desfazer = null) {
   const el = $('#aviso');
-  el.textContent = texto; el.className = tipo === 'erro' ? 'aviso-erro' : ''; el.hidden = false;
-  clearTimeout(tAviso); tAviso = setTimeout(() => { el.hidden = true; }, 2600);
+  el.innerHTML = `<span>${esc(texto)}</span>${desfazer ? ' <button type="button" class="aviso-desfazer">Desfazer</button>' : ''}`;
+  el.className = tipo === 'erro' ? 'aviso-erro' : ''; el.hidden = false;
+  if (desfazer) el.querySelector('button').onclick = () => { el.hidden = true; desfazer(); };
+  clearTimeout(tAviso); tAviso = setTimeout(() => { el.hidden = true; }, desfazer ? 6000 : 2600);
 }
 // Tela de carregamento (peixe): só aparece se a ação passar de 0,4 s, para não piscar nas ações rápidas.
 async function ocupado(fn, texto = 'Aguarde') {
@@ -251,7 +254,8 @@ function telaLista() {
     return;
   }
   // Busca e filtros fixos no topo; a lista rola dentro da própria caixa.
-  app.innerHTML = `<div class="tela-lista"><div class="lista-topo">${faixaDefesos()}
+  const lembrete = lembreteBackup(db.cfg.ultimoBackup, hojeIso(), true);
+  app.innerHTML = `<div class="tela-lista"><div class="lista-topo">${lembrete ? `<p class="msg erro peq lembrete">${esc(lembrete)} <a href="#/dados">Abrir Dados</a></p>` : ''}${faixaDefesos()}
       <p class="muted peq">${AREAS_LISTA.map(a => `${esc(AREA_CURTA[a])}: ${esc(at[a] || 'lista não importada')}`).join(' · ')}
         · <a href="#" id="b-colar">Colar consulta do PesqBrasil</a></p>
       <div id="colar"></div>
@@ -553,7 +557,11 @@ function telaAbordagens(aba = 'lista') {
   $('#b-tarefa').onclick = () => { const texto = $('#t-txt').value.trim(); if (!texto) return $('#t-txt').focus();
     tarefas.push({ id: novoId(), texto, prazo: $('#t-prazo').value, feito: false, criadoEm: agora() }); gravarTarefas('Tarefa adicionada.'); };
   app.querySelectorAll('[data-t]').forEach(c => c.onchange = () => { tarefas.find(t => t.id === c.dataset.t).feito = c.checked; gravarTarefas(c.checked ? 'Tarefa concluída.' : 'Tarefa reaberta.'); });
-  app.querySelectorAll('[data-rmt]').forEach(b => b.onclick = () => { tarefas.splice(tarefas.findIndex(t => t.id === b.dataset.rmt), 1); gravarTarefas('Tarefa removida.'); });
+  app.querySelectorAll('[data-rmt]').forEach(b => b.onclick = async () => {
+    const i = tarefas.findIndex(t => t.id === b.dataset.rmt), [t] = tarefas.splice(i, 1);
+    await gravarTarefas('Tarefa removida.');
+    aviso('Tarefa removida.', 'ok', async () => { tarefas.splice(i, 0, t); await salvar(); if (location.hash === '#/pendencias') telaAbordagens('pend'); aviso('Tarefa restaurada.'); });
+  });
   app.querySelectorAll('[data-res]').forEach(b => b.onclick = async () => {
     const a = normalizarAb(db.abordagens[b.dataset.ab]);
     a.resolvidas = [...(a.resolvidas || []), b.dataset.res];
@@ -869,6 +877,7 @@ function telaAbordagem(param) {
   // Cada item: cabeçalho com número e Remover; campos em duas colunas. O 5º elemento do campo, se houver, diz se ele aparece.
   const TITULO_LINHA = { '#petrechos': 'Petrecho', '#pescado': 'Pescado', '#ap-itens': 'Item' };
   const desenharLinhas = (lista, alvo, campos, aoMudar = () => {}) => {
+    $(alvo)._lista = lista; // o Desfazer só redesenha se a tela ainda mostra esta lista (outro envolvido pode estar aberto)
     $(alvo).innerHTML = lista.map((item, i) => `<div class="linha-item"><div class="li-topo"><b>${TITULO_LINHA[alvo] || 'Item'} ${i + 1}</b>
       <button class="sec li-rm" type="button" data-rm="${i}">Remover</button></div><div class="li-campos">${
       campos.filter(([, , , , mostra]) => !mostra || mostra(item)).map(([k, rot, tipo, extra]) => `<div><label>${rot}</label>${
@@ -879,7 +888,11 @@ function telaAbordagem(param) {
       if (el.dataset.k === 'tipo' && el.type !== 'number' && campos.some(c => c[4])) desenharLinhas(lista, alvo, campos, aoMudar); // os campos mudam com o tipo
       aoMudar();
     });
-    $(alvo).querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { lista.splice(+b.dataset.rm, 1); desenharLinhas(lista, alvo, campos, aoMudar); aoMudar(); });
+    $(alvo).querySelectorAll('[data-rm]').forEach(b => b.onclick = () => {
+      const i = +b.dataset.rm, [item] = lista.splice(i, 1);
+      desenharLinhas(lista, alvo, campos, aoMudar); aoMudar();
+      aviso(`${TITULO_LINHA[alvo] || 'Item'} removido.`, 'ok', () => { lista.splice(i, 0, item); if ($(alvo)?._lista === lista) { desenharLinhas(lista, alvo, campos, aoMudar); aoMudar(); } });
+    });
   };
   // Só os campos que as regras usam para o tipo: malha (todos menos linha), comprimento (redes, espinhel), altura e RGP na tralha (emalhe no mar).
   const emalheMar = p => p.tipo === 'Rede de emalhe' && (ab.area === 'mar' || p.alturaM != null || !!p.rgpTralha);
@@ -1173,6 +1186,8 @@ function telaDados() {
     a.click();
     URL.revokeObjectURL(a.href);
   };
+  // Data do último backup, para o lembrete da tela inicial.
+  const marcarBackup = async () => { db.cfg.ultimoBackup = agora(); await salvar(); };
   const exportarBackup = async enviar => {
     const nome = `backup-pesca-${hojeIso()}.json`;
     const blob = new Blob([JSON.stringify(await ocupado(() => cifrar(chave, salt, db), 'Gerando o backup'))], { type: 'application/json' });
@@ -1180,11 +1195,12 @@ function telaDados() {
     if (enviar && navigator.canShare) {
       const arq = new File([blob], nome, { type: 'application/json' });
       if (navigator.canShare({ files: [arq] })) {
-        try { await navigator.share({ files: [arq], title: nome }); aviso('Backup enviado.'); return msg('#m-bak', 'Backup enviado. Salve no Google Drive ou OneDrive.'); }
+        try { await navigator.share({ files: [arq], title: nome }); await marcarBackup(); aviso('Backup enviado.'); return msg('#m-bak', 'Backup enviado. Salve no Google Drive ou OneDrive.'); }
         catch (err) { if (err.name === 'AbortError') return; } // fallback para download
       }
     }
     baixarBlob(blob, nome);
+    await marcarBackup();
     aviso('Backup exportado.');
     msg('#m-bak', enviar ? 'Compartilhar indisponível neste aparelho: backup baixado. Salve o arquivo na pasta do Drive/OneDrive.' : 'Backup exportado.');
   };

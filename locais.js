@@ -44,6 +44,7 @@ const LOCAIS_PESCA = [
   L('cornelio', 'Rio Cornélio', ['Torres', 'Arroio do Sal', 'Capão da Canoa'], 'tramandai', 'IN 17, art. 7º', { sub: 'Rio Cornélio, Lagoa Boa Vista ou áreas do art. 7º' }),
   L('camarao', 'Rios Camarão e Relógio', ['Tramandaí', 'Osório'], 'tramandai', 'IN 17, art. 19', { sub: 'Rio, canal ou foz' }),
   L('peixoto', 'Lagoas Peixoto, Marcelino, Caconde e Emboaba', ['Osório', 'Tramandaí'], 'tramandai', 'Entre a Itapeva e a Cerquinha; a IN 17 não as nomeia', { sub: 'Outra lagoa da bacia', conferir: true }),
+  L('bicudo', 'Lagoas do Horácio e do Lessa', ['Osório', 'Tramandaí'], 'tramandai', 'Ocorrência do peixe-rei-bicudo (Malabarba e outros, 2013); a IN 17 não as nomeia', { sub: 'Outra lagoa da bacia', conferir: true }),
   L('barrososorio', 'Lagoa dos Barros', ['Osório', 'Santo Antônio da Patrulha'], 'outras', 'Bacia do Litoral Médio, drena para a Lagoa dos Patos (Vanzella e outros, IST, 2021); fora da IN 17', { sub: 'Lagoa ou rio' }),
   L('fortaleza', 'Lagoa da Fortaleza', ['Cidreira'], 'tramandai', 'Ao norte da Cerquinha; a IN 17 não a nomeia', { sub: 'Outra lagoa da bacia', conferir: true }),
   L('rincao', 'Lagoa Rincão das Éguas', ['Balneário Pinhal', 'Palmares do Sul'], 'outras', 'Nota técnica SEMA 001/2007: ao sul do limite da bacia', { sub: 'Lagoa ou rio' }),

@@ -320,3 +320,5 @@ button.mini { padding: 2px 8px; min-height: 28px; font-size: .8rem; }
 @keyframes cauda { from { transform: rotate(-14deg); } to { transform: rotate(14deg); } }
 @keyframes bolha { 0% { opacity: 0; transform: translateY(0); } 30% { opacity: .9; } 100% { opacity: 0; transform: translateY(-34px); } }
 @media (prefers-reduced-motion: reduce) { .car-peixe, .car-cauda, .car-bolha { animation: none; } .car-bolha { opacity: .6; } }
+.aviso-desfazer { margin-left: 10px; padding: 4px 10px; min-height: 32px; border-radius: 8px; border: 1px solid currentColor; background: transparent; color: inherit; font-weight: 700; }
+.lembrete { margin: 0 0 8px; }
