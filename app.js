@@ -1231,37 +1231,54 @@ function telaGuia() {
   const agora = Object.keys(REGIMES).map(r => [r, defesosDe(r, hoje)]).filter(([, ds]) => ds.length);
   const ameacadas = new Set(['bagre-branco', 'miraguaia']);
   app.innerHTML = `<div class="card"><h1>Guia</h1>
-      <p class="muted peq">Consulta rápida para a fiscalização. Funciona sem internet. Regras completas, com artigos: <a href="#/normas">Normas por local</a>.</p>
+      <p class="muted peq">Consulta rápida para a fiscalização. Funciona sem internet. Para as regras completas, com artigos, abra <a href="#/normas">Normas por local</a>.</p>
       <input id="g-q" type="search" placeholder="Buscar peixe, local ou regra" autocomplete="off"></div>
     <div class="card"><h2>Agora (${fmtData(hoje)})</h2>${agora.length ? agora.map(([r, ds]) => `<p class="peq"><b>${esc(REGIMES[r].nome)}</b><br>
-      ${ds.map(d => `${esc(d.nome)}: ${d.estado === 'vigente' ? '<b>em vigor</b>' : 'começa em breve'}, ${esc(d.periodo)}. ${esc(d.texto)} (${esc(d.norma)})`).join('<br>')}</p>`).join('')
+      ${ds.map(d => `${esc(d.nome)}: ${d.estado === 'vigente' ? '<b>em vigor</b>' : 'começa em breve'}, ${esc(d.periodo)}. ${esc(d.texto)} (${esc(d.norma)}).`).join('<br>')}</p>`).join('')
       : '<p class="muted peq">Nenhum defeso em vigor ou próximo.</p>'}</div>
     <details class="card card-dobra g" open><summary><h2 style="display:inline">Peixes ameaçados: pesca proibida</h2></summary>
-      <p class="muted peq">Proibidos em todo o RS, o ano todo, em qualquer tamanho (Lei RS 15.223/2018, art. 30, III; Decreto RS 51.797/2014). Na dúvida sobre a espécie, fotografe e registre.</p>
+      <p class="muted peq">Pesca proibida em todo o RS, o ano todo, em qualquer tamanho (Lei RS 15.223/2018, art. 30, III; Decreto RS 51.797/2014). Na dúvida sobre a espécie, fotografe o exemplar e registre na abordagem.</p>
       <ul class="lista g-lista">${AMEACADAS_GUIA.map(([pop, cie, amb, cat]) => `<li class="g-item"><div class="nome">${esc(pop)}</div>
         <div class="info"><i>${esc(cie)}</i> · ${esc(amb)} · ${esc(cat.split(' e ').map(c => CAT[c] || c).join(' / '))}</div></li>`).join('')}</ul>
-      <p class="muted peq">Também na lista: peixes-anuais, lambaris (<i>Bryconamericus lambari</i>, <i>Diapoma pyrrhopteryx</i>), lambari-listrado, canivete, joana e cambeva.</p></details>
+      <p class="muted peq">Também estão na lista: peixes-anuais, lambaris (<i>Bryconamericus lambari</i>, <i>Diapoma pyrrhopteryx</i>), lambari-listrado, canivete, joana e cambeva.</p></details>
+    <details class="card card-dobra g"><summary><h2 style="display:inline">Bagre</h2></summary>
+      <p class="peq g-item"><b>Espécies ameaçadas.</b> Bagre-branco (<i>Genidens barbus</i>) e bagre-boca-larga (<i>Genidens planifrons</i>) são ameaçados no RS. A pesca destas espécies é proibida o ano todo, em qualquer local (Lei RS 15.223/2018, art. 30, III; Decreto RS 51.797/2014).</p>
+      <p class="peq g-item"><b>Estuário da Lagoa dos Patos.</b> A Justiça Federal manteve a proibição dos dois bagres em 10/2025 (2ª Vara Federal de Pelotas, ACP 5002915-31.2019.4.04.7110). O calendário da INC 03/2004 cita bagre em out, nov e de mar a mai. ATENÇÃO: este calendário não libera os dois bagres ameaçados. Rede de espera para bagre: malha mínima de 140 mm.</p>
+      <p class="peq g-item"><b>Bacia do Tramandaí.</b> Pesca de bagre proibida de 15/12 a 31/03 (IN 17/2004, art. 14). A IN 17 cita <i>G. barbus</i>, <i>Netuma planifrons</i> e <i>G. genidens</i>. Fora deste período, os dois bagres ameaçados continuam proibidos.</p>
+      <p class="peq g-item"><b>Identificação.</b> Registre a espécie na abordagem. Bagre sem espécie fica amarelo no app. Fotografe o exemplar e confira. <i>G. genidens</i> não está na lista de ameaçados usada pelo app. No mar, o tamanho mínimo de <i>G. genidens</i> é 20 cm (IN 53/2005).</p></details>
+    <details class="card card-dobra g"><summary><h2 style="display:inline">Camarão</h2></summary>
+      <p class="peq g-item"><b>Bacia do Tramandaí: temporada.</b> Pesca de camarão só na temporada da portaria anual. Em 2026: de 23/01 a 21/06 (Portaria Interministerial MPA/MMA 48/2026). A cada ano, atualize as datas em Dados.</p>
+      <p class="peq g-item"><b>Bacia do Tramandaí: aviãozinho.</b> Só na Laguna do Armazém, nas balizas sorteadas, em estrela de 5. Malha mínima de 25 mm. Boca de até 13,20 m. Até 10 redes por pescador e 800 no total. Só camarão pode ser desembarcado. No fim da safra, as redes saem da água (IN 17/2004, art. 18).</p>
+      <p class="peq g-item"><b>Bacia do Tramandaí: tarrafa de camarão.</b> Malha de 25 mm. Só para licenciado. Só nos pontos demarcados das lagoas Tramandaí, Armazém e Custódias e dos rios Camarão e Relógio (IN 17/2004).</p>
+      <p class="peq g-item"><b>Estuário da Lagoa dos Patos.</b> Camarão-rosa: de fev a mai (INC 03/2004, art. 2º). Tamanho mínimo: 9 cm, com tolerância de 20% do número de exemplares (art. 6º). Rede de saco e aviãozinho: malha mínima de 24 mm. Andaina de até 10 redes por licenciado. Tralha de até 15 m. Placa com o registro no primeiro calão. Distância de 300 m entre séries paralelas.</p>
+      <p class="peq g-item"><b>Lagoa do Peixe.</b> Só pesca quem está no Termo de Compromisso do ICMBio. Aviãozinho com lacre numerado, em caíco sem motor. Só na temporada que o ICMBio abre.</p>
+      <p class="peq g-item"><b>Arrasto.</b> Proibido na Bacia do Tramandaí e no estuário da Lagoa dos Patos.</p></details>
     <details class="card card-dobra g"><summary><h2 style="display:inline">Defesos por região</h2></summary>
       ${Object.entries(DEFESOS).filter(([, ds]) => ds.length).map(([r, ds]) => `<p class="peq g-item"><b>${esc(REGIMES[r].nome)}</b><br>${ds.map(([n, de, ate, t, norma]) =>
-        `${esc(n)}: ${esc(de.split('-').reverse().join('/'))} a ${esc(ate.split('-').reverse().join('/').replace('29/02', '28/02'))}. ${esc(t)} (${esc(norma)})`).join('<br>')}</p>`).join('')}
-      <p class="peq g-item"><b>Lagoa dos Patos, estuário</b><br>Tainha de out a mai; corvina de out a fev; camarão-rosa de fev a mai (INC 03/2004, art. 2º).</p>
-      <p class="peq g-item"><b>Bacia do Tramandaí</b><br>Camarão: só na temporada da portaria anual (cadastrada em Dados).</p></details>
+        `${esc(n)}: de ${esc(de.split('-').reverse().join('/'))} a ${esc(ate.split('-').reverse().join('/').replace('29/02', '28/02'))}. ${esc(t)} (${esc(norma)}).`).join('<br>')}</p>`).join('')}
+      <p class="peq g-item"><b>Lagoa dos Patos, estuário</b><br>Tainha: de out a mai. Corvina: de out a fev. Camarão-rosa: de fev a mai (INC 03/2004, art. 2º).</p>
+      <p class="peq g-item"><b>Bacia do Tramandaí</b><br>Camarão: só na temporada da portaria anual. A data fica em Dados.</p></details>
     <details class="card card-dobra g"><summary><h2 style="display:inline">Tamanho mínimo no mar</h2></summary>
-      <p class="muted peq">IN MMA 53/2005. Comprimento total. Tolerância de 10% do peso (20% nas espécies do Anexo II).</p>
+      <p class="muted peq">Comprimento total, do focinho à ponta da cauda (IN MMA 53/2005). Tolerância: 10% do peso. Nas espécies do Anexo II: 20%.</p>
       <ul class="lista g-lista">${Object.entries(TAMANHO_MINIMO).filter(([k]) => !ameacadas.has(k)).map(([k, cm]) => `<li class="g-item"><div class="nome">${esc(k[0].toUpperCase() + k.slice(1))}: ${cm} cm</div></li>`).join('')}</ul></details>
     <details class="card card-dobra g"><summary><h2 style="display:inline">Petrechos e malhas por local</h2></summary>
-      ${Object.entries(RESUMO).map(([r, ts]) => `<div class="g-item"><p class="peq"><b>${esc(REGIMES[r].nome)}</b></p><ul class="peq">${ts.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>`).join('')}</details>
+      ${Object.entries(RESUMO).map(([r, ts]) => `<div class="g-item"><p class="peq"><b>${esc(REGIMES[r].nome)}</b></p><ul class="peq">${ts.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>`).join('')}
+      <div class="g-item"><p class="peq"><b>Pesca amadora, em qualquer local</b></p><ul class="peq">${RESUMO_TODOS.slice(1).map(t => `<li>${esc(t)}</li>`).join('')}</ul></div></details>
     <details class="card card-dobra g"><summary><h2 style="display:inline">RGP e licença: quem precisa</h2></summary>
-      <ul class="peq g-item"><li><b>Precisam de RGP:</b> pescador profissional (artesanal ou industrial), embarcação de pesca, armador, aquicultor, empresa pesqueira e aprendiz. Amador precisa da licença de pescador amador, válida por 1 ano (Dec. 8.425/2015; IN MPA 05/2012, art. 10).</li>
-        <li><b>Dispensados:</b> pesca de subsistência; amador só com linha de mão ou caniço simples; indígenas na subsistência (Dec. 8.425/2015, art. 3º, §1º). Vara com molinete ou carretilha exige licença.</li>
-        <li><b>Profissional:</b> só pesca com RGP ativo e licença, mantidos pelo REAP anual; o REAP de 2025 vai até 31/12/2026 (Portaria MPA 127/2023). Protocolo deixou de valer como licença em 31/03/2025.</li>
-        <li><b>RSPA e RSPS:</b> os dois prefixos aparecem nas listas oficiais de licenciados. Não há definição oficial publicada da diferença: vale a lista e a situação no PesqBrasil. Na dúvida, SFPA/RS.</li>
-        <li><b>Amador:</b> licença desembarcada ou embarcada (com barco, a embarcada); isenção de taxa para aposentados, homens com 65 anos ou mais e mulheres com 60 ou mais, só para linha, caniço ou molinete (IN MPA 05/2012, art. 6º). Barco do amador: esporte e recreio (Lei 11.959/2009).</li>
-        <li><b>Sem RGP ou licença:</b> infração do Dec. 6.514/2008, art. 37. Sozinha, não é crime do art. 34 (MPF, 4ª CCR, Enunciado 81).</li></ul></details>
+      <ul class="peq g-item"><li><b>Precisam de RGP:</b> pescador profissional (artesanal ou industrial), aprendiz, armador, embarcação de pesca, aquicultor e empresa pesqueira (Dec. 8.425/2015).</li>
+        <li><b>Amador:</b> precisa da licença de pescador amador. A licença vale 1 ano (IN MPA 05/2012, art. 10). Com barco, use a licença embarcada. O barco deve ser de esporte e recreio (Lei 11.959/2009).</li>
+        <li><b>Dispensados:</b> pesca de subsistência; amador só com linha de mão ou caniço simples; indígenas na subsistência (Dec. 8.425/2015, art. 3º, §1º). ATENÇÃO: vara com molinete ou carretilha exige licença.</li>
+        <li><b>Isenção de taxa:</b> aposentados, homens com 65 anos ou mais e mulheres com 60 anos ou mais. Só com linha, caniço ou molinete (IN MPA 05/2012, art. 6º). A isenção é da taxa, não da licença.</li>
+        <li><b>Profissional:</b> pesca só com RGP ativo e licença. O REAP anual mantém a licença. O REAP de 2025 vai até 31/12/2026 (Portaria MPA 127/2023).</li>
+        <li><b>Protocolo:</b> não vale como licença desde 31/03/2025.</li>
+        <li><b>RSPA e RSPS:</b> os dois prefixos aparecem nas listas oficiais de licenciados. Não há definição oficial publicada da diferença. Use a lista e a situação no PesqBrasil. Na dúvida, consulte a SFPA/RS.</li>
+        <li><b>Sem RGP ou licença:</b> infração do Dec. 6.514/2008, art. 37. Sem outra irregularidade, não é crime do art. 34 (MPF, 4ª CCR, Enunciado 81).</li></ul></details>
     <details class="card card-dobra g"><summary><h2 style="display:inline">Enquadramento</h2></summary>
-      <ul class="peq g-item"><li><b>Crime:</b> Lei 9.605/98, art. 34 (período proibido ou local interditado), p. ún. I (espécie protegida ou abaixo do tamanho), II (quantidade acima, petrecho ou método proibido), III (transporte ou comércio). Art. 36: pesca é todo ato tendente a retirar peixe, inclui a tentativa.</li>
-        <li><b>Infração:</b> Dec. 6.514/2008, art. 35: R$ 700 a R$ 100.000, mais R$ 20 por kg ou fração. Art. 37 (pescar sem autorização ou registro): R$ 300 a R$ 10.000, mais R$ 20 por kg.</li>
-        <li>O app indica; quem decide e autua é a equipe.</li></ul></details>`;
+      <ul class="peq g-item"><li><b>Crime:</b> Lei 9.605/98, art. 34. Caput: período proibido ou local interditado. Parágrafo único, I: espécie protegida ou abaixo do tamanho mínimo. II: quantidade acima do permitido, petrecho ou método proibido. III: transporte ou comércio de pescado proibido.</li>
+        <li><b>Tentativa:</b> pela Lei 9.605/98, art. 36, pesca é todo ato tendente a retirar peixe. A tentativa também é pesca.</li>
+        <li><b>Infração:</b> Dec. 6.514/2008, art. 35: R$ 700 a R$ 100.000, mais R$ 20 por kg ou fração.</li>
+        <li><b>Sem autorização ou registro:</b> Dec. 6.514/2008, art. 37: R$ 300 a R$ 10.000, mais R$ 20 por kg.</li>
+        <li>O app indica. A equipe decide e autua.</li></ul></details>`;
   // Busca: mostra só os itens que contêm o texto e abre as seções onde há resultado.
   const sem = t => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   $('#g-q').oninput = e => {
