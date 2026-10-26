@@ -1,7 +1,7 @@
 const { ler, mesclar, temporadaAtual, situacao, buscar, parecido, cpfValido, criar, lerConsulta, identificar, AVISO_TXT } = window.Lista;
 const { avaliar, ultimaConsulta, corDe, AREAS_COM_LISTA } = window.Semaforo;
 const { checar, multaReferencia, defesosDe, DEFESOS, RESUMO, RESUMO_TODOS, AMEACADAS_GUIA, TAMANHO_MINIMO, LOCAIS } = window.Normas;
-const { itensDaAbordagem, termoApreensao, notificacao, motivoSugerido, normalizarAb, pendenciasDe, PESSOAIS, DESTINOS } = window.Docs;
+const { NOTIF_ABERTURA, itensDaAbordagem, termoApreensao, notificacao, motivoSugerido, normalizarAb, pendenciasDe, PESSOAIS, DESTINOS } = window.Docs;
 
 // ---------- utilitários ----------
 const $ = s => document.querySelector(s);
@@ -380,7 +380,7 @@ const ESPECIES = ['Tainha', 'Camarão-rosa', 'Bagre (espécie não identificada)
   'Lambari', 'Pintado ou surubim (Pseudoplatystoma corruscans)', 'Dourado (Salminus brasiliensis)', 'Suruvi (Steindachneridion scriptum)',
   'Piracanjuba (Brycon orbignyanus)', 'Grumatã', 'Cascudo', 'Carpa', 'Tilápia', 'Pintado-amarelo (Pimelodus maculatus)', 'Piava'];
 const EMBARCACOES = ['Nenhuma', 'A remo', 'Motorizada'];
-const CATEGORIAS = ['Profissional', 'Amador'];
+const CATEGORIAS = ['Profissional', 'Amador', 'Sem RGP ou licença'];
 const CAMARAO_PADRAO = { inicio: '2026-01-23', fim: '2026-06-21' }; // Portaria Interministerial MPA/MMA 48/2026
 const fmtReais = v => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 // Providências adotadas: mais de uma por abordagem. Com número: os documentos.
@@ -761,7 +761,7 @@ function telaAbordagem(param) {
     const n = ab.notificacao;
     if (!n) { $('#nt').innerHTML = ''; return; }
     $('#nt').innerHTML = `
-      <label for="nt-mot">Motivo</label><textarea id="nt-mot" rows="6">${esc(n.motivo)}</textarea>
+      <label for="nt-mot">Motivo</label><p class="muted peq">O documento começa com: ${esc(NOTIF_ABERTURA)}</p><textarea id="nt-mot" rows="6">${esc(n.motivo)}</textarea>
       <p><button class="sec" id="b-nt-sem" type="button">Usar os motivos do semáforo</button></p>
       <label for="nt-comp">Endereço de comparecimento e apresentação dos documentos</label><input id="nt-comp" value="${esc(n.comparecimento)}">
       <p><button class="sec" id="b-nt-imp" type="button">Imprimir notificação</button></p><p id="m-nt" class="msg"></p>`;
@@ -1230,7 +1230,7 @@ function telaGuia() {
   const hoje = agoraLocal().slice(0, 10);
   const agora = Object.keys(REGIMES).map(r => [r, defesosDe(r, hoje)]).filter(([, ds]) => ds.length);
   const ameacadas = new Set(['bagre-branco', 'miraguaia']);
-  app.innerHTML = `<div class="card"><h1>Guia</h1>
+  app.innerHTML = `<div class="card fixo"><h1>Guia</h1>
       <p class="muted peq">Consulta rápida para a fiscalização. Funciona sem internet. Para as regras completas, com artigos, abra <a href="#/normas">Normas por local</a>.</p>
       <input id="g-q" type="search" placeholder="Buscar peixe, local ou regra" autocomplete="off"></div>
     <div class="card"><h2>Agora (${fmtData(hoje)})</h2>${agora.length ? agora.map(([r, ds]) => `<p class="peq"><b>${esc(REGIMES[r].nome)}</b><br>

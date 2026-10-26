@@ -140,3 +140,12 @@ test('PesqBrasil sem situação ativa: lembra que o protocolo não vale mais com
   assert.equal(r.cor, 'amarelo');
   assert.ok(tem(r, '31/03/2025'));
 });
+
+test('sem RGP ou licença: rede é vermelho pelo art. 24 da Lei 11.959; linha e anzol na bacia é dispensado; sem exigir consulta', () => {
+  const r = av({ pescador: pesc(), categoria: 'Sem RGP ou licença', soLinha: false });
+  assert.equal(r.cor, 'vermelho');
+  assert.ok(r.motivos.some(m => m.norma === 'Lei 11.959/2009, art. 24' && m.artigo === 37));
+  assert.ok(!tem(r, 'PesqBrasil'));
+  assert.equal(av({ pescador: pesc(), categoria: 'Sem RGP ou licença', soLinha: true }).cor, 'verde');
+  assert.equal(av({ pescador: pesc(), categoria: 'Sem RGP ou licença', soLinha: true, area: 'mar', atual: null }).cor, 'amarelo');
+});

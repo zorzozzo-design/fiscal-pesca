@@ -78,6 +78,8 @@ function bensUsados(ab, p) {
   return ts.length ? `<p class="doc-texto">${ts.map(esc).join('<br>')}</p>` : '';
 }
 
+// Abertura fixa do motivo da notificação.
+const NOTIF_ABERTURA = 'Tendo em vista os princípios da precaução e da prevenção (artigo 225 da CF/88), fica notificado(a) pelo seguinte motivo:';
 function notificacao(ab, p, cfg) {
   const n = ab.notificacao || {}, ag = cfg.agente || {};
   const coord = v => ab.gps ? num(v.toFixed(5)) : '';
@@ -88,7 +90,7 @@ function notificacao(ab, p, cfg) {
     <table class="doc-grade"><tr>${campo('CPF / CNPJ:', fmtCpf(p))}${campo('RG:', p.rg)}${campo('Telefone:', p.telefone)}</tr></table>
     <table class="doc-grade"><tr>${campo('Endereço:', p.endereco)}</tr></table>
     <table class="doc-grade"><tr>${campo('Bairro:', p.bairro)}${campo('Município:', p.municipio)}</tr></table>
-    <table class="doc-grade"><tr><td class="doc-motivo"><b>Fica notificado pelo seguinte motivo:</b><div>${esc(n.motivo).replace(/\n/g, '<br>')}</div></td></tr></table>
+    <table class="doc-grade"><tr><td class="doc-motivo"><b>${NOTIF_ABERTURA}</b><div>${esc(n.motivo).replace(/\n/g, '<br>')}</div></td></tr></table>
     <table class="doc-grade"><tr><td><b>Local onde foi lavrada a notificação</b> ${esc(ab.local)}<br>
       <span class="doc-rot">Coordenadas geográficas:</span> <b>Latitude:</b> ${coord(ab.gps?.lat)}&nbsp;&nbsp;&nbsp; <b>Longitude:</b> ${coord(ab.gps?.lon)}<br>
       <span class="doc-rot">DATUM:</span> ${ab.gps ? 'WGS 84' : ''}</td></tr></table>
@@ -144,5 +146,5 @@ function pendenciasDe(a, pessoa) {
 }
 const diaMenos = (iso, n) => { const d = new Date(iso.slice(0, 10) + 'T12:00'); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); };
 
-globalThis.Docs = { itensDaAbordagem, termoApreensao, notificacao, motivoSugerido, normalizarAb, pendenciasDe, PESSOAIS, DESTINOS };
+globalThis.Docs = { NOTIF_ABERTURA, itensDaAbordagem, termoApreensao, notificacao, motivoSugerido, normalizarAb, pendenciasDe, PESSOAIS, DESTINOS };
 })();

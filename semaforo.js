@@ -31,13 +31,18 @@ const licencaAmador = embarcado => ['amarelo', `Amador: confira a licença de pe
 function avaliar({ pescador: p, area, atual, data, identificadoPor, outrosMesmosDigitos, categoria = 'Profissional', soLinha = false, embarcado = false }) {
   const motivos = [];
   const add = (nivel, texto, extra) => motivos.push({ nivel, texto, ...extra });
-  const amador = categoria === 'Amador';
+  const amador = categoria === 'Amador', semLicenca = categoria === 'Sem RGP ou licença';
 
   if (AMADOR_SO_LINHA.has(area) && amador) {
     if (soLinha) add(...dispensaLinha(area, 'Amador'));
     else add('vermelho', `Amador ${area === 'patos' ? 'no estuário da Lagoa dos Patos' : 'na Bacia do Tramandaí'} só pode pescar com linha e anzol.`, r01(area));
   } else if (amador) {
     add(...licencaAmador(embarcado));
+  } else if (semLicenca) {
+    // Sem RGP nem licença: só linha e anzol segue as dispensas acima; outro petrecho exige inscrição no RGP.
+    if (!soLinha) add('vermelho', 'Sem RGP nem licença de pesca, com petrecho além de linha e anzol.', { regra: 'R01', artigo: 37, norma: 'Lei 11.959/2009, art. 24', enquadramento: 'Dec. 6.514/2008, art. 37' });
+    else if (AREAS_COM_LISTA.has(area)) add(...dispensaLinha(area, 'Sem licença'));
+    else add(...licencaAmador(embarcado));
   } else if (AREAS_COM_LISTA.has(area) && soLinha && !(p?.licencas || []).some(l => l.area === area && l.temporada === atual)) {
     add(...dispensaLinha(area, 'Só'));
   } else if (AREAS_COM_LISTA.has(area)) {
@@ -50,7 +55,7 @@ function avaliar({ pescador: p, area, atual, data, identificadoPor, outrosMesmos
   }
 
   const c = p ? ultimaConsulta(p.consultas, data) : null;
-  if (amador) { /* amador não tem RGP de profissional */ }
+  if (amador || (semLicenca && !c)) { /* amador não tem RGP de profissional; sem RGP, a consulta é opcional */ }
   else if (!c) add('amarelo', 'Sem consulta ao PesqBrasil registrada.');
   else if (VERMELHO.has(c.situacao)) add('vermelho', `PesqBrasil em ${fmtData(c.data)}: RGP ${c.situacao.toLowerCase()}.`, { artigo: 37, norma: 'Lei 11.959/2009, art. 6º, §1º, III', enquadramento: 'Dec. 6.514/2008, art. 37' });
   else if (c.situacao !== 'Ativo') add('amarelo', `PesqBrasil em ${fmtData(c.data)}: ${c.situacao.toLowerCase()}. O protocolo não vale como licença desde 31/03/2025 (Portaria MPA 401/2024): confira.`);

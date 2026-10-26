@@ -47,6 +47,7 @@ test('notificação: qualificação, motivo escapado, coordenadas e agente', () 
   assert.match(h, /14:30/);
   assert.match(h, /Rua A, 10/);
   assert.match(h, /Apresentar &lt;licença&gt;/);
+  assert.match(h, /Tendo em vista os princípios da precaução e da prevenção \(artigo 225 da CF\/88\), fica notificado\(a\)/);
   assert.match(h, /-29,97512/);
   assert.match(h, /WGS 84/);
   assert.match(h, /PATRAM Tramandaí/);
