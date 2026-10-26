@@ -854,20 +854,27 @@ function telaAbordagem(param) {
     $('#p-q').focus();
   };
 
+  // Cada item: cabeçalho com número e Remover; campos em duas colunas. O 5º elemento do campo, se houver, diz se ele aparece.
+  const TITULO_LINHA = { '#petrechos': 'Petrecho', '#pescado': 'Pescado', '#ap-itens': 'Item' };
   const desenharLinhas = (lista, alvo, campos, aoMudar = () => {}) => {
-    $(alvo).innerHTML = lista.map((item, i) => `<div class="grade linha-item">${campos.map(([k, rot, tipo, extra]) => `<div><label>${rot}</label>${
+    $(alvo).innerHTML = lista.map((item, i) => `<div class="linha-item"><div class="li-topo"><b>${TITULO_LINHA[alvo] || 'Item'} ${i + 1}</b>
+      <button class="sec li-rm" type="button" data-rm="${i}">Remover</button></div><div class="li-campos">${
+      campos.filter(([, , , , mostra]) => !mostra || mostra(item)).map(([k, rot, tipo, extra]) => `<div><label>${rot}</label>${
       tipo === 'select' ? `<select data-i="${i}" data-k="${k}">${opcoes(extra, item[k])}</select>`
-        : `<input data-i="${i}" data-k="${k}" type="${tipo}" ${extra || ''} value="${esc(item[k] ?? '')}">`}</div>`).join('')}
-      <div><label>&nbsp;</label><button class="sec" type="button" data-rm="${i}">Remover</button></div></div>`).join('');
+        : `<input data-i="${i}" data-k="${k}" type="${tipo}" ${extra || ''} value="${esc(item[k] ?? '')}">`}</div>`).join('')}</div></div>`).join('');
     $(alvo).querySelectorAll('[data-k]').forEach(el => el.oninput = el.onchange = () => {
       lista[+el.dataset.i][el.dataset.k] = el.type === 'number' ? (el.value === '' ? null : +el.value) : el.value;
+      if (el.dataset.k === 'tipo' && el.type !== 'number' && campos.some(c => c[4])) desenharLinhas(lista, alvo, campos, aoMudar); // os campos mudam com o tipo
       aoMudar();
     });
     $(alvo).querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { lista.splice(+b.dataset.rm, 1); desenharLinhas(lista, alvo, campos, aoMudar); aoMudar(); });
   };
-  const CAMPOS_PET = [['tipo', 'Tipo', 'select', PETRECHOS], ['malhaMm', 'Malha (mm, nós opostos)', 'number', 'min="0" step="1" inputmode="numeric"'],
-    ['comprimentoM', 'Comprimento (m)', 'number', 'min="0" step="1" inputmode="numeric"'], ['qtd', 'Quantidade', 'number', 'min="1" step="1" inputmode="numeric"'],
-    ['alturaM', 'Altura (m, emalhe no mar)', 'number', 'min="0" step="0.1" inputmode="decimal"'], ['rgpTralha', 'RGP na tralha (emalhe no mar)', 'select', ['', 'Sim', 'Não']]];
+  // Só os campos que as regras usam para o tipo: malha (todos menos linha), comprimento (redes, espinhel), altura e RGP na tralha (emalhe no mar).
+  const emalheMar = p => p.tipo === 'Rede de emalhe' && (ab.area === 'mar' || p.alturaM != null || !!p.rgpTralha);
+  const CAMPOS_PET = [['tipo', 'Tipo', 'select', PETRECHOS], ['malhaMm', 'Malha (mm)', 'number', 'min="0" step="1" inputmode="numeric" placeholder="nós opostos"', p => p.tipo !== 'Linha e anzol'],
+    ['qtd', 'Quantidade', 'number', 'min="1" step="1" inputmode="numeric"'],
+    ['comprimentoM', 'Comprimento (m)', 'number', 'min="0" step="1" inputmode="numeric"', p => /^Rede|Espinhel|Outro/.test(p.tipo)],
+    ['alturaM', 'Altura (m)', 'number', 'min="0" step="0.1" inputmode="decimal"', emalheMar], ['rgpTralha', 'RGP na tralha', 'select', ['', 'Sim', 'Não'], emalheMar]];
   const CAMPOS_PES = [['especie', 'Espécie', 'text', 'list="especies"'], ['kg', 'Peso (kg)', 'number', 'min="0" step="0.1" inputmode="decimal"'],
     ['menorCm', 'Menor exemplar (cm)', 'number', 'min="0" step="0.5" inputmode="decimal"']];
   $('#b-pet').onclick = () => { ab.petrechos.push({ tipo: PETRECHOS[0], malhaMm: null, comprimentoM: null, qtd: 1, alturaM: null, rgpTralha: '' }); desenharLinhas(ab.petrechos, '#petrechos', CAMPOS_PET, desenharSem); desenharSem(); };
@@ -894,7 +901,7 @@ function telaAbordagem(param) {
     if (!ab.local) { ab.local = l.nome; $('#a-local').value = l.nome; }
     gravarLocalTurno(l.id);
     $('#a-loc').innerHTML = opcoesLocal();
-    desenharOnde(); desenharSem();
+    desenharOnde(); desenharLinhas(ab.petrechos, '#petrechos', CAMPOS_PET, desenharSem); desenharSem();
   };
   const desenharOnde = () => {
     const l = localPesca(ab.localPescaId);
@@ -1356,6 +1363,20 @@ window.addEventListener('hashchange', rotear);
 const medirTopo = () => document.documentElement.style.setProperty('--topo-h', document.querySelector('.topo').offsetHeight + 'px');
 addEventListener('resize', medirTopo); medirTopo();
 $('#btn-bloquear').onclick = () => location.reload();
+// Tema: segue o celular até a pessoa escolher; a escolha fica neste aparelho (não é dado da fiscalização).
+const temaAtual = () => document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+const mostrarTema = () => { const escuro = temaAtual() === 'dark';
+  $('#btn-tema').setAttribute('aria-label', escuro ? 'Usar tema claro' : 'Usar tema escuro'); $('#btn-tema').title = $('#btn-tema').getAttribute('aria-label');
+  $('#btn-tema').innerHTML = escuro ? ICONE_SOL : ICONE_LUA; };
+const ICONE_SOL = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
+const ICONE_LUA = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
+$('#btn-tema').onclick = () => {
+  const novo = temaAtual() === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = novo;
+  try { localStorage.setItem('fp-tema', novo); } catch {}
+  mostrarTema();
+};
+mostrarTema();
 
 // Salvamento automático do que estiver pendente e bloqueio após 5 min em segundo plano.
 async function autosalvar() {
