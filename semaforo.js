@@ -18,7 +18,14 @@ const ultimaConsulta = (consultas, data) => (consultas || []).filter(c => c.data
 
 const corDe = motivos => motivos.some(m => m.nivel === 'vermelho') ? 'vermelho' : motivos.some(m => m.nivel === 'amarelo') ? 'amarelo' : 'verde';
 const R01_NORMA = { tramandai: 'IN 17/2004, arts. 22 e 26', patos: 'INC 03/2004, art. 7º', mirim: 'INC MMA/SEAP 02/2004 (lista de licenciados do MPA)' };
-const r01 = area => ({ regra: 'R01', artigo: 37, norma: R01_NORMA[area], enquadramento: 'Dec. 6.514/2008, art. 37' });
+// Sem licença válida e com petrecho além de linha e anzol: o petrecho não é permitido a quem pesca (Lei 9.605, art. 34, p. ún., II).
+// O Enunciado 81 da 4ª CCR/MPF afasta o crime só quando a conduta é apenas a falta de licença.
+const CRIME_SEM_LICENCA = 'Crime: Lei 9.605/98, art. 34, p. ún., II c/c art. 36 · Infração: Dec. 6.514/2008, art. 35, p. ún., II, e art. 37';
+const AVISO_CRIME = ' Sem licença e com petrecho de profissional: crime.';
+const semLic = (norma, comPetrecho) => comPetrecho
+  ? { regra: 'R01', artigo: 35, norma, enquadramento: CRIME_SEM_LICENCA }
+  : { regra: 'R01', artigo: 37, norma, enquadramento: 'Dec. 6.514/2008, art. 37' };
+const r01 = (area, comPetrecho = false) => semLic(R01_NORMA[area], comPetrecho);
 // Dispensa de licença para linha e anzol: expressa na IN 17 (art. 26, II); as INC 03/2004 e 02/2004 não trazem dispensa conhecida.
 const dispensaLinha = (area, quem) => area === 'tramandai'
   ? ['ok', `${quem} com linha e anzol: dispensa a licença ambiental (IN 17/2004, art. 26, II).`]
@@ -35,12 +42,12 @@ function avaliar({ pescador: p, area, atual, data, identificadoPor, outrosMesmos
 
   if (AMADOR_SO_LINHA.has(area) && amador) {
     if (soLinha) add(...dispensaLinha(area, 'Amador'));
-    else add('vermelho', `Amador ${area === 'patos' ? 'no estuário da Lagoa dos Patos' : 'na Bacia do Tramandaí'} só pode pescar com linha e anzol.`, r01(area));
+    else add('vermelho', `Amador ${area === 'patos' ? 'no estuário da Lagoa dos Patos' : 'na Bacia do Tramandaí'} só pode pescar com linha e anzol.${AVISO_CRIME}`, r01(area, true));
   } else if (amador) {
     add(...licencaAmador(embarcado));
   } else if (semLicenca) {
     // Sem RGP nem licença: só linha e anzol segue as dispensas acima; outro petrecho exige inscrição no RGP.
-    if (!soLinha) add('vermelho', 'Sem RGP nem licença de pesca, com petrecho além de linha e anzol.', { regra: 'R01', artigo: 37, norma: 'Lei 11.959/2009, art. 24', enquadramento: 'Dec. 6.514/2008, art. 37' });
+    if (!soLinha) add('vermelho', `Sem RGP nem licença de pesca, com petrecho além de linha e anzol.${AVISO_CRIME}`, semLic('Lei 11.959/2009, art. 24', true));
     else if (AREAS_COM_LISTA.has(area)) add(...dispensaLinha(area, 'Sem licença'));
     else add(...licencaAmador(embarcado));
   } else if (AREAS_COM_LISTA.has(area) && soLinha && !(p?.licencas || []).some(l => l.area === area && l.temporada === atual)) {
@@ -50,14 +57,14 @@ function avaliar({ pescador: p, area, atual, data, identificadoPor, outrosMesmos
     const naAtual = ls.find(l => l.temporada === atual);
     if (!atual) add('amarelo', `Nenhuma lista de licenciados ${NOME_AREA[area]} importada.`);
     else if (naAtual) add('ok', `Na lista ${atual} ${NOME_AREA[area]}, nº ${naAtual.n}.`);
-    else if (ls.length) add('vermelho', `Não está na lista ${atual}. Estava em ${ls.map(l => l.temporada).sort().join(', ')}.`, r01(area));
-    else add('vermelho', `Não está na lista de licenciados ${NOME_AREA[area]} (${atual}).`, r01(area));
+    else if (ls.length) add('vermelho', `Não está na lista ${atual}. Estava em ${ls.map(l => l.temporada).sort().join(', ')}.${soLinha ? '' : AVISO_CRIME}`, r01(area, !soLinha));
+    else add('vermelho', `Não está na lista de licenciados ${NOME_AREA[area]} (${atual}).${soLinha ? '' : AVISO_CRIME}`, r01(area, !soLinha));
   }
 
   const c = p ? ultimaConsulta(p.consultas, data) : null;
   if (amador || (semLicenca && !c)) { /* amador não tem RGP de profissional; sem RGP, a consulta é opcional */ }
   else if (!c) add('amarelo', 'Sem consulta ao PesqBrasil registrada.');
-  else if (VERMELHO.has(c.situacao)) add('vermelho', `PesqBrasil em ${fmtData(c.data)}: RGP ${c.situacao.toLowerCase()}.`, { artigo: 37, norma: 'Lei 11.959/2009, art. 6º, §1º, III', enquadramento: 'Dec. 6.514/2008, art. 37' });
+  else if (VERMELHO.has(c.situacao)) add('vermelho', `PesqBrasil em ${fmtData(c.data)}: RGP ${c.situacao.toLowerCase()}.${soLinha ? '' : AVISO_CRIME}`, { ...semLic('Lei 11.959/2009, art. 6º, §1º, III', !soLinha), regra: undefined });
   else if (c.situacao !== 'Ativo') add('amarelo', `PesqBrasil em ${fmtData(c.data)}: ${c.situacao.toLowerCase()}. O protocolo não vale como licença desde 31/03/2025 (Portaria MPA 401/2024): confira.`);
   else if (dias(c.data, data) > VALIDADE_CONSULTA) add('amarelo', `RGP ativo na consulta de ${fmtData(c.data)}, há mais de ${VALIDADE_CONSULTA} dias: refaça a consulta.`);
   else add('ok', `RGP ativo no PesqBrasil em ${fmtData(c.data)}.`);

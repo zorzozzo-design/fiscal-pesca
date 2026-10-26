@@ -94,9 +94,9 @@ test('R01: amador na bacia só pode linha e anzol; não precisa de consulta ao P
   assert.equal(av({ pescador: pesc(), categoria: 'Amador', soLinha: true }).cor, 'verde');
 });
 
-test('R01: motivo de irregularidade da lista aponta o art. 37 do Decreto 6.514 para a multa', () => {
+test('R01: fora da lista e com petrecho de profissional, a multa de referência vai para o art. 35 (crime do art. 34, p. ún., II)', () => {
   const m = av({ pescador: null }).motivos.find(x => x.nivel === 'vermelho');
-  assert.equal(m.artigo, 37);
+  assert.equal(m.artigo, 35);
   assert.equal(m.regra, 'R01');
 });
 
@@ -144,8 +144,26 @@ test('PesqBrasil sem situação ativa: lembra que o protocolo não vale mais com
 test('sem RGP ou licença: rede é vermelho pelo art. 24 da Lei 11.959; linha e anzol na bacia é dispensado; sem exigir consulta', () => {
   const r = av({ pescador: pesc(), categoria: 'Sem RGP ou licença', soLinha: false });
   assert.equal(r.cor, 'vermelho');
-  assert.ok(r.motivos.some(m => m.norma === 'Lei 11.959/2009, art. 24' && m.artigo === 37));
+  assert.ok(r.motivos.some(m => m.norma === 'Lei 11.959/2009, art. 24' && m.artigo === 35));
   assert.ok(!tem(r, 'PesqBrasil'));
   assert.equal(av({ pescador: pesc(), categoria: 'Sem RGP ou licença', soLinha: true }).cor, 'verde');
   assert.equal(av({ pescador: pesc(), categoria: 'Sem RGP ou licença', soLinha: true, area: 'mar', atual: null }).cor, 'amarelo');
+});
+
+test('sem licença com petrecho de profissional: crime do art. 34, p. ún., II (Enunciado 81 só cobre a falta de licença)', () => {
+  const crime = r => r.motivos.some(m => m.nivel === 'vermelho' && m.artigo === 35 && /art\. 34, p\. ún\., II/.test(m.enquadramento) && /art\. 37/.test(m.enquadramento));
+  // profissional fora da lista, com rede
+  assert.ok(crime(av({ pescador: pesc([], [consulta('2026-10-20')]), soLinha: false })));
+  // amador com rede em Tramandaí
+  assert.ok(crime(av({ categoria: 'Amador', pescador: null, soLinha: false })));
+  // sem RGP ou licença, fora das áreas com lista
+  assert.ok(crime(av({ area: 'outras', atual: null, categoria: 'Sem RGP ou licença', pescador: null, soLinha: false })));
+  // RGP cancelado no PesqBrasil, área sem lista
+  assert.ok(crime(av({ area: 'mar', atual: null, pescador: pesc([], [consulta('2026-10-20', 'Cancelado')]), soLinha: false })));
+});
+
+test('sem licença só com linha e anzol: segue só infração (art. 37), sem crime', () => {
+  const r = av({ area: 'mar', atual: null, pescador: pesc([], [consulta('2026-10-20', 'Cancelado')]), soLinha: true });
+  assert.equal(r.cor, 'vermelho');
+  assert.ok(r.motivos.every(m => !/art\. 34/.test(m.enquadramento || '')));
 });

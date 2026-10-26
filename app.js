@@ -1285,7 +1285,8 @@ function telaGuia() {
         <li><b>Profissional:</b> pesca só com RGP ativo e licença. O REAP anual mantém a licença. O REAP de 2025 vai até 31/12/2026 (Portaria MPA 127/2023).</li>
         <li><b>Protocolo:</b> não vale como licença desde 31/03/2025.</li>
         <li><b>RSPA e RSPS:</b> os dois prefixos aparecem nas listas oficiais de licenciados. Não há definição oficial publicada da diferença. Use a lista e a situação no PesqBrasil. Na dúvida, consulte a SFPA/RS.</li>
-        <li><b>Sem RGP ou licença:</b> infração do Dec. 6.514/2008, art. 37. Sem outra irregularidade, não é crime do art. 34 (MPF, 4ª CCR, Enunciado 81).</li></ul></details>
+        <li><b>Sem RGP ou licença, só com linha e anzol:</b> infração do Dec. 6.514/2008, art. 37. Sem outra irregularidade, não é crime (MPF, 4ª CCR, Enunciado 81).</li>
+        <li><b>Sem RGP ou licença, com petrecho de profissional</b> (rede, tarrafa, espinhel, aviãozinho, covo): crime. O petrecho não é permitido a quem não tem licença (Lei 9.605/98, art. 34, parágrafo único, II, c/c art. 36). Infração: Dec. 6.514/2008, art. 35, parágrafo único, II, e art. 37. O Enunciado 81 afasta o crime só quando a conduta é apenas a falta de licença.</li></ul></details>
     <details class="card card-dobra g"><summary><h2 style="display:inline">Enquadramento</h2></summary>
       <ul class="peq g-item"><li><b>Crime:</b> Lei 9.605/98, art. 34. Caput: período proibido ou local interditado. Parágrafo único, I: espécie protegida ou abaixo do tamanho mínimo. II: quantidade acima do permitido, petrecho ou método proibido. III: transporte ou comércio de pescado proibido.</li>
         <li><b>Tentativa:</b> pela Lei 9.605/98, art. 36, pesca é todo ato tendente a retirar peixe. A tentativa também é pesca.</li>
