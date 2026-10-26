@@ -7,9 +7,8 @@ const normNome = s => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').t
 // Os 6 dígitos visíveis do CPF (posições 4 a 9), em qualquer formato publicado pelo MPA ou digitado em campo.
 function digitos(s) {
   const t = String(s ?? '').trim();
-  let m = t.match(/\*{3}(\d{6})\*{2}/);
-  if (m) return m[1];
-  m = t.match(/X{3}\.(\d{3})\.(\d{3})\.X{2}/i);
+  // Máscaras vistas nas listas: ***123456**, XXX.123.456.XX, XXX.123.456-XX, XXX123456XX, XXX.123456.XX.
+  const m = t.match(/(?:\*{3}|X{3})\.?(\d{3})\.?(\d{3})[.-]?(?:\*{2}|X{2})/i);
   if (m) return m[1] + m[2];
   if (/[a-z]/i.test(t)) return null; // RS-P0000000-0, "Protocolo" e outros textos
   const d = t.replace(/\D/g, '');
@@ -18,8 +17,9 @@ function digitos(s) {
   return null;
 }
 
-const ehRgp = s => /^RSP[A-Z]?(\*{3}\d{6}\*{2}|X{3}\.\d{3}\.\d{3}\.X{2})$/i.test(s) || /^[A-Z]{2}-P\d{7}-\d$/i.test(s) || /^protocolo$/i.test(s);
-const ehCpfMasc = s => /^X{3}\.\d{3}\.\d{3}\.X{2}$/i.test(s);
+// RGP em qualquer forma publicada, inclusive com erro de digitação do MPA (RSPO, RSP0, RS-PXXX.7544-7.XX).
+const ehRgp = s => /^RS-?P[A-Z0-9]?[X*\d][X*\d.-]{4,}$/i.test(s) || /^protocolo$/i.test(s);
+const ehCpfMasc = s => /^(\*{3}|X{3})\.?\d{3}\.?\d{3}[.-]?(\*{2}|X{2})$/i.test(s) || /^\d{3}\.?\*{6}-?\d{2}$/.test(s);
 
 // Agrupa os textos do pdf.js em linhas: por página, de cima para baixo, da esquerda para a direita.
 function linhas(itens) {
@@ -37,7 +37,7 @@ function linhas(itens) {
 const AVISO_TXT = {
   duplicado: 'nome e RGP repetidos na lista (mantido um registro)',
   colisao: 'mesmos dígitos de outra pessoa com nome diferente (mantidos os dois)',
-  prefixo: 'RGP com prefixo diferente de RSPA',
+  prefixo: 'RGP com prefixo diferente de RSPA e RSPS',
   protocolo: 'RGP ainda em protocolo',
   formatoAntigo: 'RGP no formato antigo, sem dígitos de CPF',
   semDigitos: 'sem dígitos de CPF',
@@ -51,12 +51,13 @@ function ler(itens) {
     const it = l.itens;
     const num = /^\d{1,4}$/.test(it[0].s) && it.length >= 3 && ehRgp(it.at(-1).s);
     if (!num) {
-      pendente = it.length === 1 && !ehRgp(it[0].s) ? { p: l.p, x: it[0].x, s: it[0].s } : null;
+      pendente = it.length === 1 && !ehRgp(it[0].s) ? { p: l.p, y: l.y, x: it[0].x, s: it[0].s } : null;
       continue;
     }
     const iId = it.findIndex((x, i) => i > 0 && (ehCpfMasc(x.s) || ehRgp(x.s)));
     const partes = it.slice(1, iId);
-    if (pendente && pendente.p === l.p && Math.abs(pendente.x - partes[0].x) <= 3) partes.unshift(pendente);
+    // Só junta a linha logo acima (nome quebrado); o cabeçalho de página que repete um nome fica de fora.
+    if (pendente && pendente.p === l.p && Math.abs(pendente.x - partes[0].x) <= 3 && pendente.y - l.y <= 20) partes.unshift(pendente);
     pendente = null;
     const cpf = ehCpfMasc(it[iId].s) ? it[iId].s : '';
     const rgp = it.at(-1).s;
@@ -67,7 +68,8 @@ function ler(itens) {
   const avisos = [], registros = [], vistos = new Map();
   const avisar = (tipo, r, extra = '') => avisos.push({ tipo, n: r.n, nome: r.nome, texto: AVISO_TXT[tipo] + extra });
   for (const r of brutos) {
-    if (/^RSP[A-Z]/i.test(r.rgp) && !/^RSPA/i.test(r.rgp)) avisar('prefixo', r, `: ${r.rgp}`);
+    // RSPA e RSPS aparecem nas listas oficiais de licenciados; outro prefixo (RSPO, RSP0) é erro de digitação a conferir.
+    if (/^RSP/i.test(r.rgp) && !/^RSP[AS]/i.test(r.rgp)) avisar('prefixo', r, `: ${r.rgp}`);
     if (/^protocolo$/i.test(r.rgp)) avisar('protocolo', r);
     if (/^[A-Z]{2}-P/i.test(r.rgp)) avisar('formatoAntigo', r, `: ${r.rgp}`);
     if (!r.digitos) { avisar('semDigitos', r); registros.push(r); continue; }
@@ -101,6 +103,10 @@ function parecido(a, b) {
   return ta[0] === tb[0] ? d >= 0.75 : d >= 0.85; // primeiro nome diferente só passa com o resto quase igual (LUIZ/LUIS)
 }
 
+// Nome com partes trocadas por X (ex.: "FABIO XXXXX XXXXX"): com os mesmos dígitos, basta o primeiro nome conferir.
+const mascarado = s => normNome(s).split(' ').some(t => /^X{2,}$/.test(t));
+const mascaradoConfere = (a, b) => (mascarado(a) || mascarado(b)) && normNome(a).split(' ')[0] === normNome(b).split(' ')[0] && !/^X+$/.test(normNome(a).split(' ')[0]);
+
 const slug = s => normNome(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
 // Junta os registros de uma lista na base (objeto id -> pescador). Mesma pessoa = mesmos dígitos + nome parecido.
@@ -111,7 +117,8 @@ function mesclar(base, registros, { area, temporada, importacao }) {
   const agora = new Date().toISOString();
   for (const r of registros) {
     const cands = r.digitos ? porDig.get(r.digitos) || [] : Object.values(base).filter(p => !p.digitos);
-    let p = cands.find(c => c.nomeNorm === r.nomeNorm) || cands.find(c => parecido(c.nome, r.nome));
+    let p = cands.find(c => c.nomeNorm === r.nomeNorm) || cands.find(c => parecido(c.nome, r.nome))
+      || (r.digitos ? cands.find(c => mascaradoConfere(c.nome, r.nome)) : null);
     const lic = { area, temporada, n: r.n, nomeLista: r.nome, rgp: r.rgp, importacao };
     if (!p && r.digitos && cands.length) res.revisar.push({ nome: r.nome, n: r.n, digitos: r.digitos, outros: cands.map(c => c.nome) });
     if (!p) {
@@ -124,6 +131,7 @@ function mesclar(base, registros, { area, temporada, importacao }) {
     }
     if (p.licencas.some(l => l.area === area && l.temporada === temporada)) { res.jaTinha++; continue; }
     p.licencas.push(lic);
+    if (mascarado(p.nome) && !mascarado(r.nome)) { p.nome = r.nome; p.nomeNorm = r.nomeNorm; } // fica o nome completo
     if (temporada === p.licencas.map(l => l.temporada).sort().at(-1)) p.rgp = r.rgp; // RGP da lista mais recente
     p.atualizadoEm = agora;
     res.vinculados++; res.alterados.push(p.id);

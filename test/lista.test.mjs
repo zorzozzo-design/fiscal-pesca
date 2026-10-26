@@ -18,6 +18,11 @@ test('extrai os 6 dígitos do meio de qualquer formato', () => {
   assert.equal(digitos('987.123.456-00'), '123456');
   assert.equal(digitos('98712345600'), '123456');
   assert.equal(digitos('123456'), '123456');
+  assert.equal(digitos('RSPAXXX061970XX'), '061970');
+  assert.equal(digitos('XXX.449.780-XX'), '449780');
+  assert.equal(digitos('RSPAXXX.449.780-XX'), '449780');
+  assert.equal(digitos('RSPAXXX.438880.XX'), '438880');
+  assert.equal(digitos('RSPOXXX.9228.XX'), null);
   assert.equal(digitos('RS-P0060135-9'), null);
   assert.equal(digitos('Protocolo'), null);
 });
@@ -29,7 +34,7 @@ test('lista no layout A: registros, nome quebrado e avisos', () => {
   assert.equal(r.registros.find(x => x.n === 8).nome, 'BEATRIZ NOME MUITO COMPRIDO DO NASCIMENTO');
   assert.equal(r.registros.find(x => x.n === 7).nomeNorm, 'JOSE ACENTUADO');
   const tipos = r.avisos.map(a => a.tipo).sort();
-  assert.deepEqual(tipos, ['colisao', 'duplicado', 'prefixo']);
+  assert.deepEqual(tipos, ['colisao', 'duplicado']); // RSPS consta nas listas oficiais como licenciado: sem aviso
 });
 
 test('lista no layout B: dígitos vêm do CPF, avisos de protocolo e formato antigo', () => {
@@ -159,4 +164,31 @@ test('consulta colada com nome: lê o nome e acha a pessoa pelos dígitos e pelo
   const ps = [{ id: 'a', nome: 'MARIA SOUZA', nomeNorm: 'MARIA SOUZA', digitos: '456789' }, { id: 'b', nome: 'JOSE PEREIRA', nomeNorm: 'JOSE PEREIRA', digitos: '456789' },
     { id: 'c', nome: 'JOSE PEREIRA', nomeNorm: 'JOSE PEREIRA', digitos: '111111' }];
   assert.deepEqual(identificar(ps, lido).map(x => [x.p.id, x.nomeConfere]), [['b', true], ['a', false]]);
+});
+
+test('lista da Lagoa dos Patos 2025/2026: RGP sem pontos, cabeçalho com nome não gruda, prefixo errado avisa', () => {
+  const r = ler(fx('lista-c.json'));
+  assert.equal(r.linhas, 4);
+  assert.deepEqual(r.registros.map(x => x.digitos), ['101010', '202020', null, '404040']);
+  assert.equal(r.registros.find(x => x.n === 4).nome, 'DANIEL MODELO');
+  assert.deepEqual(r.avisos.map(a => a.tipo).sort(), ['prefixo', 'semDigitos']);
+  assert.ok(r.avisos.find(a => a.tipo === 'prefixo').texto.includes('RSPO'));
+});
+
+test('lista da Lagoa Mirim 2025/2026: CPF com hífen; nome mascarado vincula pelos dígitos e primeiro nome', () => {
+  const r = ler(fx('lista-d.json'));
+  assert.deepEqual(r.registros.map(x => x.digitos), ['505050', '606060']);
+  const base = {};
+  criar(base, { nome: 'Fabio Real Completo', cpf: '' });
+  const p = Object.values(base)[0]; p.digitos = '606060';
+  const m = mesclar(base, r.registros, { area: 'mirim', temporada: '2025/2026', importacao: 'h' });
+  assert.equal(m.vinculados, 1);
+  assert.equal(p.nome, 'FABIO REAL COMPLETO'); // nome mascarado não substitui o completo
+  const b2 = {};
+  mesclar(b2, r.registros, { area: 'mirim', temporada: '2025/2026', importacao: 'h' });
+  mesclar(b2, [{ n: 9, nome: 'FABIO REAL COMPLETO', nomeNorm: 'FABIO REAL COMPLETO', cpf: '', rgp: 'RSPA***606060**', digitos: '606060' }], { area: 'mirim', temporada: '2026/2027', importacao: 'h2' });
+  const f = Object.values(b2).find(x => x.digitos === '606060');
+  assert.equal(Object.values(b2).length, 2);
+  assert.equal(f.nome, 'FABIO REAL COMPLETO'); // o completo substitui o mascarado
+  assert.equal(f.licencas.length, 2);
 });

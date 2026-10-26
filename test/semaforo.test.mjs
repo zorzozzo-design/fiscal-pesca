@@ -116,3 +116,27 @@ test('estuário da Lagoa dos Patos tem lista própria; linha e anzol fora da lis
   const linha = av({ area: 'patos', atual: '2025/2026', pescador: pesc([], [consulta('2026-10-20')]), soLinha: true });
   assert.equal(linha.cor, 'amarelo');
 });
+
+test('Lagoa Mirim tem lista: profissional fora dela é vermelho pela INC 02/2004', () => {
+  const r = av({ area: 'mirim', pescador: pesc([lic('2025/2026')], [consulta('2026-10-20')]), atual: '2025/2026' });
+  assert.equal(r.cor, 'vermelho'); // a licença do fixture é de Tramandaí
+  assert.ok(r.motivos.some(m => m.regra === 'R01' && m.norma.includes('02/2004')));
+  const ok = av({ area: 'mirim', atual: '2025/2026', pescador: pesc([{ ...lic('2025/2026'), area: 'mirim' }], [consulta('2026-10-20')]) });
+  assert.equal(ok.cor, 'verde');
+});
+
+test('amador fora de Tramandaí e Patos: licença a conferir (IN MPA 05/2012); com barco, categoria embarcada', () => {
+  for (const area of ['outras', 'mirim', 'mar']) {
+    const r = av({ area, atual: null, categoria: 'Amador', pescador: null });
+    assert.equal(r.cor, 'amarelo', area);
+    assert.ok(r.motivos.some(m => m.norma === 'IN MPA 05/2012, art. 5º' && m.texto.includes('caniço simples')), area);
+    assert.ok(!tem(r, 'só pode pescar'), area);
+  }
+  assert.ok(tem(av({ area: 'outras', atual: null, categoria: 'Amador', pescador: null, embarcado: true }), 'embarcada'));
+});
+
+test('PesqBrasil sem situação ativa: lembra que o protocolo não vale mais como licença', () => {
+  const r = av({ pescador: pesc([lic('2026/2027')], [consulta('2026-10-20', 'Em análise')]) });
+  assert.equal(r.cor, 'amarelo');
+  assert.ok(tem(r, '31/03/2025'));
+});

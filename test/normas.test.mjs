@@ -320,3 +320,19 @@ test('R34: GPS dentro das áreas da IN 17 pede conferência', () => {
   // fora da bacia do Tramandaí, não avalia
   assert.deepEqual(checar({ ...g(-29.6435, -50.0960), area: 'outras' }, cfg).filter(m => m.regra === 'R34'), []);
 });
+
+test('R17 cita a Portaria SAP/MAPA 616/2022; estuário da Lagoa dos Patos usa 10 kg', () => {
+  const r = checar(ab({ area: 'patos', data: '2026-10-25', categoria: 'Amador', petrechos: [pet('Linha e anzol')], pescado: [{ especie: 'Tainha', kg: 11 }] }), cfg);
+  assert.ok(r.find(m => m.regra === 'R17').norma.includes('616/2022'));
+});
+
+test('R35: amador só com os petrechos da Portaria SAP/MAPA 616/2022 (fora de Tramandaí e Patos, que já têm regra própria)', () => {
+  const a = (area, tipo) => ab({ area, data: '2026-06-10', categoria: 'Amador', petrechos: [pet(tipo, { malhaMm: 80 })], pescado: [] });
+  const r = (area, tipo) => checar(a(area, tipo), cfg);
+  for (const tipo of ['Rede de emalhe', 'Tarrafa', 'Espinhel', 'Covo/armadilha'])
+    assert.ok(r('outras', tipo).some(m => m.regra === 'R35' && m.nivel === 'vermelho' && m.norma.includes('616/2022, art. 4º')), tipo);
+  assert.ok(!tem(a('outras', 'Linha e anzol'), 'R35'));
+  assert.ok(r('mar', 'Outro').some(m => m.regra === 'R35' && m.nivel === 'amarelo'));
+  assert.ok(!tem(a('tramandai', 'Rede de emalhe'), 'R35'));
+  assert.ok(!tem(ab({ area: 'outras', data: '2026-06-10', categoria: 'Profissional', petrechos: [pet('Rede de emalhe', { malhaMm: 80 })] }), 'R35'));
+});

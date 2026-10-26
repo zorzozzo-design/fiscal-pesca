@@ -224,7 +224,7 @@ function checar(ab, cfg = {}) {
 
   // R33: Lagoa Mirim e Mangueira (INC MMA/SEAP 02/2004, texto não localizado; defeso pela planilha do MPA).
   if (ab.area === 'mirim') {
-    add('R33', 'amarelo', 'Lagoa Mirim e Mangueira: norma própria (INC MMA/SEAP 02/2004), texto não localizado. Confira malha, petrechos e licença.', 'INC MMA/SEAP 02/2004', CRIME_34);
+    add('R33', 'amarelo', 'Lagoa Mirim e Mangueira: norma própria (INC MMA/SEAP 02/2004), texto não localizado. Confira malha e petrechos.', 'INC MMA/SEAP 02/2004', CRIME_34);
     if (entre(data, '11-01', '01-31') && pets.some(p => p.tipo !== 'Linha e anzol'))
       add('R33', 'vermelho', 'Defeso da Lagoa Mirim e Mangueira (1º/11 a 31/01), todas as espécies.', 'INC MMA/SEAP 02/2004 (planilha de defesos do MPA)', CRIME_34);
   }
@@ -244,8 +244,15 @@ function checar(ab, cfg = {}) {
   }
 
   if (ab.categoria === 'Amador') {
-    const limite = ab.area === 'mar' ? 15 : 10;
-    if (kg > limite) add('R17', 'vermelho', `Amador com ${num(kg)} kg (cota de ${limite} kg mais 1 exemplar): confira se o excedente é um único exemplar.`, 'IN MPA 05/2012; cartilha da pesca amadora do MPA', CRIME_34_II);
+    const limite = ab.area === 'mar' ? 15 : 10; // águas continentais e estuarinas 10 kg (art. 7º); marinhas 15 kg (art. 8º)
+    if (kg > limite) add('R17', 'vermelho', `Amador com ${num(kg)} kg (cota de ${limite} kg mais 1 exemplar): confira se o excedente é um único exemplar.`, `Portaria SAP/MAPA 616/2022, art. ${limite === 15 ? '8º' : '7º'}`, CRIME_34_II);
+    // R35: petrechos do amador (art. 4º): linha de mão, caniço, vara com molinete ou carretilha, arbalete, puçá-de-siri e
+    // bomba manual de isca. Rede, tarrafa, espinhel, covo e afins ficam de fora. Tramandaí e Patos já têm a regra "só linha" no semáforo.
+    if (!['tramandai', 'patos'].includes(ab.area)) {
+      const proibidos = [...new Set(pets.filter(p => !['Linha e anzol', 'Outro'].includes(p.tipo)).map(p => p.tipo))];
+      if (proibidos.length) add('R35', 'vermelho', `Amador com petrecho não permitido: ${proibidos.join(', ').toLowerCase()}.`, 'Portaria SAP/MAPA 616/2022, art. 4º', CRIME_34_II);
+      if (de('Outro').length) add('R35', 'amarelo', 'Amador com petrecho "outro": só valem linha de mão, caniço, vara com molinete ou carretilha, arbalete, puçá-de-siri e bomba manual de isca. Confira.', 'Portaria SAP/MAPA 616/2022, art. 4º', CRIME_34_II);
+    }
   }
   return out;
 }
@@ -312,7 +319,7 @@ const RESUMO = {
     'Proibido pescar a menos de 200 m de barragem, cachoeira ou corredeira.',
     'Piracema 1º/10 a 31/01: só linha, 1 por pescador, até 5 kg, barco sem motor; nada em lagoa marginal, a 1.500 m de barragem, a 500 m de confluência com o Uruguai e nos trechos do art. 3º (IN 193/2008).',
     'Lambari em reservatório: proibido de 1º/11 a 28/02.'],
-  mirim: ['Defeso de todas as espécies de 1º/11 a 31/01.', 'Malha, petrechos e licença: INC MMA/SEAP 02/2004 (texto não localizado). Confira.'],
+  mirim: ['Licença: só quem está na lista de licenciados das Lagoas Mirim e Mangueira publicada pelo MPA (INC 02/2004).', 'Defeso de todas as espécies de 1º/11 a 31/01.', 'Malha e petrechos: INC MMA/SEAP 02/2004 (texto não localizado). Confira.'],
   peixe: ['Parque Nacional: só pesca quem está no Termo de Compromisso do ICMBio.', 'Camarão: aviãozinho com lacre numerado, caíco sem motor, só na temporada que o ICMBio abre pelo monitoramento (2026: aberta em 14/01).'],
   mampituba: ['Barra do Mampituba até a Figueirinha: Portaria SUDEPE 006/1984 (texto não localizado). Confira.'],
   mar: ['Emalhe: malha de 70 a 140 mm, altura até 4 m, RGP na tralha superior (IN 12/2012).', 'Barco motorizado: emalhe só além de 1 milha da costa.',
@@ -321,7 +328,8 @@ const RESUMO = {
     'Anchova: defeso de 1º/12 a 31/03. Barras: de 15/03 a 15/08, só tarrafa.'],
 };
 const RESUMO_TODOS = ['Espécies ameaçadas: proibidas em qualquer lugar (bagre-branco, miraguaia, dourado, surubim, garoupa-verdadeira e outras).',
-  'Amador: até 10 kg (15 kg no mar) mais 1 exemplar.'];
+  'Amador: até 10 kg em rio, lagoa e estuário, 15 kg no mar, mais 1 exemplar; proibido vender e levar o pescado em postas, filés ou sem cabeça (Portaria SAP/MAPA 616/2022).',
+  'Amador: só linha de mão, caniço, vara com molinete ou carretilha, arbalete, puçá-de-siri e bomba manual de isca (art. 4º). Licença obrigatória, salvo linha de mão ou caniço simples (IN MPA 05/2012).'];
 
 // Guia: peixes ameaçados do RS que aparecem na pesca (Decreto RS 51.797/2014, Anexo I). [popular, científico, ambiente, categoria].
 // Ficaram de fora os peixes-anuais, rivulídeos, lambaris e cascudos pequenos (não são alvo de pesca), citados em nota no Guia.

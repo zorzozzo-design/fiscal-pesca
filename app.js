@@ -573,7 +573,8 @@ function telaAbordagem(param) {
   const semaforo = () => {
     const s = avaliar({ pescador: pesc(), area: ab.area, atual: atualDe(ab.area), data: ab.data, identificadoPor: ab.identificadoPor,
       outrosMesmosDigitos: pesc()?.digitos ? Object.values(db.pescadores).filter(o => o.digitos === pesc().digitos && o.id !== ab.pescadorId).length : 0,
-      categoria: ab.categoria || 'Profissional', soLinha: ab.petrechos.every(p => p.tipo === 'Linha e anzol') });
+      categoria: ab.categoria || 'Profissional', soLinha: ab.petrechos.every(p => p.tipo === 'Linha e anzol'),
+      embarcado: !!ab.embarcacao && ab.embarcacao !== 'Nenhuma' });
     const motivos = [...s.motivos, ...checar(ab, { camarao: db.cfg.camarao || CAMARAO_PADRAO })];
     return { cor: corDe(motivos), motivos };
   };
@@ -1250,6 +1251,13 @@ function telaGuia() {
       <ul class="lista g-lista">${Object.entries(TAMANHO_MINIMO).filter(([k]) => !ameacadas.has(k)).map(([k, cm]) => `<li class="g-item"><div class="nome">${esc(k[0].toUpperCase() + k.slice(1))}: ${cm} cm</div></li>`).join('')}</ul></details>
     <details class="card card-dobra g"><summary><h2 style="display:inline">Petrechos e malhas por local</h2></summary>
       ${Object.entries(RESUMO).map(([r, ts]) => `<div class="g-item"><p class="peq"><b>${esc(REGIMES[r].nome)}</b></p><ul class="peq">${ts.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>`).join('')}</details>
+    <details class="card card-dobra g"><summary><h2 style="display:inline">RGP e licença: quem precisa</h2></summary>
+      <ul class="peq g-item"><li><b>Precisam de RGP:</b> pescador profissional (artesanal ou industrial), embarcação de pesca, armador, aquicultor, empresa pesqueira e aprendiz. Amador precisa da licença de pescador amador, válida por 1 ano (Dec. 8.425/2015; IN MPA 05/2012, art. 10).</li>
+        <li><b>Dispensados:</b> pesca de subsistência; amador só com linha de mão ou caniço simples; indígenas na subsistência (Dec. 8.425/2015, art. 3º, §1º). Vara com molinete ou carretilha exige licença.</li>
+        <li><b>Profissional:</b> só pesca com RGP ativo e licença, mantidos pelo REAP anual; o REAP de 2025 vai até 31/12/2026 (Portaria MPA 127/2023). Protocolo deixou de valer como licença em 31/03/2025.</li>
+        <li><b>RSPA e RSPS:</b> os dois prefixos aparecem nas listas oficiais de licenciados. Não há definição oficial publicada da diferença: vale a lista e a situação no PesqBrasil. Na dúvida, SFPA/RS.</li>
+        <li><b>Amador:</b> licença desembarcada ou embarcada (com barco, a embarcada); isenção de taxa para aposentados, homens com 65 anos ou mais e mulheres com 60 ou mais, só para linha, caniço ou molinete (IN MPA 05/2012, art. 6º). Barco do amador: esporte e recreio (Lei 11.959/2009).</li>
+        <li><b>Sem RGP ou licença:</b> infração do Dec. 6.514/2008, art. 37. Sozinha, não é crime do art. 34 (MPF, 4ª CCR, Enunciado 81).</li></ul></details>
     <details class="card card-dobra g"><summary><h2 style="display:inline">Enquadramento</h2></summary>
       <ul class="peq g-item"><li><b>Crime:</b> Lei 9.605/98, art. 34 (período proibido ou local interditado), p. ún. I (espécie protegida ou abaixo do tamanho), II (quantidade acima, petrecho ou método proibido), III (transporte ou comércio). Art. 36: pesca é todo ato tendente a retirar peixe, inclui a tentativa.</li>
         <li><b>Infração:</b> Dec. 6.514/2008, art. 35: R$ 700 a R$ 100.000, mais R$ 20 por kg ou fração. Art. 37 (pescar sem autorização ou registro): R$ 300 a R$ 10.000, mais R$ 20 por kg.</li>

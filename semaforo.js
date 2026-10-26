@@ -2,8 +2,10 @@
 // a confirmação é sempre a consulta oficial e o documento apresentado.
 (() => {
 
-const AREAS_COM_LISTA = new Set(['tramandai', 'patos']);
-const NOME_AREA = { tramandai: 'da Bacia do Tramandaí', patos: 'do estuário da Lagoa dos Patos', mar: 'do mar', outras: 'das outras lagoas e rios' };
+const AREAS_COM_LISTA = new Set(['tramandai', 'patos', 'mirim']);
+// Onde a norma da área só admite amador com linha e anzol (IN 17/2004, art. 26, II; INC 03/2004).
+const AMADOR_SO_LINHA = new Set(['tramandai', 'patos']);
+const NOME_AREA = { tramandai: 'da Bacia do Tramandaí', patos: 'do estuário da Lagoa dos Patos', mirim: 'das Lagoas Mirim e Mangueira', mar: 'do mar', outras: 'das outras lagoas e rios' };
 const VALIDADE_CONSULTA = 30; // dias
 const VERMELHO = new Set(['Suspenso', 'Cancelado', 'Não encontrado']);
 
@@ -15,22 +17,27 @@ const ultimaConsulta = (consultas, data) => (consultas || []).filter(c => c.data
   .sort((a, b) => b.data.localeCompare(a.data))[0] || null;
 
 const corDe = motivos => motivos.some(m => m.nivel === 'vermelho') ? 'vermelho' : motivos.some(m => m.nivel === 'amarelo') ? 'amarelo' : 'verde';
-const R01_NORMA = { tramandai: 'IN 17/2004, arts. 22 e 26', patos: 'INC 03/2004, art. 7º' };
+const R01_NORMA = { tramandai: 'IN 17/2004, arts. 22 e 26', patos: 'INC 03/2004, art. 7º', mirim: 'INC MMA/SEAP 02/2004 (lista de licenciados do MPA)' };
 const r01 = area => ({ regra: 'R01', artigo: 37, norma: R01_NORMA[area], enquadramento: 'Dec. 6.514/2008, art. 37' });
-// Dispensa de licença para linha e anzol: expressa na IN 17 (art. 26, II); a INC 03/2004 não traz dispensa equivalente.
+// Dispensa de licença para linha e anzol: expressa na IN 17 (art. 26, II); as INC 03/2004 e 02/2004 não trazem dispensa conhecida.
 const dispensaLinha = (area, quem) => area === 'tramandai'
   ? ['ok', `${quem} com linha e anzol: dispensa a licença ambiental (IN 17/2004, art. 26, II).`]
-  : ['amarelo', `${quem} com linha e anzol fora da lista: a INC 03/2004 não traz dispensa expressa, confira.`];
+  : ['amarelo', `${quem} com linha e anzol fora da lista: a ${area === 'mirim' ? 'INC 02/2004' : 'INC 03/2004'} não traz dispensa expressa, confira.`];
+// Amador fora das áreas acima: licença de pescador amador, salvo linha de mão ou caniço simples (IN MPA 05/2012, art. 5º, p. ún.).
+const licencaAmador = embarcado => ['amarelo', `Amador: confira a licença de pescador amador${embarcado ? ' na categoria embarcada' : ''}. Dispensado só quem usa linha de mão ou caniço simples; vara com molinete ou carretilha exige licença.`,
+  { regra: 'R01', artigo: 37, norma: 'IN MPA 05/2012, art. 5º', enquadramento: 'Dec. 6.514/2008, art. 37' }];
 
 // soLinha: só linha e anzol (ou nenhum petrecho), que dispensa a licença ambiental na bacia (IN 17/2004, art. 26, II).
-function avaliar({ pescador: p, area, atual, data, identificadoPor, outrosMesmosDigitos, categoria = 'Profissional', soLinha = false }) {
+function avaliar({ pescador: p, area, atual, data, identificadoPor, outrosMesmosDigitos, categoria = 'Profissional', soLinha = false, embarcado = false }) {
   const motivos = [];
   const add = (nivel, texto, extra) => motivos.push({ nivel, texto, ...extra });
   const amador = categoria === 'Amador';
 
-  if (AREAS_COM_LISTA.has(area) && amador) {
+  if (AMADOR_SO_LINHA.has(area) && amador) {
     if (soLinha) add(...dispensaLinha(area, 'Amador'));
     else add('vermelho', `Amador ${area === 'patos' ? 'no estuário da Lagoa dos Patos' : 'na Bacia do Tramandaí'} só pode pescar com linha e anzol.`, r01(area));
+  } else if (amador) {
+    add(...licencaAmador(embarcado));
   } else if (AREAS_COM_LISTA.has(area) && soLinha && !(p?.licencas || []).some(l => l.area === area && l.temporada === atual)) {
     add(...dispensaLinha(area, 'Só'));
   } else if (AREAS_COM_LISTA.has(area)) {
@@ -46,7 +53,7 @@ function avaliar({ pescador: p, area, atual, data, identificadoPor, outrosMesmos
   if (amador) { /* amador não tem RGP de profissional */ }
   else if (!c) add('amarelo', 'Sem consulta ao PesqBrasil registrada.');
   else if (VERMELHO.has(c.situacao)) add('vermelho', `PesqBrasil em ${fmtData(c.data)}: RGP ${c.situacao.toLowerCase()}.`, { artigo: 37, norma: 'Lei 11.959/2009, art. 6º, §1º, III', enquadramento: 'Dec. 6.514/2008, art. 37' });
-  else if (c.situacao !== 'Ativo') add('amarelo', `PesqBrasil em ${fmtData(c.data)}: ${c.situacao.toLowerCase()}. Confira o protocolo.`);
+  else if (c.situacao !== 'Ativo') add('amarelo', `PesqBrasil em ${fmtData(c.data)}: ${c.situacao.toLowerCase()}. O protocolo não vale como licença desde 31/03/2025 (Portaria MPA 401/2024): confira.`);
   else if (dias(c.data, data) > VALIDADE_CONSULTA) add('amarelo', `RGP ativo na consulta de ${fmtData(c.data)}, há mais de ${VALIDADE_CONSULTA} dias: refaça a consulta.`);
   else add('ok', `RGP ativo no PesqBrasil em ${fmtData(c.data)}.`);
 
@@ -56,5 +63,5 @@ function avaliar({ pescador: p, area, atual, data, identificadoPor, outrosMesmos
   return { cor: corDe(motivos), motivos };
 }
 
-globalThis.Semaforo = { avaliar, ultimaConsulta, corDe, AREAS_COM_LISTA };
+globalThis.Semaforo = { avaliar, ultimaConsulta, corDe, AREAS_COM_LISTA, AMADOR_SO_LINHA };
 })();
