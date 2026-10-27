@@ -61,6 +61,9 @@ function avaliar({ pescador: p, area, atual, data, identificadoPor, outrosMesmos
     else add('vermelho', `Não está na lista de licenciados ${NOME_AREA[area]} (${atual}).${soLinha ? '' : AVISO_CRIME}`, r01(area, !soLinha));
   }
 
+  // Autorização especial da área (ex.: Automonitoramento da Prefeitura de Imbé): informa, não substitui a lista do MPA.
+  for (const a of p?.autorizacoes || []) if (a.area === area) add('ok', `Autorizado: ${a.titulo}, categoria ${a.categoria} (${a.orgao}), nº ${a.n}.`);
+
   const c = p ? ultimaConsulta(p.consultas, data) : null;
   if (amador || (semLicenca && !c)) { /* amador não tem RGP de profissional; sem RGP, a consulta é opcional */ }
   else if (!c) add('amarelo', 'Sem consulta ao PesqBrasil registrada.');

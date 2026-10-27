@@ -199,6 +199,58 @@ function identificar(ps, lido) {
     .sort((a, b) => b.nomeConfere - a.nomeConfere || a.p.nomeNorm.localeCompare(b.p.nomeNorm));
 }
 
+// Listas de autorização especial (ex.: Automonitoramento da Prefeitura de Imbé): nome e CPF completo, sem número de ordem.
+// O documento chama a coluna de "RGP", mas o conteúdo é o CPF.
+const MINUSC = new Set(['de', 'da', 'do', 'das', 'dos', 'e']);
+const titulo = t => t.toLowerCase().split(' ').map((w, i) => i && MINUSC.has(w) ? w : w[0].toUpperCase() + w.slice(1)).join(' ');
+function lerAutorizacao(itens) {
+  const out = { titulo: '', ano: '', categoria: '', orgao: '', registros: [], avisos: [] };
+  const orgao = [], vistos = new Map();
+  for (const l of linhas(itens)) {
+    const t = l.itens.map(x => x.s).join(' ').replace(/\s+/g, ' ').trim();
+    let m;
+    if (/^(PREFEITURA|SECRETARIA) /i.test(t) && !orgao.includes(titulo(t))) { orgao.push(titulo(t)); continue; }
+    if ((m = t.match(/autorizados no (.+?\b(\d{4}))$/i)) && !out.titulo) { out.titulo = m[1]; out.ano = m[2]; continue; }
+    if ((m = t.match(/^Categoria (.+)$/i)) && !out.categoria) { out.categoria = m[1]; continue; }
+    if (!(m = t.match(/^(\D+?)\s+(\d{3}\.?\d{3}\.?\d{3}-?\d{2})$/))) continue;
+    const n = out.registros.length + 1, nome = normNome(m[1]), cpf = m[2].replace(/\D/g, '');
+    const r = { n, nome, nomeNorm: nome, cpf, digitos: cpf.slice(3, 9) };
+    if (!cpfValido(cpf)) { out.avisos.push({ n, nome, tipo: 'cpfInvalido', texto: `CPF ${m[2]} inválido: não gravado na ficha` }); r.cpf = ''; }
+    else if (vistos.has(cpf)) { out.avisos.push({ n, nome, tipo: 'cpfRepetido', texto: `mesmo CPF do nº ${vistos.get(cpf)}: não gravado na ficha` }); r.cpf = ''; }
+    else vistos.set(cpf, n);
+    out.registros.push(r);
+  }
+  out.orgao = orgao.join(', ');
+  return out;
+}
+
+// Junta a autorização na base: mesma pessoa pelo CPF completo ou pelos dígitos + nome. Quem não está na base é cadastrado.
+function mesclarAutorizacao(base, registros, aut) {
+  const res = { novos: 0, vinculados: 0, jaTinha: 0, alterados: [], revisar: [] };
+  const agora = new Date().toISOString();
+  for (const r of registros) {
+    const ps = Object.values(base);
+    const cands = ps.filter(p => p.digitos === r.digitos);
+    const p = (r.cpf && ps.find(x => x.cpf === r.cpf)) || cands.find(c => c.nomeNorm === r.nomeNorm)
+      || cands.find(c => parecido(c.nome, r.nome) || mascaradoConfere(c.nome, r.nome));
+    const a = { ...aut, n: r.n };
+    if (p) {
+      if ((p.autorizacoes || []).some(x => x.id === aut.id)) { res.jaTinha++; continue; }
+      (p.autorizacoes ||= []).push(a);
+      if (!p.cpf && r.cpf) { p.cpf = r.cpf; p.digitos ||= r.digitos; }
+      p.atualizadoEm = agora; res.vinculados++; res.alterados.push(p.id);
+      continue;
+    }
+    if (cands.length) res.revisar.push({ nome: r.nome, n: r.n, digitos: r.digitos, outros: cands.map(c => c.nome) });
+    let id = `${r.digitos || 'sem'}-${slug(r.nome)}`;
+    while (base[id]) id += '-2';
+    base[id] = { id, nome: r.nome, nomeNorm: r.nomeNorm, digitos: r.digitos, cpf: r.cpf, rgp: '', licencas: [], consultas: [], autorizacoes: [a],
+      origem: 'autorizacao', obs: '', criadoEm: agora, atualizadoEm: agora };
+    res.novos++; res.alterados.push(id);
+  }
+  return res;
+}
+
 // Busca por nome parcial (sem acento), dígitos do CPF, CPF completo ou RGP.
 function buscar(ps, q) {
   const t = String(q ?? '').trim();
@@ -213,5 +265,5 @@ function buscar(ps, q) {
   return ps.filter(p => p.nomeNorm.includes(n) || (p.licencas || []).some(l => normNome(l.nomeLista).includes(n)));
 }
 
-globalThis.Lista = { normNome, digitos, linhas, ler, parecido, mesclar, temporadaAtual, situacao, buscar, cpfValido, criar, lerConsulta, identificar, AVISO_TXT };
+globalThis.Lista = { lerAutorizacao, mesclarAutorizacao, normNome, digitos, linhas, ler, parecido, mesclar, temporadaAtual, situacao, buscar, cpfValido, criar, lerConsulta, identificar, AVISO_TXT };
 })();

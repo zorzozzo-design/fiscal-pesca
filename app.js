@@ -1,4 +1,4 @@
-const { ler, mesclar, temporadaAtual, situacao, buscar, parecido, cpfValido, criar, lerConsulta, identificar, AVISO_TXT } = window.Lista;
+const { lerAutorizacao, mesclarAutorizacao, normNome, ler, mesclar, temporadaAtual, situacao, buscar, parecido, cpfValido, criar, lerConsulta, identificar, AVISO_TXT } = window.Lista;
 const { avaliar, ultimaConsulta, corDe, AREAS_COM_LISTA } = window.Semaforo;
 const { checar, multaReferencia, defesosDe, DEFESOS, RESUMO, RESUMO_TODOS, AMEACADAS_GUIA, TAMANHO_MINIMO, LOCAIS } = window.Normas;
 const { lembreteBackup, NOTIF_ABERTURA, itensDaAbordagem, termoApreensao, notificacao, motivoSugerido, normalizarAb, pendenciasDe, PESSOAIS, DESTINOS } = window.Docs;
@@ -158,8 +158,9 @@ const atuais = () => Object.fromEntries(AREAS_LISTA.map(a => [a, temporadaAtual(
 const situacoes = (p, at) => AREAS_LISTA.map(a => [a, situacao(p, a, at[a])]).filter(([, s]) => s !== 'nunca');
 const tagsListas = (p, at) => {
   const ss = situacoes(p, at);
-  return ss.length ? ss.map(([a, s]) => `<span class="tag ${SIT[s][1]}">${esc(AREA_CURTA[a])}: ${s === 'atual' ? 'na lista atual' : 'saiu da lista'}</span>`).join('')
-    : '<span class="tag aviso">Em nenhuma lista</span>';
+  const auts = (p.autorizacoes || []).map(a => `<span class="tag aut" title="${esc(`${a.titulo}, ${a.categoria} (${a.orgao})`)}">${esc(a.titulo)}</span>`).join('');
+  return (ss.length ? ss.map(([a, s]) => `<span class="tag ${SIT[s][1]}">${esc(AREA_CURTA[a])}: ${s === 'atual' ? 'na lista atual' : 'saiu da lista'}</span>`).join('')
+    : '<span class="tag aviso">Em nenhuma lista</span>') + auts;
 };
 // Da última consulta ao PesqBrasil: categoria, forma de atuação e ambientes de pesca (Rio, Lagoa...), para ver sem abrir a ficha.
 const infoConsulta = p => {
@@ -330,6 +331,9 @@ function telaFicha(id) {
       <div class="tabela"><table><thead><tr><th>Temporada</th><th>Área</th><th>Nº</th><th>Nome na lista</th><th>RGP na lista</th></tr></thead>
       <tbody>${lics.map(l => `<tr><td>${esc(l.temporada)}</td><td>${esc(AREA_CURTA[l.area] || l.area)}</td><td>${l.n}</td><td>${esc(l.nomeLista)}</td><td>${esc(l.rgp)}</td></tr>`).join('')}</tbody></table></div>
       ${lics.length ? '' : '<p class="muted peq">Em nenhuma lista importada.</p>'}</div>
+    ${(p.autorizacoes || []).length ? `<div class="card"><h2>Autorizações especiais</h2><ul class="peq">${p.autorizacoes.map(a =>
+      `<li><b>${esc(a.titulo)}</b>, categoria ${esc(a.categoria)}, nº ${a.n}. ${esc(a.orgao)}. ${esc(AREA_CURTA[a.area] || a.area)}.</li>`).join('')}</ul>
+      <p class="muted peq">A autorização não substitui a lista de licenciados do MPA.</p></div>` : ''}
     ${['embarcacoes', 'veiculos'].map(t => `<div class="card"><h2>${t === 'veiculos' ? 'Veículos' : 'Embarcações'}</h2><div id="f-${t}"></div>
       <details><summary>Cadastrar ${BENS[t].nome}</summary><div id="f-${t}-form"></div></details></div>`).join('')}
     <div class="card"><h2>Vínculos</h2><p class="muted peq">Pessoas, embarcações, veículos, abordagens e denúncias ligados a esta pessoa.</p>
@@ -1063,6 +1067,24 @@ async function importarPdf(arquivo, area, temporada) {
   return imp;
 }
 
+async function importarAutorizacao(arquivo, area) {
+  const buf = await arquivo.arrayBuffer();
+  const hash = await hashHex(buf);
+  const auts = (db.cfg.autorizacoes ||= []);
+  const ja = auts.find(i => i.hash === hash);
+  if (ja) throw new Error(`Este arquivo já foi importado em ${fmtDH(ja.data)}.`);
+  const lido = lerAutorizacao(await itensDoPdf(buf));
+  if (!lido.registros.length || !lido.titulo) throw new Error('O app não reconheceu a lista. O PDF deve ter o título "... autorizados no ..." e as colunas nome e CPF.');
+  const id = normNome(`${lido.titulo} ${lido.categoria}`).toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  const r = mesclarAutorizacao(db.pescadores, lido.registros, { id, titulo: lido.titulo, ano: lido.ano, categoria: lido.categoria, orgao: lido.orgao, area });
+  r.alterados.forEach(x => sujos.add(x));
+  const imp = { hash, id, titulo: lido.titulo, categoria: lido.categoria, orgao: lido.orgao, area, arquivo: arquivo.name, data: agora(),
+    registros: lido.registros.length, novos: r.novos, vinculados: r.vinculados, avisos: lido.avisos, revisar: r.revisar };
+  auts.push(imp);
+  await salvar();
+  return imp;
+}
+
 const htmlAvisos = imp => `
   ${imp.avisos.length ? `<details><summary>${imp.avisos.length} aviso(s) da lista</summary><ul class="peq">
     ${imp.avisos.map(a => `<li>Nº ${a.n} ${esc(a.nome)}: ${esc(a.texto)}</li>`).join('')}</ul></details>` : ''}
@@ -1084,12 +1106,14 @@ function mesclarBackup(outro) {
     for (const l of b.licencas) if (!a.licencas.some(x => x.area === l.area && x.temporada === l.temporada)) a.licencas.push(l);
     if (b.obs && b.obs !== a.obs && b.atualizadoEm > a.atualizadoEm) { a.obs = b.obs; a.atualizadoEm = b.atualizadoEm; }
     for (const c of b.consultas || []) if (!(a.consultas ||= []).some(x => x.id === c.id)) a.consultas.push(c);
+    for (const x of b.autorizacoes || []) if (!(a.autorizacoes ||= []).some(y => y.id === x.id)) a.autorizacoes.push(x);
     for (const t of ['embarcacoes', 'veiculos']) for (const x of b[t] || []) if (!(a[t] ||= []).some(y => y.id === x.id)) a[t].push(x);
     if (b.cpf && !a.cpf) a.cpf = b.cpf;
     for (const [k] of QUALIFICACAO) if (b[k] && !a[k]) a[k] = b[k];
     if (JSON.stringify(a) !== antes) { sujos.add(a.id); n++; }
   }
   for (const i of outro.importacoes || []) if (!db.importacoes.some(x => x.hash === i.hash)) db.importacoes.push(i);
+  for (const i of outro.cfg?.autorizacoes || []) if (!(db.cfg.autorizacoes ||= []).some(x => x.hash === i.hash)) db.cfg.autorizacoes.push(i);
   for (const k of ['denuncias', 'tarefas']) for (const x of outro.cfg?.[k] || []) { // vale a versão editada por último
     const l = (db.cfg[k] ||= []), i = l.findIndex(y => y.id === x.id);
     if (i < 0) { l.push(x); n++; } else if ((x.atualizadoEm || '') > (l[i].atualizadoEm || '')) { l[i] = x; n++; }
@@ -1121,20 +1145,29 @@ function telaDados() {
       <label for="f-pdf">Arquivo PDF</label><input type="file" id="f-pdf" accept=".pdf,application/pdf">
       <p id="m-pdf" class="msg"></p><div id="r-pdf"></div></div>
 
-    <div class="card"><h2>2. Listas importadas</h2>
+    <div class="card"><h2>2. Autorizações especiais (prefeitura)</h2>
+      <p class="muted peq">Lista de autorização com nome e CPF, por exemplo o Automonitoramento da Prefeitura de Imbé. O app lê o título, a categoria e o órgão no PDF. A autorização aparece na busca, na ficha e no semáforo da área. Ela não substitui a lista do MPA.</p>
+      <label for="a-area">Área</label><select id="a-area">${AREAS_LISTA.map(k => `<option value="${k}">${esc(AREAS[k])}</option>`).join('')}</select>
+      <label for="f-aut">Arquivo PDF</label><input type="file" id="f-aut" accept=".pdf,application/pdf">
+      <p id="m-aut" class="msg"></p>
+      ${(db.cfg.autorizacoes || []).map(i => `<div class="revisar" style="border-color:var(--borda)"><b>${esc(i.titulo)} · ${esc(i.categoria)}</b>
+        <div class="muted peq">${esc(i.orgao)} · ${esc(AREAS[i.area] || i.area)} · ${esc(i.arquivo)} · ${fmtDH(i.data)} · ${i.registros} pessoas, ${i.novos} novas, ${i.vinculados} já na base</div>
+        ${htmlAvisos(i)}</div>`).join('')}</div>
+
+    <div class="card"><h2>3. Listas importadas</h2>
       ${imps.length ? imps.map(i => `<div class="revisar" style="border-color:var(--borda)">
         <b>${esc(AREAS[i.area] || i.area)} · ${esc(i.temporada)}</b>
         <div class="muted peq">${esc(i.arquivo)} · ${fmtDH(i.data)} · ${i.linhas} linhas, ${i.novos} novos, ${i.vinculados} já na base${i.jaTinha ? `, ${i.jaTinha} já tinham esta temporada` : ''}</div>
         ${htmlAvisos(i)}</div>`).join('') : '<p class="muted peq">Nenhuma lista importada.</p>'}</div>
 
-    <div class="card"><h2>3. Backup e sincronização</h2>
+    <div class="card"><h2>4. Backup e sincronização</h2>
       <p class="muted peq">O backup sai criptografado com a sua senha atual. No outro aparelho, importe o arquivo. O app mescla os dados.</p>
       <div class="linha"><button id="b-nuvem" type="button">Enviar para a nuvem</button>
         <button class="sec" id="b-exp" type="button">Baixar backup</button>
         <label class="btn sec" style="margin:0">Importar backup<input type="file" id="f-bak" accept=".json,application/json" hidden></label></div>
       <p id="m-bak" class="msg"></p></div>
 
-    <div class="card"><h2>4. Documentos (termo de apreensão e notificação)</h2>
+    <div class="card"><h2>5. Documentos (termo de apreensão e notificação)</h2>
       <p class="muted peq">Estes dados preenchem os documentos impressos. O brasão e o logo ficam só neste aparelho, criptografados. Eles não vão para o GitHub.</p>
       <div class="grade">
         <div><label for="g-nome">Nome do agente</label><input id="g-nome" value="${esc(db.cfg.agente?.nome || '')}" placeholder="Ex.: Sd PM Fulano de Tal"></div>
@@ -1148,7 +1181,7 @@ function telaDados() {
       </div>
       <p><button id="b-docs" type="button">Salvar</button> <span id="m-docs" class="muted peq"></span></p></div>
 
-    <div class="card"><h2>5. Temporada do camarão (Bacia do Tramandaí)</h2>
+    <div class="card"><h2>6. Temporada do camarão (Bacia do Tramandaí)</h2>
       <p class="muted peq">Todo ano, uma portaria abre a temporada. A temporada termina em 21/06 (IN 17/2004, art. 20). Atualize as datas quando a portaria nova sair.</p>
       <div class="grade">
         <div><label for="cm-ini">Abertura</label><input id="cm-ini" type="date" value="${esc((db.cfg.camarao || CAMARAO_PADRAO).inicio)}"></div>
@@ -1179,6 +1212,18 @@ function telaDados() {
       msg('#m-pdf', `${imp.temporada}: ${imp.linhas} linhas lidas, ${imp.registros} pescadores, ${imp.novos} novos, ${imp.vinculados} já estavam na base.`);
       $('#r-pdf').innerHTML = htmlAvisos(imp);
     } catch (err) { msg('#m-pdf', err.message, true); aviso('A lista não foi importada.', 'erro'); }
+  };
+
+  $('#f-aut').onchange = async e => {
+    const arq = e.target.files[0];
+    e.target.value = '';
+    if (!arq) return;
+    try {
+      const imp = await ocupado(() => importarAutorizacao(arq, $('#a-area').value), 'Lendo a lista');
+      telaDados();
+      msg('#m-aut', `${imp.titulo}, ${imp.categoria}: ${imp.registros} pessoas, ${imp.novos} novas, ${imp.vinculados} já estavam na base.`);
+      aviso('Autorização importada.');
+    } catch (err) { msg('#m-aut', err.message, true); aviso('A lista não foi importada.', 'erro'); }
   };
 
   const baixarBlob = (blob, nome) => {

@@ -1,5 +1,5 @@
-// conteudo: cc248a3abf06
-const CACHE = 'fpesca-v22';
+// conteudo: 7cc8ae9a44f5
+const CACHE = 'fpesca-v24';
 const ARQUIVOS = ['./', 'index.html', 'app.js', 'lista.js', 'semaforo.js', 'normas.js', 'docs.js', 'municipios-rs.js', 'locais.js', 'vinculos.js', 'style.css', 'manifest.webmanifest',
   'vendor/pdf.min.js', 'vendor/pdf.worker.min.js', 'vendor/cytoscape.min.js', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png'];
 

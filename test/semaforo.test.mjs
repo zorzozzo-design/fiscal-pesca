@@ -167,3 +167,12 @@ test('sem licença só com linha e anzol: segue só infração (art. 37), sem cr
   assert.equal(r.cor, 'vermelho');
   assert.ok(r.motivos.every(m => !/art\. 34/.test(m.enquadramento || '')));
 });
+
+test('autorização especial aparece no semáforo da área, sem mudar a cor', () => {
+  const aut = { id: 'x', titulo: 'Automonitoramento 2025', categoria: 'Embarcado Baliza Tramandaí', orgao: 'Prefeitura Municipal de Imbé', area: 'tramandai', n: 7 };
+  const p = { ...pesc([lic('2026/2027')], [consulta('2026-10-20')]), autorizacoes: [aut] };
+  const r = av({ pescador: p });
+  assert.equal(r.cor, 'verde');
+  assert.ok(r.motivos.some(m => m.nivel === 'ok' && m.texto.includes('Automonitoramento 2025') && m.texto.includes('nº 7')));
+  assert.ok(!av({ pescador: p, area: 'mar', atual: null }).motivos.some(m => m.texto.includes('Automonitoramento')));
+});

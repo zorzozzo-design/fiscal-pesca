@@ -192,3 +192,33 @@ test('lista da Lagoa Mirim 2025/2026: CPF com hífen; nome mascarado vincula pel
   assert.equal(f.nome, 'FABIO REAL COMPLETO'); // o completo substitui o mascarado
   assert.equal(f.licencas.length, 2);
 });
+
+test('lista de autorização (automonitoramento, Prefeitura de Imbé): cabeçalho, nomes e CPF completo', () => {
+  const { lerAutorizacao } = globalThis.Lista;
+  const r = lerAutorizacao(fx('autorizacao.json'));
+  assert.equal(r.titulo, 'Automonitoramento 2025');
+  assert.equal(r.ano, '2025');
+  assert.equal(r.categoria, 'Embarcado Baliza Tramandaí');
+  assert.equal(r.orgao, 'Prefeitura Municipal de Imbé, Secretaria Municipal de Pesca');
+  assert.equal(r.registros.length, 5);
+  assert.deepEqual(r.registros[0], { n: 1, nome: 'JOAO FICTICIO DA SILVA', nomeNorm: 'JOAO FICTICIO DA SILVA', cpf: '11122233396', digitos: '222333' });
+  assert.equal(r.registros[4].nome, 'ANA OUTRA PESSOA'); // segunda página, depois do rodapé e do cabeçalho repetido
+  assert.deepEqual(r.avisos.map(a => [a.n, a.tipo]), [[3, 'cpfRepetido'], [4, 'cpfInvalido']]);
+});
+
+test('mescla de autorização: vincula pelo CPF ou dígitos + nome, grava o CPF, cria quem não está na base, não duplica', () => {
+  const { lerAutorizacao, mesclarAutorizacao } = globalThis.Lista;
+  const base = {};
+  const ja = criar(base, { nome: 'JOAO FICTICIO SILVA', cpf: '' }); ja.digitos = '222333';
+  const r = lerAutorizacao(fx('autorizacao.json'));
+  const aut = { id: 'automonitoramento-2025-embarcado-baliza-tramandai', titulo: r.titulo, ano: r.ano, categoria: r.categoria, orgao: r.orgao, area: 'tramandai' };
+  const m = mesclarAutorizacao(base, r.registros, aut);
+  assert.equal(m.vinculados, 1);
+  assert.equal(m.novos, 4);
+  assert.equal(ja.cpf, '11122233396'); // CPF válido gravado na ficha
+  assert.deepEqual(ja.autorizacoes.map(a => [a.id, a.n]), [[aut.id, 1]]);
+  assert.ok(!Object.values(base).find(p => p.nomeNorm === 'CARLOS DIGITO ERRADO').cpf); // CPF inválido não é gravado
+  const m2 = mesclarAutorizacao(base, r.registros, aut);
+  assert.equal(m2.novos + m2.vinculados, 0);
+  assert.equal(m2.jaTinha, 5);
+});
