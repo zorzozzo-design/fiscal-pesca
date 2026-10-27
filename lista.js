@@ -251,6 +251,53 @@ function mesclarAutorizacao(base, registros, aut) {
   return res;
 }
 
+// Corrige nome, CPF e RGP digitados ou importados com erro. Os 6 dígitos das listas do MPA mandam:
+// CPF com outros dígitos é recusado (pode ser outra pessoa). Ficha sem lista do MPA aceita a troca de dígitos.
+// O nome de cada lista fica em licencas[].nomeLista e continua valendo na busca. Devolve a mensagem de erro ou null.
+function corrigirCadastro(p, { nome, cpf, rgp }) {
+  const n = normNome(nome), c = String(cpf ?? '').replace(/\D/g, '');
+  if (n.split(' ').length < 2) return 'Informe nome e sobrenome.';
+  if (c && !cpfValido(c)) return 'CPF inválido: os dígitos verificadores não conferem.';
+  const daLista = (p.licencas || []).length > 0;
+  if (c && daLista && p.digitos && c.slice(3, 9) !== p.digitos)
+    return `Os dígitos deste CPF não conferem com as listas do MPA (${p.digitos}). Pode ser outra pessoa. Se for a mesma, use "Juntar com outra ficha".`;
+  p.nome = n; p.nomeNorm = n; p.cpf = c; p.rgp = String(rgp ?? '').trim().toUpperCase();
+  if (c) p.digitos = c.slice(3, 9);
+  p.atualizadoEm = new Date().toISOString();
+  return null;
+}
+
+// Junta a ficha duplicada (remover) na que fica (manter): soma licenças, consultas, autorizações, embarcações e veículos;
+// religa abordagens e denúncias; registra a junção para o backup de outro aparelho não trazer a ficha apagada de volta.
+const QUALIF = ['rg', 'telefone', 'endereco', 'bairro', 'municipio'];
+function juntarPessoas(db, manterId, removerId) {
+  const a = db.pescadores[manterId], b = db.pescadores[removerId];
+  const avisos = [];
+  const soma = (k, igual) => { for (const x of b[k] || []) if (!(a[k] ||= []).some(y => igual(x, y))) a[k].push(x); };
+  soma('licencas', (x, y) => x.area === y.area && x.temporada === y.temporada);
+  for (const k of ['consultas', 'autorizacoes', 'embarcacoes', 'veiculos']) soma(k, (x, y) => x.id === y.id);
+  if (b.cpf && !a.cpf) {
+    if (!a.digitos || b.cpf.slice(3, 9) === a.digitos) { a.cpf = b.cpf; a.digitos ||= b.digitos; }
+    else avisos.push(`O CPF da ficha apagada tem outros dígitos (${b.cpf.slice(3, 9)}) e não foi copiado. Informe o CPF certo em "Corrigir cadastro".`);
+  }
+  a.rgp ||= b.rgp || '';
+  for (const k of QUALIF) if (b[k] && !a[k]) a[k] = b[k];
+  if (b.obs && b.obs !== a.obs) a.obs = [a.obs, b.obs].filter(Boolean).join('\n');
+  const abordagens = [];
+  for (const ab of Object.values(db.abordagens)) {
+    let mudou = false;
+    if (ab.pescadorId === removerId) { ab.pescadorId = manterId; mudou = true; }
+    for (const e of ab.envolvidos || []) if (e.pescadorId === removerId) { e.pescadorId = manterId; mudou = true; }
+    if (mudou) abordagens.push(ab.id);
+  }
+  for (const d of db.cfg.denuncias || []) d.pescadorIds = [...new Set((d.pescadorIds || []).map(id => id === removerId ? manterId : id))];
+  (db.cfg.juncoes ||= {})[removerId] = manterId;
+  for (const [de, para] of Object.entries(db.cfg.juncoes)) if (para === removerId) db.cfg.juncoes[de] = manterId;
+  a.atualizadoEm = new Date().toISOString();
+  delete db.pescadores[removerId];
+  return { abordagens, avisos };
+}
+
 // Busca por nome parcial (sem acento), dígitos do CPF, CPF completo ou RGP.
 function buscar(ps, q) {
   const t = String(q ?? '').trim();
@@ -265,5 +312,5 @@ function buscar(ps, q) {
   return ps.filter(p => p.nomeNorm.includes(n) || (p.licencas || []).some(l => normNome(l.nomeLista).includes(n)));
 }
 
-globalThis.Lista = { lerAutorizacao, mesclarAutorizacao, normNome, digitos, linhas, ler, parecido, mesclar, temporadaAtual, situacao, buscar, cpfValido, criar, lerConsulta, identificar, AVISO_TXT };
+globalThis.Lista = { corrigirCadastro, juntarPessoas, lerAutorizacao, mesclarAutorizacao, normNome, digitos, linhas, ler, parecido, mesclar, temporadaAtual, situacao, buscar, cpfValido, criar, lerConsulta, identificar, AVISO_TXT };
 })();

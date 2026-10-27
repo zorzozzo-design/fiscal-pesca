@@ -222,3 +222,62 @@ test('mescla de autorização: vincula pelo CPF ou dígitos + nome, grava o CPF,
   assert.equal(m2.novos + m2.vinculados, 0);
   assert.equal(m2.jaTinha, 5);
 });
+
+test('juntar fichas: tudo passa para a que fica, abordagens e denúncias religadas, junção registrada', () => {
+  const { juntarPessoas } = globalThis.Lista;
+  const db = { cfg: { denuncias: [{ id: 'd1', pescadorIds: ['b'] }] }, abordagens: {
+    a1: { id: 'a1', envolvidos: [{ pescadorId: 'b' }, { pescadorId: 'x' }] }, a2: { id: 'a2', pescadorId: 'b' } },
+    pescadores: {
+      a: { id: 'a', nome: 'JOAO FICTICIO', digitos: '222333', cpf: '', rgp: 'RSPA***222333**', telefone: '', obs: 'obs a',
+        licencas: [{ area: 'tramandai', temporada: '2025/2026', n: 1 }], consultas: [{ id: 'c1' }], autorizacoes: [], embarcacoes: [] },
+      b: { id: 'b', nome: 'JOAO FICTICIO DA SILVA', digitos: '222333', cpf: '11122233396', rgp: '', telefone: '51 0000-0000', obs: 'obs b',
+        licencas: [{ area: 'tramandai', temporada: '2025/2026', n: 1 }, { area: 'patos', temporada: '2025/2026', n: 9 }], consultas: [{ id: 'c1' }, { id: 'c2' }],
+        autorizacoes: [{ id: 'aut', n: 3 }], embarcacoes: [{ id: 'e1' }], veiculos: [{ id: 'v1' }] } } };
+  const r = juntarPessoas(db, 'a', 'b');
+  const a = db.pescadores.a;
+  assert.ok(!db.pescadores.b);
+  assert.deepEqual(a.licencas.map(l => l.area), ['tramandai', 'patos']);
+  assert.deepEqual(a.consultas.map(c => c.id), ['c1', 'c2']);
+  assert.deepEqual(a.autorizacoes.map(x => x.id), ['aut']);
+  assert.deepEqual([a.embarcacoes.length, a.veiculos.length], [1, 1]);
+  assert.equal(a.cpf, '11122233396');
+  assert.equal(a.telefone, '51 0000-0000');
+  assert.equal(a.obs, 'obs a\nobs b');
+  assert.equal(a.nome, 'JOAO FICTICIO'); // o nome da que fica não muda
+  assert.deepEqual(db.abordagens.a1.envolvidos.map(e => e.pescadorId), ['a', 'x']);
+  assert.equal(db.abordagens.a2.pescadorId, 'a');
+  assert.deepEqual(db.cfg.denuncias[0].pescadorIds, ['a']);
+  assert.deepEqual(db.cfg.juncoes, { b: 'a' });
+  assert.deepEqual(r.abordagens.sort(), ['a1', 'a2']);
+});
+
+test('corrigir cadastro: nome, CPF e RGP; CPF com outros dígitos é recusado', () => {
+  const { corrigirCadastro } = globalThis.Lista;
+  const p = { id: 'a', nome: 'JOAO FICTICIO', nomeNorm: 'JOAO FICTICIO', digitos: '222333', cpf: '', rgp: '', licencas: [{ area: 'tramandai' }] };
+  assert.match(corrigirCadastro(p, { nome: 'João', cpf: '', rgp: '' }), /nome e sobrenome/);
+  assert.match(corrigirCadastro(p, { nome: 'João Fictício', cpf: '111.222.333-00', rgp: '' }), /CPF inválido/);
+  assert.match(corrigirCadastro(p, { nome: 'João Fictício', cpf: '444.555.666-19', rgp: '' }), /dígitos/);
+  assert.equal(corrigirCadastro(p, { nome: 'João Fictício da Silva', cpf: '111.222.333-96', rgp: 'rspa***222333**' }), null);
+  assert.deepEqual([p.nome, p.nomeNorm, p.cpf, p.rgp], ['JOAO FICTICIO DA SILVA', 'JOAO FICTICIO DA SILVA', '11122233396', 'RSPA***222333**']);
+  const semDig = { id: 'z', nome: 'X Y', nomeNorm: 'X Y', digitos: null, cpf: '', rgp: '' };
+  assert.equal(corrigirCadastro(semDig, { nome: 'X Y', cpf: '44455566619', rgp: '' }), null);
+  assert.equal(semDig.digitos, '555666'); // sem dígitos de lista, o CPF define os dígitos
+});
+
+test('juntar fichas: CPF da ficha apagada com outros dígitos não passa para a que fica (CPF errado na lista)', () => {
+  const { juntarPessoas } = globalThis.Lista;
+  const db = { cfg: {}, abordagens: {}, pescadores: {
+    a: { id: 'a', nome: 'JOAO FICTICIO', digitos: '222333', cpf: '', licencas: [{ area: 'tramandai', temporada: '2025/2026', n: 1 }] },
+    b: { id: 'b', nome: 'JOAO FICTISSIO', digitos: '555666', cpf: '44455566619', licencas: [], autorizacoes: [{ id: 'aut', n: 3 }] } } };
+  const r = juntarPessoas(db, 'a', 'b');
+  assert.equal(db.pescadores.a.cpf, '');
+  assert.match(r.avisos.join(' '), /CPF/);
+  assert.deepEqual(db.pescadores.a.autorizacoes.map(x => x.id), ['aut']);
+});
+
+test('corrigir cadastro: ficha sem lista do MPA aceita troca de CPF e de dígitos', () => {
+  const { corrigirCadastro } = globalThis.Lista;
+  const p = { id: 'b', nome: 'JOAO FICTISSIO', nomeNorm: 'JOAO FICTISSIO', digitos: '555666', cpf: '44455566619', rgp: '', licencas: [] };
+  assert.equal(corrigirCadastro(p, { nome: 'João Fictício', cpf: '111.222.333-96', rgp: '' }), null);
+  assert.deepEqual([p.cpf, p.digitos], ['11122233396', '222333']);
+});

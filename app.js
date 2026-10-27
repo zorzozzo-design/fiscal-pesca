@@ -1,4 +1,4 @@
-const { lerAutorizacao, mesclarAutorizacao, normNome, ler, mesclar, temporadaAtual, situacao, buscar, parecido, cpfValido, criar, lerConsulta, identificar, AVISO_TXT } = window.Lista;
+const { corrigirCadastro, juntarPessoas, lerAutorizacao, mesclarAutorizacao, normNome, ler, mesclar, temporadaAtual, situacao, buscar, parecido, cpfValido, criar, lerConsulta, identificar, AVISO_TXT } = window.Lista;
 const { avaliar, ultimaConsulta, corDe, AREAS_COM_LISTA } = window.Semaforo;
 const { checar, multaReferencia, defesosDe, DEFESOS, RESUMO, RESUMO_TODOS, AMEACADAS_GUIA, TAMANHO_MINIMO, LOCAIS } = window.Normas;
 const { lembreteBackup, NOTIF_ABERTURA, itensDaAbordagem, termoApreensao, notificacao, motivoSugerido, normalizarAb, pendenciasDe, PESSOAIS, DESTINOS } = window.Docs;
@@ -79,14 +79,17 @@ async function decifrar(chave, cofre) {
 let chave = null, salt = null, db = null;
 const sujos = new Set(); // pescadores alterados desde o último salvamento
 const sujosAb = new Set(); // abordagens alteradas
+const removidos = new Set(); // pescadores apagados (fichas juntadas)
 async function salvar() {
-  const lote = [...sujos], loteAb = [...sujosAb];
-  sujos.clear(); sujosAb.clear();
+  // Ficha apagada (junção) pode estar marcada como alterada: grava só as que existem e apaga as removidas.
+  const lote = [...sujos].filter(id => db.pescadores[id]), loteAb = [...sujosAb], loteRm = [...removidos].filter(id => !db.pescadores[id]);
+  sujos.clear(); sujosAb.clear(); removidos.clear();
   const meta = await cifrar(chave, salt, { cfg: db.cfg, importacoes: db.importacoes });
   const regs = await Promise.all(lote.map(async id => [id, await cifrar(chave, salt, db.pescadores[id])]));
   const regsAb = await Promise.all(loteAb.map(async id => [id, await cifrar(chave, salt, db.abordagens[id])]));
   if (regs.length) await tx('pescadores', 'readwrite', s => regs.forEach(([id, v]) => s.put(v, id)));
   if (regsAb.length) await tx('abordagens', 'readwrite', s => regsAb.forEach(([id, v]) => s.put(v, id)));
+  if (loteRm.length) await tx('pescadores', 'readwrite', s => loteRm.forEach(id => s.delete(id)));
   await tx('kv', 'readwrite', s => s.put(meta, 'meta'));
 }
 async function lerLoja(loja) {
@@ -320,7 +323,7 @@ function telaFicha(id) {
         <div><span>RGP (lista mais recente)</span>${esc(p.rgp || '-')}</div>
         <div><span>CPF (dígitos publicados)</span>${esc(fmtDig(p.digitos))}</div>
         ${AREAS_LISTA.map(a => `<div><span>Lista atual: ${esc(AREA_CURTA[a])}</span>${esc(at[a] || 'não importada')}</div>`).join('')}
-        ${p.cpf ? `<div><span>CPF conferido em campo</span>${esc(fmtCpf(p.cpf))}</div>` : ''}
+        ${p.cpf ? `<div><span>CPF completo</span>${esc(fmtCpf(p.cpf))}</div>` : ''}
         ${QUALIFICACAO.filter(([k]) => p[k]).map(([k, rot]) => `<div><span>${rot}</span>${esc(p[k])}</div>`).join('')}
       </div>
       <p><a class="btn" href="#/ab/novo?p=${encodeURIComponent(p.id)}">Nova abordagem</a></p></div>
@@ -341,6 +344,17 @@ function telaFicha(id) {
     <div class="card"><h2>Consultas ao PesqBrasil</h2>${tabelaConsultas(p)}
       <details><summary>Colar consulta</summary><div id="f-colar"></div></details></div>
     <div class="card"><h2>Abordagens</h2>${listaAbordagens(Object.values(db.abordagens).filter(a => normalizarAb(a).envolvidos.some(e => e.pescadorId === p.id)))}</div>
+    <div class="card"><h2>Corrigir cadastro</h2>
+      <details><summary>Corrigir nome, CPF ou RGP</summary>
+        <p class="muted peq">Use para erro de grafia ou de digitação. O nome de cada lista fica guardado e continua valendo na busca.</p>
+        <label for="c-nome">Nome</label><input id="c-nome" value="${esc(p.nome)}" autocomplete="off">
+        <div class="grade"><div><label for="c-cpf">CPF</label><input id="c-cpf" value="${esc(p.cpf ? fmtCpf(p.cpf) : '')}" inputmode="numeric" autocomplete="off"></div>
+          <div><label for="c-rgp">RGP</label><input id="c-rgp" value="${esc(p.rgp || '')}" autocomplete="off"></div></div>
+        <p><button id="b-corr" type="button">Salvar correção</button></p><p id="m-corr" class="msg"></p></details>
+      <details><summary>Juntar com outra ficha (pessoa duplicada)</summary>
+        <p class="muted peq">Escolha a ficha duplicada. Os dados dela passam para esta ficha: licenças, autorizações, consultas, embarcações, veículos, abordagens e denúncias. Depois, a ficha duplicada é apagada. O nome, o CPF e o RGP desta ficha não mudam.</p>
+        <input id="j-q" type="search" placeholder="Nome, CPF ou dígitos" autocomplete="off">
+        <ul class="lista" id="j-res"></ul></details></div>
     <div class="card"><h2>Observações</h2>
       <textarea id="obs" placeholder="Anotações de fiscalização">${esc(p.obs)}</textarea>
       <p><button id="b-obs" type="button">Salvar</button> <span id="m-obs" class="muted peq"></span></p></div>`;
@@ -351,6 +365,36 @@ function telaFicha(id) {
     const novoForm = () => formBem(t, $(`#f-${t}-form`), p, () => { listar(); novoForm(); });
     listar(); novoForm();
   }
+  $('#b-corr').onclick = async () => {
+    const erro = corrigirCadastro(p, { nome: $('#c-nome').value, cpf: $('#c-cpf').value, rgp: $('#c-rgp').value });
+    if (erro) { $('#m-corr').textContent = erro; $('#m-corr').className = 'msg erro'; return; }
+    sujos.add(p.id);
+    await salvarCom('Cadastro corrigido.');
+    telaFicha(p.id);
+  };
+  // Sugere quem tem os mesmos dígitos ou nome parecido; a busca acha qualquer outra ficha.
+  const candidatos = q => {
+    const outras = Object.values(db.pescadores).filter(o => o.id !== p.id);
+    return (q.trim() ? buscar(outras, q) : outras.filter(o => (p.digitos && o.digitos === p.digitos) || parecido(o.nome, p.nome))).slice(0, 20);
+  };
+  const listarJuncao = () => {
+    const cs = candidatos($('#j-q').value);
+    $('#j-res').innerHTML = cs.length ? cs.map(o => `<li class="g-item" style="display:flex;gap:8px;align-items:center;justify-content:space-between;padding:8px 0">
+      <span><b>${esc(nomeProprio(o.nome))}</b><br><span class="muted peq">${esc(o.cpf ? fmtCpf(o.cpf) : fmtDig(o.digitos))} · ${esc(o.rgp || 'sem RGP')}</span><br>${tagsListas(o, atuais())}</span>
+      <button class="sec" type="button" data-junta="${esc(o.id)}">Juntar aqui</button></li>`).join('')
+      : `<li class="muted peq">${$('#j-q').value.trim() ? 'Nenhuma ficha encontrada.' : 'Nenhuma ficha parecida. Busque pelo nome ou pelo CPF.'}</li>`;
+    $('#j-res').querySelectorAll('[data-junta]').forEach(b => b.onclick = async () => {
+      const o = db.pescadores[b.dataset.junta];
+      if (!confirm(`Juntar "${nomeProprio(o.nome)}" nesta ficha? A ficha duplicada será apagada.`)) return;
+      const r = juntarPessoas(db, p.id, o.id);
+      sujos.add(p.id); removidos.add(o.id); r.abordagens.forEach(id => sujosAb.add(id));
+      await salvarCom('Fichas juntadas.');
+      telaFicha(p.id);
+      if (r.avisos.length) aviso(r.avisos.join(' '), 'erro');
+    });
+  };
+  $('#j-q').oninput = listarJuncao;
+  listarJuncao();
   $('#b-obs').onclick = async () => {
     p.obs = $('#obs').value.trim();
     p.atualizadoEm = agora();
@@ -1097,9 +1141,10 @@ const htmlAvisos = imp => `
 function mesclarBackup(outro) {
   let n = 0;
   const idLocal = {}; // id no aparelho de origem -> id aqui
+  const juncoes = { ...(outro.cfg?.juncoes || {}), ...(db.cfg.juncoes || {}) };
   for (const b of Object.values(outro.pescadores || {})) {
     const lista = Object.values(db.pescadores);
-    const a = db.pescadores[b.id] || lista.find(p => p.digitos && p.digitos === b.digitos && (p.nomeNorm === b.nomeNorm || parecido(p.nome, b.nome)));
+    const a = db.pescadores[b.id] || db.pescadores[juncoes[b.id]] || lista.find(p => p.digitos && p.digitos === b.digitos && (p.nomeNorm === b.nomeNorm || parecido(p.nome, b.nome)));
     idLocal[b.id] = a ? a.id : b.id;
     if (!a) { db.pescadores[b.id] = b; sujos.add(b.id); n++; continue; }
     const antes = JSON.stringify(a);
@@ -1111,6 +1156,15 @@ function mesclarBackup(outro) {
     if (b.cpf && !a.cpf) a.cpf = b.cpf;
     for (const [k] of QUALIFICACAO) if (b[k] && !a[k]) a[k] = b[k];
     if (JSON.stringify(a) !== antes) { sujos.add(a.id); n++; }
+  }
+  // Junções feitas no outro aparelho: aplica aqui também.
+  for (const [de, para] of Object.entries(outro.cfg?.juncoes || {})) {
+    const manter = idLocal[para] || para;
+    (db.cfg.juncoes ||= {})[de] ||= manter;
+    if (db.pescadores[de] && db.pescadores[manter] && de !== manter) {
+      const r = juntarPessoas(db, manter, de);
+      sujos.add(manter); removidos.add(de); r.abordagens.forEach(id => sujosAb.add(id)); n++;
+    }
   }
   for (const i of outro.importacoes || []) if (!db.importacoes.some(x => x.hash === i.hash)) db.importacoes.push(i);
   for (const i of outro.cfg?.autorizacoes || []) if (!(db.cfg.autorizacoes ||= []).some(x => x.hash === i.hash)) db.cfg.autorizacoes.push(i);
