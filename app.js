@@ -167,7 +167,7 @@ const tagsListas = (p, at) => {
   const auts = (p.autorizacoes || []).filter(a => { const k = a.categoria || a.titulo; return !vistasAut.has(k) && vistasAut.add(k); })
     .map(a => `<span class="tag aut" title="${esc(`${a.titulo}, ${a.categoria} (${a.orgao})`)}">${esc(a.categoria || a.titulo)}</span>`).join('');
   return (ss.length ? ss.map(([a, s]) => `<span class="tag ${SIT[s][1]}">${esc(AREA_CURTA[a])}: ${s === 'atual' ? 'na lista atual' : 'saiu da lista'}</span>`).join('')
-    : '<span class="tag aviso">Em nenhuma lista</span>') + auts;
+    : '<span class="tag aviso">Fora das listas do MPA</span>') + auts;
 };
 // Da última consulta ao PesqBrasil: categoria, forma de atuação e ambientes de pesca (Rio, Lagoa...), para ver sem abrir a ficha.
 const infoConsulta = p => {
@@ -337,7 +337,7 @@ function telaFicha(id) {
     <div class="card"><h2>Licenças por temporada</h2>
       <div class="tabela"><table><thead><tr><th>Temporada</th><th>Área</th><th>Nº</th><th>Nome na lista</th><th>RGP na lista</th></tr></thead>
       <tbody>${lics.map(l => `<tr><td>${esc(l.temporada)}</td><td>${esc(AREA_CURTA[l.area] || l.area)}</td><td>${l.n}</td><td>${esc(l.nomeLista)}</td><td>${esc(l.rgp)}</td></tr>`).join('')}</tbody></table></div>
-      ${lics.length ? '' : '<p class="muted peq">Em nenhuma lista importada.</p>'}</div>
+      ${lics.length ? '' : '<p class="muted peq">Em nenhuma lista do MPA importada.</p>'}</div>
     ${(p.autorizacoes || []).length ? `<div class="card"><h2>Autorizações especiais</h2><ul class="peq">${p.autorizacoes.map(a =>
       `<li><b>${esc(a.titulo)}</b>, categoria ${esc(a.categoria)}, nº ${a.n}. ${esc(a.orgao)}. ${esc(AREA_CURTA[a.area] || a.area)}.</li>`).join('')}</ul>
       <p class="muted peq">A autorização não substitui a lista de licenciados do MPA.</p></div>` : ''}
