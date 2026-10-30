@@ -203,24 +203,58 @@ function identificar(ps, lido) {
 // O documento chama a coluna de "RGP", mas o conteúdo é o CPF.
 const MINUSC = new Set(['de', 'da', 'do', 'das', 'dos', 'e']);
 const titulo = t => t.toLowerCase().split(' ').map((w, i) => i && MINUSC.has(w) ? w : w[0].toUpperCase() + w.slice(1)).join(' ');
+// Título por palavra, também depois de "/" (CANIÇO/TARRAFA/FORA DA BALIZA -> Caniço/Tarrafa/Fora da Baliza).
+const tituloCat = t => t.toLowerCase().replace(/(^|[\s/])(\p{L}+)/gu, (m, sep, w, i) => sep + (i > 0 && sep === ' ' && MINUSC.has(w) ? w : w[0].toUpperCase() + w.slice(1)));
+// CPF como aparece nas listas, inclusive com erro de digitação ("003.800;.880-70", "037.218.540.12", "468.87.520-72").
+const ehCpfLivre = s => { const t = String(s).trim(), d = t.replace(/\D/g, ''); return /^[\d.,;\-\s]+$/.test(t) && /^\d{2,3}[.,;\s]/.test(t) && d.length >= 10 && d.length <= 11; };
+
+// Lê dois formatos: Prefeitura de Imbé (Automonitoramento) e Projeto de Monitoramento da Pesca Artesanal (BHRT, com Nº e,
+// na lista Fora de Baliza, categoria por linha). Cada linha é ancorada no CPF; o nome pode estar quebrado acima e abaixo dele.
 function lerAutorizacao(itens) {
   const out = { titulo: '', ano: '', categoria: '', orgao: '', registros: [], avisos: [] };
-  const orgao = [], vistos = new Map();
+  const orgao = [], projeto = [];
+  let listaVista = false, esperaCategoria = false;
   for (const l of linhas(itens)) {
+    if (l.itens.some(x => ehCpfLivre(x.s))) continue;
     const t = l.itens.map(x => x.s).join(' ').replace(/\s+/g, ' ').trim();
     let m;
-    if (/^(PREFEITURA|SECRETARIA) /i.test(t) && !orgao.includes(titulo(t))) { orgao.push(titulo(t)); continue; }
-    if ((m = t.match(/autorizados no (.+?\b(\d{4}))$/i)) && !out.titulo) { out.titulo = m[1]; out.ano = m[2]; continue; }
-    if ((m = t.match(/^Categoria (.+)$/i)) && !out.categoria) { out.categoria = m[1]; continue; }
-    if (!(m = t.match(/^(\D+?)\s+(\d{3}\.?\d{3}\.?\d{3}-?\d{2})$/))) continue;
-    const n = out.registros.length + 1, nome = normNome(m[1]), cpf = m[2].replace(/\D/g, '');
-    const r = { n, nome, nomeNorm: nome, cpf, digitos: cpf.slice(3, 9) };
-    if (!cpfValido(cpf)) { out.avisos.push({ n, nome, tipo: 'cpfInvalido', texto: `CPF ${m[2]} inválido: não gravado na ficha` }); r.cpf = ''; }
-    else if (vistos.has(cpf)) { out.avisos.push({ n, nome, tipo: 'cpfRepetido', texto: `mesmo CPF do nº ${vistos.get(cpf)}: não gravado na ficha` }); r.cpf = ''; }
-    else vistos.set(cpf, n);
+    if (/^(PREFEITURA|SECRETARIA) /i.test(t)) { if (!orgao.includes(titulo(t))) orgao.push(titulo(t)); }
+    else if (/^Projeto de /i.test(t)) { if (!projeto.length) projeto.push(t); }
+    else if (projeto.length && !listaVista && !/^Lista /i.test(t)) projeto.push(t);
+    else if ((m = t.match(/autorizados no (.+?\b(\d{4}))$/i))) { if (!out.titulo) { out.titulo = m[1]; out.ano = m[2]; } listaVista = true; }
+    else if (/^Lista de pescadores autorizados$/i.test(t)) { listaVista = true; esperaCategoria = !out.categoria; }
+    else if ((m = t.match(/^Categoria (.+)$/i))) { out.categoria ||= m[1]; esperaCategoria = false; }
+    else if (esperaCategoria && !/^N\s*º/i.test(t)) { out.categoria = t; esperaCategoria = false; }
+  }
+  if (projeto.length) { out.orgao = projeto.join(' '); out.titulo ||= projeto[0].split(' na ')[0]; }
+  if (orgao.length) out.orgao = orgao.join(', ');
+
+  const ancoras = itens.filter(x => ehCpfLivre(x.s)).map(x => ({ ...x, partes: [] })).sort((a, b) => a.p - b.p || b.y - a.y);
+  for (const it of itens) {
+    if (ehCpfLivre(it.s) || !String(it.s).trim()) continue;
+    let melhor = null;
+    for (const a of ancoras) if (a.p === it.p && Math.abs(a.y - it.y) <= 10 && (!melhor || Math.abs(a.y - it.y) < Math.abs(melhor.y - it.y))) melhor = a;
+    if (melhor) melhor.partes.push(it);
+  }
+  const vistos = new Map();
+  for (const a of ancoras) {
+    const esq = a.partes.filter(x => x.x < a.x - 2), dir = a.partes.filter(x => x.x > a.x + 2);
+    const num = esq.find(x => /^\d{1,3}$/.test(x.s.trim()));
+    let nome = esq.filter(x => x !== num).sort((x, y) => y.y - x.y || x.x - y.x).map(x => x.s.trim()).join(' ');
+    let n = num ? +num.s : null;
+    const m = nome.match(/^(\d{1,3})\s+(.+)$/);
+    if (m && n == null) { n = +m[1]; nome = m[2]; }
+    n ??= out.registros.length + 1;
+    const cpfTxt = a.s.trim(), d = cpfTxt.replace(/\D/g, '');
+    const r = { n, nome: normNome(nome), nomeNorm: normNome(nome), cpf: d, digitos: d.length === 11 ? d.slice(3, 9) : null };
+    const cat = dir.map(x => x.s.trim()).join(' ');
+    if (cat) r.categoria = tituloCat(cat);
+    if (d.length !== 11 || !cpfValido(d)) { out.avisos.push({ n, nome: r.nome, tipo: 'cpfInvalido', texto: `CPF ${cpfTxt} inválido: não gravado na ficha` }); r.cpf = ''; }
+    else if (vistos.has(d)) { out.avisos.push({ n, nome: r.nome, tipo: 'cpfRepetido', texto: `mesmo CPF do nº ${vistos.get(d)}: não gravado na ficha` }); r.cpf = ''; }
+    else vistos.set(d, n);
+    if (nome.includes('*')) out.avisos.push({ n, nome: r.nome, tipo: 'nomeAsterisco', texto: 'nome com asterisco: pode haver duas pessoas na mesma linha. Confira e corrija na ficha' });
     out.registros.push(r);
   }
-  out.orgao = orgao.join(', ');
   return out;
 }
 
@@ -230,10 +264,11 @@ function mesclarAutorizacao(base, registros, aut) {
   const agora = new Date().toISOString();
   for (const r of registros) {
     const ps = Object.values(base);
-    const cands = ps.filter(p => p.digitos === r.digitos);
-    const p = (r.cpf && ps.find(x => x.cpf === r.cpf)) || cands.find(c => c.nomeNorm === r.nomeNorm)
-      || cands.find(c => parecido(c.nome, r.nome) || mascaradoConfere(c.nome, r.nome));
-    const a = { ...aut, n: r.n };
+    // Sem dígitos confiáveis (CPF com 10 dígitos), só o nome exato vincula.
+    const cands = r.digitos ? ps.filter(p => p.digitos === r.digitos) : [];
+    const p = (r.cpf && ps.find(x => x.cpf === r.cpf)) || (r.digitos ? cands.find(c => c.nomeNorm === r.nomeNorm)
+      || cands.find(c => parecido(c.nome, r.nome) || mascaradoConfere(c.nome, r.nome)) : ps.find(x => x.nomeNorm === r.nomeNorm));
+    const a = { ...aut, n: r.n, categoria: r.categoria || aut.categoria };
     if (p) {
       if ((p.autorizacoes || []).some(x => x.id === aut.id)) { res.jaTinha++; continue; }
       (p.autorizacoes ||= []).push(a);

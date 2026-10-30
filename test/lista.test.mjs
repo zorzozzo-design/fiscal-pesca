@@ -281,3 +281,33 @@ test('corrigir cadastro: ficha sem lista do MPA aceita troca de CPF e de dígito
   assert.equal(corrigirCadastro(p, { nome: 'João Fictício', cpf: '111.222.333-96', rgp: '' }), null);
   assert.deepEqual([p.cpf, p.digitos], ['11122233396', '222333']);
 });
+
+test('lista do Projeto de Monitoramento (BHRT): nº, categoria por linha, nome quebrado, CPF com erro de digitação, asterisco', () => {
+  const { lerAutorizacao } = globalThis.Lista;
+  const r = lerAutorizacao(fx('autorizacao-projeto.json'));
+  assert.equal(r.titulo, 'Projeto de Monitoramento da Pesca Artesanal');
+  assert.equal(r.orgao, 'Projeto de Monitoramento da Pesca Artesanal na Bacia Hidrográfica do Rio Tramandaí e Região Marinha Adjacente');
+  assert.equal(r.categoria, 'Fora de Baliza Embarcado e Desembarcado');
+  assert.deepEqual(r.registros.map(x => x.n), [1, 2, 3, 4, 5, 6]);
+  assert.deepEqual(r.registros.map(x => x.categoria), ['Embarcado Fora da Baliza', 'Caniço/Tarrafa/Fora da Baliza', 'Caniço/Tarrafa/Fora da Baliza',
+    'Embarcado Fora da Baliza', 'Embarcado Fora da Baliza', 'Embarcado Fora da Baliza']);
+  assert.equal(r.registros[3].nome, 'SANDRO NOME QUEBRADO GOMES DE OLIVEIRA');
+  assert.equal(r.registros[1].cpf, '40450560686'); // ";" no meio do CPF: lido
+  assert.equal(r.registros[4].cpf, '12123234320'); // ponto no lugar do hífen: lido
+  assert.deepEqual([r.registros[2].cpf, r.registros[2].digitos], ['', null]); // 10 dígitos: sem CPF e sem dígitos
+  const av = Object.fromEntries(r.avisos.map(a => [a.n, a.tipo]));
+  assert.deepEqual(av, { 3: 'cpfInvalido', 5: 'nomeAsterisco' });
+  assert.equal(r.registros[5].nome, 'ANA OUTRA PESSOA');
+});
+
+test('autorização: a categoria da linha vale para a pessoa; sem dígitos, vincula só pelo nome exato', () => {
+  const { lerAutorizacao, mesclarAutorizacao } = globalThis.Lista;
+  const base = {};
+  const ja = criar(base, { nome: 'PEDRO DEZ DIGITOS', cpf: '' }); ja.digitos = '999888';
+  criar(base, { nome: 'OUTRO SEM DIGITOS', cpf: '' });
+  const r = lerAutorizacao(fx('autorizacao-projeto.json'));
+  const m = mesclarAutorizacao(base, r.registros, { id: 'proj-fora', titulo: r.titulo, categoria: r.categoria, orgao: r.orgao, area: 'tramandai' });
+  assert.equal(m.vinculados, 1);
+  assert.equal(ja.autorizacoes[0].categoria, 'Caniço/Tarrafa/Fora da Baliza');
+  assert.equal(Object.values(base).find(p => p.nomeNorm === 'OUTRO SEM DIGITOS').autorizacoes, undefined);
+});

@@ -1,6 +1,7 @@
 const { corrigirCadastro, juntarPessoas, lerAutorizacao, mesclarAutorizacao, normNome, ler, mesclar, temporadaAtual, situacao, buscar, parecido, cpfValido, criar, lerConsulta, identificar, AVISO_TXT } = window.Lista;
 const { avaliar, ultimaConsulta, corDe, AREAS_COM_LISTA } = window.Semaforo;
 const { checar, multaReferencia, defesosDe, DEFESOS, RESUMO, RESUMO_TODOS, AMEACADAS_GUIA, TAMANHO_MINIMO, LOCAIS } = window.Normas;
+const { lerXlsx, lerEstabelecimentos, mesclarEstabelecimentos } = window.Planilha;
 const { lembreteBackup, NOTIF_ABERTURA, itensDaAbordagem, termoApreensao, notificacao, motivoSugerido, normalizarAb, pendenciasDe, PESSOAIS, DESTINOS } = window.Docs;
 
 // ---------- utilitários ----------
@@ -161,7 +162,10 @@ const atuais = () => Object.fromEntries(AREAS_LISTA.map(a => [a, temporadaAtual(
 const situacoes = (p, at) => AREAS_LISTA.map(a => [a, situacao(p, a, at[a])]).filter(([, s]) => s !== 'nunca');
 const tagsListas = (p, at) => {
   const ss = situacoes(p, at);
-  const auts = (p.autorizacoes || []).map(a => `<span class="tag aut" title="${esc(`${a.titulo}, ${a.categoria} (${a.orgao})`)}">${esc(a.titulo)}</span>`).join('');
+  // Etiqueta pela categoria (Baliza Imbé, Fora da Baliza...); o título completo fica no toque longo e na ficha.
+  const vistasAut = new Set();
+  const auts = (p.autorizacoes || []).filter(a => { const k = a.categoria || a.titulo; return !vistasAut.has(k) && vistasAut.add(k); })
+    .map(a => `<span class="tag aut" title="${esc(`${a.titulo}, ${a.categoria} (${a.orgao})`)}">${esc(a.categoria || a.titulo)}</span>`).join('');
   return (ss.length ? ss.map(([a, s]) => `<span class="tag ${SIT[s][1]}">${esc(AREA_CURTA[a])}: ${s === 'atual' ? 'na lista atual' : 'saiu da lista'}</span>`).join('')
     : '<span class="tag aviso">Em nenhuma lista</span>') + auts;
 };
@@ -261,7 +265,7 @@ function telaLista() {
   const lembrete = lembreteBackup(db.cfg.ultimoBackup, hojeIso(), true);
   app.innerHTML = `<div class="tela-lista"><div class="lista-topo">${lembrete ? `<p class="msg erro peq lembrete">${esc(lembrete)} <a href="#/dados">Abrir Dados</a></p>` : ''}${faixaDefesos()}
       <p class="muted peq">${AREAS_LISTA.map(a => `${esc(AREA_CURTA[a])}: ${esc(at[a] || 'lista não importada')}`).join(' · ')}
-        · <a href="#" id="b-colar">Colar consulta do PesqBrasil</a></p>
+        · <a href="#" id="b-colar">Colar consulta do PesqBrasil</a> · <a href="#/peixarias">Peixarias</a></p>
       <div id="colar"></div>
       <div class="filtros" style="grid-template-columns:2fr 1fr">
         <input id="q" type="search" placeholder="Nome, CPF, dígitos ou RGP" value="${esc(filtro.q)}" autocomplete="off">
@@ -1168,6 +1172,10 @@ function mesclarBackup(outro) {
   }
   for (const i of outro.importacoes || []) if (!db.importacoes.some(x => x.hash === i.hash)) db.importacoes.push(i);
   for (const i of outro.cfg?.autorizacoes || []) if (!(db.cfg.autorizacoes ||= []).some(x => x.hash === i.hash)) db.cfg.autorizacoes.push(i);
+  for (const e of outro.cfg?.estabelecimentos || []) { // vale a versão atualizada por último
+    const l = (db.cfg.estabelecimentos ||= []), i = l.findIndex(x => x.chave === e.chave);
+    if (i < 0) { l.push(e); n++; } else if ((e.atualizadoEm || '') > (l[i].atualizadoEm || '')) { l[i] = e; n++; }
+  }
   for (const k of ['denuncias', 'tarefas']) for (const x of outro.cfg?.[k] || []) { // vale a versão editada por último
     const l = (db.cfg[k] ||= []), i = l.findIndex(y => y.id === x.id);
     if (i < 0) { l.push(x); n++; } else if ((x.atualizadoEm || '') > (l[i].atualizadoEm || '')) { l[i] = x; n++; }
@@ -1200,7 +1208,7 @@ function telaDados() {
       <p id="m-pdf" class="msg"></p><div id="r-pdf"></div></div>
 
     <div class="card"><h2>2. Autorizações especiais (prefeitura)</h2>
-      <p class="muted peq">Lista de autorização com nome e CPF, por exemplo o Automonitoramento da Prefeitura de Imbé. O app lê o título, a categoria e o órgão no PDF. A autorização aparece na busca, na ficha e no semáforo da área. Ela não substitui a lista do MPA.</p>
+      <p class="muted peq">Lista de autorização com nome e CPF: Automonitoramento da Prefeitura de Imbé ou Projeto de Monitoramento da Pesca Artesanal (Baliza Tramandaí, Baliza Imbé, Fora de Baliza). O app lê o título, a categoria e o órgão no PDF. A autorização aparece na busca, na ficha e no semáforo da área. Ela não substitui a lista do MPA.</p>
       <label for="a-area">Área</label><select id="a-area">${AREAS_LISTA.map(k => `<option value="${k}">${esc(AREAS[k])}</option>`).join('')}</select>
       <label for="f-aut">Arquivo PDF</label><input type="file" id="f-aut" accept=".pdf,application/pdf">
       <p id="m-aut" class="msg"></p>
@@ -1208,20 +1216,28 @@ function telaDados() {
         <div class="muted peq">${esc(i.orgao)} · ${esc(AREAS[i.area] || i.area)} · ${esc(i.arquivo)} · ${fmtDH(i.data)} · ${i.registros} pessoas, ${i.novos} novas, ${i.vinculados} já na base</div>
         ${htmlAvisos(i)}</div>`).join('')}</div>
 
-    <div class="card"><h2>3. Listas importadas</h2>
+    <div class="card"><h2>3. Peixarias (planilha .xlsx)</h2>
+      <p class="muted peq">Planilha de estabelecimentos com nome, CNPJ, endereço, telefone, responsável, situação e cidade. Se você importar uma planilha nova, o app atualiza os estabelecimentos pelo CNPJ ou pelo nome. Consulte em <a href="#/peixarias">Peixarias</a>.</p>
+      <label for="f-est">Arquivo .xlsx</label><input type="file" id="f-est" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+      <p id="m-est" class="msg"></p>
+      ${(db.cfg.importacoesEst || []).slice(-1).map(i => `<div class="revisar" style="border-color:var(--borda)"><b>Última planilha: ${esc(i.arquivo)}</b>
+        <div class="muted peq">${fmtDH(i.data)} · ${i.registros} estabelecimentos, ${i.novos} novos, ${i.atualizados} atualizados</div>
+        ${i.avisos.length ? `<details><summary>${i.avisos.length} aviso(s)</summary><ul class="peq">${i.avisos.map(a => `<li>Linha ${a.linha} ${esc(a.nome)}: ${esc(a.texto)}</li>`).join('')}</ul></details>` : ''}</div>`).join('')}</div>
+
+    <div class="card"><h2>4. Listas importadas</h2>
       ${imps.length ? imps.map(i => `<div class="revisar" style="border-color:var(--borda)">
         <b>${esc(AREAS[i.area] || i.area)} · ${esc(i.temporada)}</b>
         <div class="muted peq">${esc(i.arquivo)} · ${fmtDH(i.data)} · ${i.linhas} linhas, ${i.novos} novos, ${i.vinculados} já na base${i.jaTinha ? `, ${i.jaTinha} já tinham esta temporada` : ''}</div>
         ${htmlAvisos(i)}</div>`).join('') : '<p class="muted peq">Nenhuma lista importada.</p>'}</div>
 
-    <div class="card"><h2>4. Backup e sincronização</h2>
+    <div class="card"><h2>5. Backup e sincronização</h2>
       <p class="muted peq">O backup sai criptografado com a sua senha atual. No outro aparelho, importe o arquivo. O app mescla os dados.</p>
       <div class="linha"><button id="b-nuvem" type="button">Enviar para a nuvem</button>
         <button class="sec" id="b-exp" type="button">Baixar backup</button>
         <label class="btn sec" style="margin:0">Importar backup<input type="file" id="f-bak" accept=".json,application/json" hidden></label></div>
       <p id="m-bak" class="msg"></p></div>
 
-    <div class="card"><h2>5. Documentos (termo de apreensão e notificação)</h2>
+    <div class="card"><h2>6. Documentos (termo de apreensão e notificação)</h2>
       <p class="muted peq">Estes dados preenchem os documentos impressos. O brasão e o logo ficam só neste aparelho, criptografados. Eles não vão para o GitHub.</p>
       <div class="grade">
         <div><label for="g-nome">Nome do agente</label><input id="g-nome" value="${esc(db.cfg.agente?.nome || '')}" placeholder="Ex.: Sd PM Fulano de Tal"></div>
@@ -1235,7 +1251,7 @@ function telaDados() {
       </div>
       <p><button id="b-docs" type="button">Salvar</button> <span id="m-docs" class="muted peq"></span></p></div>
 
-    <div class="card"><h2>6. Temporada do camarão (Bacia do Tramandaí)</h2>
+    <div class="card"><h2>7. Temporada do camarão (Bacia do Tramandaí)</h2>
       <p class="muted peq">Todo ano, uma portaria abre a temporada. A temporada termina em 21/06 (IN 17/2004, art. 20). Atualize as datas quando a portaria nova sair.</p>
       <div class="grade">
         <div><label for="cm-ini">Abertura</label><input id="cm-ini" type="date" value="${esc((db.cfg.camarao || CAMARAO_PADRAO).inicio)}"></div>
@@ -1278,6 +1294,27 @@ function telaDados() {
       msg('#m-aut', `${imp.titulo}, ${imp.categoria}: ${imp.registros} pessoas, ${imp.novos} novas, ${imp.vinculados} já estavam na base.`);
       aviso('Autorização importada.');
     } catch (err) { msg('#m-aut', err.message, true); aviso('A lista não foi importada.', 'erro'); }
+  };
+
+  $('#f-est').onchange = async e => {
+    const arq = e.target.files[0];
+    e.target.value = '';
+    if (!arq) return;
+    try {
+      const imp = await ocupado(async () => {
+        const buf = await arq.arrayBuffer();
+        const lido = lerEstabelecimentos(await lerXlsx(buf));
+        if (!lido.registros.length) throw new Error('Nenhum estabelecimento encontrado na planilha.');
+        const r = mesclarEstabelecimentos((db.cfg.estabelecimentos ||= []), lido.registros, await hashHex(buf));
+        const i = { arquivo: arq.name, data: agora(), registros: lido.registros.length, novos: r.novos, atualizados: r.atualizados, avisos: lido.avisos };
+        (db.cfg.importacoesEst ||= []).push(i);
+        await salvar();
+        return i;
+      }, 'Lendo a planilha');
+      telaDados();
+      msg('#m-est', `${imp.registros} estabelecimentos: ${imp.novos} novos, ${imp.atualizados} atualizados.`);
+      aviso('Planilha importada.');
+    } catch (err) { msg('#m-est', err.message, true); aviso('A planilha não foi importada.', 'erro'); }
   };
 
   const baixarBlob = (blob, nome) => {
@@ -1356,6 +1393,39 @@ function telaDados() {
   $('#b-apagar').onclick = async () => {
     if (confirm('Apagar todos os dados deste aparelho?')) { await apagarTudo(); location.reload(); }
   };
+}
+
+// ---------- peixarias (estabelecimentos da planilha) ----------
+const STATUS_EST = { autorizada: ['Autorizada', 'sem-verde'], aguardando: ['Aguardando', 'sem-amarelo'], 'sem informação': ['Sem informação', 'aviso'], outra: ['Ver situação', 'aviso'] };
+let filtroEst = { q: '', st: '' };
+function telaPeixarias() {
+  const todos = db.cfg.estabelecimentos || [];
+  app.innerHTML = `<div class="card"><h1>Peixarias</h1>
+      <p class="muted peq">Situação no cadastro EMATER / Automonitoramento do bagre, conforme a última planilha importada em <a href="#/dados">Dados</a>.</p>
+      ${todos.length ? `<div class="filtros" style="grid-template-columns:2fr 1fr">
+        <input id="e-q" type="search" placeholder="Nome, CNPJ, responsável ou cidade" value="${esc(filtroEst.q)}" autocomplete="off">
+        <select id="e-st"><option value="">Todas</option>${Object.entries(STATUS_EST).map(([k, [t]]) => `<option value="${k}"${filtroEst.st === k ? ' selected' : ''}>${t}</option>`).join('')}</select></div>`
+      : '<p>Nenhuma planilha importada. Importe em <a href="#/dados">Dados</a>.</p>'}</div>
+    <div id="e-res"></div>`;
+  if (!todos.length) return;
+  const sem = t => normNome(t);
+  const listar = () => {
+    const q = sem(filtroEst.q), d = filtroEst.q.replace(/\D/g, '');
+    const es = todos.filter(e => (!filtroEst.st || e.status === filtroEst.st)
+      && (!q || sem([e.nome, e.responsavel, e.cidade].join(' ')).includes(q) || (d.length >= 4 && e.doc.includes(d))))
+      .sort((a, b) => a.nome.localeCompare(b.nome));
+    $('#e-res').innerHTML = `<p class="muted peq">${es.length} de ${todos.length}</p>` + es.map(e => `<div class="card">
+      <h2>${esc(e.nome)}</h2><span class="tag ${STATUS_EST[e.status][1]}">${esc(e.situacao || 'Sem informação')}</span>
+      <div class="grade" style="margin-top:8px">
+        <div><span>${esc(e.tipoDoc || 'Documento')}</span>${esc(e.docTexto || '-')}${e.doc && !e.tipoDoc ? ' <span class="tag aviso">inválido</span>' : ''}</div>
+        <div><span>Responsável</span>${esc(e.responsavel || '-')}</div>
+        <div><span>Cidade</span>${esc(e.cidade || '-')}</div>
+        <div><span>Telefone</span>${e.telefone ? `<a href="tel:${esc(e.telefone.replace(/[^\d+]/g, ''))}">${esc(e.telefone)}</a>` : '-'}</div>
+        <div><span>Endereço</span>${esc(e.endereco || '-')}</div></div></div>`).join('');
+  };
+  $('#e-q').oninput = e => { filtroEst.q = e.target.value; listar(); };
+  $('#e-st').onchange = e => { filtroEst.st = e.target.value; listar(); };
+  listar();
 }
 
 // ---------- guia de consulta rápida (colegas de reforço; funciona sem internet) ----------
@@ -1483,6 +1553,7 @@ function rotear() {
   if (h === '#/guia') return telaGuia();
   if (h.startsWith('#/p/')) return telaFicha(decodeURIComponent(h.slice(4)));
   if (h === '#/dados') return telaDados();
+  if (h === '#/peixarias') return telaPeixarias();
   if (h === '#/abordagens') return telaAbordagens();
   if (h === '#/pendencias') return telaAbordagens('pend');
   if (h === '#/denuncias') return telaDenuncias();
