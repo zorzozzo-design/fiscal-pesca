@@ -2,6 +2,7 @@ const { corrigirCadastro, juntarPessoas, lerAutorizacao, mesclarAutorizacao, nor
 const { avaliar, ultimaConsulta, corDe, AREAS_COM_LISTA } = window.Semaforo;
 const { checar, multaReferencia, defesosDe, DEFESOS, RESUMO, RESUMO_TODOS, AMEACADAS_GUIA, TAMANHO_MINIMO, LOCAIS } = window.Normas;
 const { lerXlsx, lerEstabelecimentos, mesclarEstabelecimentos } = window.Planilha;
+const { ORLA, MUNICIPIOS_ORLA, zonasDe, GUIA_ESTADUAL } = window.Orla;
 const { lembreteBackup, NOTIF_ABERTURA, itensDaAbordagem, termoApreensao, notificacao, motivoSugerido, normalizarAb, pendenciasDe, PESSOAIS, DESTINOS } = window.Docs;
 
 // ---------- utilitários ----------
@@ -659,6 +660,7 @@ function telaAbordagem(param) {
       <div id="onde"></div>
       <div class="grade">
         <div style="grid-column:1/-1"><label for="a-loc">Ponto no local</label><select id="a-loc">${opcoesLocal()}</select></div>
+        <div id="orla" class="grade" style="grid-column:1/-1"></div>
         <div style="grid-column:1/-1"><label for="a-local">Descrição do local</label>
           <input id="a-local" placeholder="Ex.: Laguna do Armazém, margem leste" value="${esc(ab.local)}">
           <div class="linha" style="margin-top:6px"><button class="sec" id="b-gps" type="button">Registrar GPS</button><span id="gps" class="muted peq"></span></div></div>
@@ -967,9 +969,23 @@ function telaAbordagem(param) {
   let ordemGps = null;
   const posicao = () => new Promise((ok, erro) => {
     if (!navigator.geolocation) return erro(new Error('GPS indisponível neste aparelho.'));
-    navigator.geolocation.getCurrentPosition(pos => { ab.gps = { lat: pos.coords.latitude, lon: pos.coords.longitude, prec: pos.coords.accuracy }; mostrarGps(); ok(ab.gps); },
+    navigator.geolocation.getCurrentPosition(pos => { ab.gps = { lat: pos.coords.latitude, lon: pos.coords.longitude, prec: pos.coords.accuracy }; mostrarGps(); if (!ab.praia) desenharOrla(); ok(ab.gps); },
       err => erro(new Error('Não foi possível obter a posição: ' + err.message)), { enableHighAccuracy: true, timeout: 20000 });
   });
+  // Mar: município da praia e zona da orla (orla.js, R36). O GPS sugere o município mais perto.
+  const PRAIAS = porId('mar').municipios;
+  const desenharOrla = () => {
+    const el = $('#orla');
+    if (ab.area !== 'mar') { el.hidden = true; el.innerHTML = ''; return; }
+    if (!ab.praia && ab.gps) ab.praia = proximos(ab.gps.lat, ab.gps.lon).find(m => PRAIAS.includes(m)) || '';
+    el.hidden = false;
+    el.innerHTML = `<div><label for="a-praia">Município da praia</label><select id="a-praia"><option value="">(não informado)</option>
+        ${PRAIAS.map(m => `<option value="${esc(m)}"${m === ab.praia ? ' selected' : ''}>${esc(m)}${ORLA[m] ? '' : ' (só lei estadual)'}</option>`).join('')}</select></div>
+      <div><label for="a-zona">Zona da orla</label><select id="a-zona"><option value="">(não informado)</option>
+        ${zonasDe(ab.praia).map(([k, t]) => `<option value="${k}"${k === ab.zonaOrla ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></div>`;
+    $('#a-praia').onchange = e => { ab.praia = e.target.value; if (!zonasDe(ab.praia).some(([k]) => k === ab.zonaOrla)) ab.zonaOrla = ''; desenharOrla(); desenharSem(); };
+    $('#a-zona').onchange = e => { ab.zonaOrla = e.target.value; desenharSem(); };
+  };
   const escolherLocal = l => {
     ab.localPescaId = l.id;
     ab.area = l.regime;
@@ -978,7 +994,7 @@ function telaAbordagem(param) {
     if (!ab.local) { ab.local = l.nome; $('#a-local').value = l.nome; }
     gravarLocalTurno(l.id);
     $('#a-loc').innerHTML = opcoesLocal();
-    desenharOnde(); desenharLinhas(ab.petrechos, '#petrechos', CAMPOS_PET, desenharSem); desenharSem();
+    desenharOnde(); desenharOrla(); desenharLinhas(ab.petrechos, '#petrechos', CAMPOS_PET, desenharSem); desenharSem();
   };
   const desenharOnde = () => {
     const l = localPesca(ab.localPescaId);
@@ -1071,7 +1087,7 @@ function telaAbordagem(param) {
     else { m.textContent = 'Abordagem salva.'; m.className = 'msg'; }
   };
 
-  desenharOnde(); mostrarGps(); trocarEnv(0);
+  desenharOnde(); desenharOrla(); mostrarGps(); trocarEnv(0);
   if (existente) $('#m-ab').textContent = `Salva em ${fmtDH(existente.atualizadoEm)}.`;
 }
 
@@ -1470,7 +1486,13 @@ function telaGuia() {
       <p class="peq g-item"><b>Barra de Rio Grande.</b> Emalhe proibido na área de proteção do boto: 20 km para cada lado dos molhes, até 1 milha da costa, e dentro do estuário até a Ponta dos Pescadores (art. 8º). Exceção: cabo ou calão de praia.</p>
       <p class="peq g-item"><b>Arrasto, barco com motor.</b> Proibido em todo o RS, nas 12 milhas da costa (Lei RS 15.223/2018, art. 30, VI, e). O STF confirmou a lei (ADI 6218).</p>
       <p class="peq g-item"><b>Identificação da rede.</b> RGP na tralha superior, no mínimo a cada 1.000 m. Rede sem identificação: petrecho não permitido (IN 12/2012, art. 3º, II e III).</p>
-      <p class="peq g-item"><b>Na abordagem.</b> Rede a 500 m da praia lançada por barco com motor: emalhe proibido (R13). Marque o local "Embarcado até 1 milha da costa" e a embarcação "Motorizada". Registre o ponto com o GPS. Fotografe a rede, as boias e o barco. Barco ou rede sem identificação: registre na observação.</p></details>
+      <p class="peq g-item"><b>Na abordagem.</b> Rede a 500 m da praia lançada por barco com motor: emalhe proibido (R13). Marque o local "Embarcado até 500 m da costa" (ou "até 1 milha") e a embarcação "Motorizada". Em área de surfe, marque também a zona da orla. Registre o ponto com o GPS. Fotografe a rede, as boias e o barco. Barco ou rede sem identificação: registre na observação.</p></details>
+    <details class="card card-dobra g"><summary><h2 style="display:inline">Orla: áreas de pesca, surfe e banho</h2></summary>
+      <p class="muted peq">Cada município do litoral demarca a orla com placas e balizas. A placa no local vale mais que o app. Na abordagem, marque o município da praia e a zona da orla: o app indica a regra (R36). A sanção é municipal e estadual, não a multa do Dec. 6.514/2008.</p>
+      <ul class="peq g-item">${GUIA_ESTADUAL.map(t => `<li>${esc(t)}</li>`).join('')}</ul>
+      ${MUNICIPIOS_ORLA.map(m => `<div class="g-item"><p class="peq"><b>${esc(m)}</b> · <span class="muted">${esc(ORLA[m].lei)}</span></p>
+        <ul class="peq">${ORLA[m].guia.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>`).join('')}
+      <p class="muted peq">Demais praias (Torres, Arroio do Sal, Xangri-lá, Osório, Mostardas e outras): só a lei estadual no app. Peça a lei municipal à Prefeitura.</p></details>
     <details class="card card-dobra g"><summary><h2 style="display:inline">Defesos por região</h2></summary>
       ${Object.entries(DEFESOS).filter(([, ds]) => ds.length).map(([r, ds]) => `<p class="peq g-item"><b>${esc(REGIMES[r].nome)}</b><br>${ds.map(([n, de, ate, t, norma]) =>
         `${esc(n)}: de ${esc(de.split('-').reverse().join('/'))} a ${esc(ate.split('-').reverse().join('/').replace('29/02', '28/02'))}. ${esc(t)} (${esc(norma)}).`).join('<br>')}</p>`).join('')}

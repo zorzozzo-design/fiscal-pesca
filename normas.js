@@ -1,4 +1,4 @@
-// Regras de pesca checadas na abordagem (R02 a R33; a R01 fica no semáforo, junto da lista).
+// Regras de pesca checadas na abordagem (R02 a R36; a R01 fica no semáforo, junto da lista).
 // Fonte de cada regra: aba "Legislação" do documento do projeto. Indica, não autua.
 (() => {
 
@@ -8,7 +8,7 @@ const LOCAIS = {
     'Canal de 200 m na Laguna do Armazém (art. 5º)', 'Faixa de 150 m das margens: Itapeva, Quadros, Pinguela, Malva, Palmital, Passo (art. 6º)',
     'Rio Cornélio, Lagoa Boa Vista ou áreas do art. 7º', 'Raio de 200 m da foz de rio ou canal (art. 9º)', 'Braço Morto do Imbé (art. 10)',
     'Sob a ponte Giuseppe Garibaldi, sentido oeste (art. 25, II)'],
-  mar: ['Praia (desembarcado)', 'Embarcado até 1 milha da costa', 'Embarcado além de 1 milha', 'Embarcado até 5 milhas, do farol do Albardão ao Chuí', 'Barra ou desembocadura (fora de Tramandaí)'],
+  mar: ['Praia (desembarcado)', 'Embarcado até 500 m da costa', 'Embarcado até 1 milha da costa', 'Embarcado além de 1 milha', 'Embarcado até 5 milhas, do farol do Albardão ao Chuí', 'Barra ou desembocadura (fora de Tramandaí)'],
   outras: ['Lagoa ou rio', 'Reservatório de hidrelétrica ou açude público', 'Lagoa marginal', 'Até 200 m de barragem, cachoeira ou corredeira',
     'Entre 200 e 1.500 m de barragem, cachoeira ou corredeira', 'Barra ou desembocadura (fora de Tramandaí)'],
   uruguai: ['Lagoa ou rio', 'Reservatório de hidrelétrica ou açude público', 'Lagoa marginal', 'Até 200 m de barragem, cachoeira ou corredeira',
@@ -153,7 +153,7 @@ function checar(ab, cfg = {}) {
     }
     // R13: distância da costa para o emalhe (1 milha náutica = 1.852 m).
     const ems = de('Rede de emalhe'), motor = ab.embarcacao === 'Motorizada';
-    if (ems.length && local === 'Embarcado até 1 milha da costa') {
+    if (ems.length && (local === 'Embarcado até 1 milha da costa' || local === 'Embarcado até 500 m da costa')) {
       const total = ems.reduce((t, r) => t + (+r.comprimentoM || 0) * (+r.qtd || 1), 0);
       if (motor) add('R13', 'vermelho', 'Emalhe por embarcação motorizada a menos de 1 milha (1.852 m) da costa.', 'IN Interministerial MPA/MMA 12/2012, art. 6º', CRIME_34);
       else if (total > 1000) add('R13', 'vermelho', `Barco sem motor a menos de 1 milha da costa com ${total.toLocaleString('pt-BR')} m de rede (máximo 1.000 m).`, 'IN Interministerial MPA/MMA 12/2012, art. 6º, § 1º', CRIME_34_II);
@@ -162,6 +162,8 @@ function checar(ab, cfg = {}) {
       add('R13', 'vermelho', 'Emalhe por embarcação motorizada a menos de 5 milhas da costa, do farol do Albardão ao Chuí.', 'IN Interministerial MPA/MMA 12/2012, art. 7º', CRIME_34);
     if (motor && de('Rede de arrasto').length)
       add('R14', 'vermelho', 'Arrasto tracionado por embarcação motorizada na faixa de 12 milhas do RS.', 'Lei RS 15.223/2018, art. 30, VI, e (constitucional, STF, ADI 6218)', CRIME_34_II);
+    // R36: zoneamento da orla (lei municipal e Lei RS 8.676/1988), em orla.js.
+    out.push(...(globalThis.Orla?.checar(ab) || []));
   }
 
   if (ab.area === 'patos') {
