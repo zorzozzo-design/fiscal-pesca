@@ -55,14 +55,16 @@ function avaliar({ pescador: p, area, atual, data, identificadoPor, outrosMesmos
   } else if (AREAS_COM_LISTA.has(area)) {
     const ls = (p?.licencas || []).filter(l => l.area === area);
     const naAtual = ls.find(l => l.temporada === atual);
-    if (!atual) add('amarelo', `Nenhuma lista de licenciados ${NOME_AREA[area]} importada.`);
+    // A lista municipal (Prefeitura, Projeto de Monitoramento) vale como licença: o município assumiu o licenciamento da IN 17.
+    if (!naAtual && (p?.autorizacoes || []).some(a => a.area === area)) { /* motivo ok logo abaixo */ }
+    else if (!atual) add('amarelo', `Nenhuma lista de licenciados ${NOME_AREA[area]} importada.`);
     else if (naAtual) add('ok', `Na lista ${atual} ${NOME_AREA[area]}, nº ${naAtual.n}.`);
     else if (ls.length) add('vermelho', `Não está na lista ${atual}. Estava em ${ls.map(l => l.temporada).sort().join(', ')}.${soLinha ? '' : AVISO_CRIME}`, r01(area, !soLinha));
     else add('vermelho', `Não está na lista de licenciados ${NOME_AREA[area]} (${atual}).${soLinha ? '' : AVISO_CRIME}`, r01(area, !soLinha));
   }
 
-  // Autorização especial da área (ex.: Automonitoramento da Prefeitura de Imbé): informa, não substitui a lista do MPA.
-  for (const a of p?.autorizacoes || []) if (a.area === area) add('ok', `Autorizado: ${a.titulo}, categoria ${a.categoria} (${a.orgao}), nº ${a.n}.`);
+  // Lista municipal da área (Automonitoramento, Projeto de Monitoramento): vale como licença.
+  for (const a of p?.autorizacoes || []) if (a.area === area) add('ok', `Licença municipal: ${a.categoria} (${a.titulo}), nº ${a.n}.`);
 
   const c = p ? ultimaConsulta(p.consultas, data) : null;
   if (amador || (semLicenca && !c)) { /* amador não tem RGP de profissional; sem RGP, a consulta é opcional */ }

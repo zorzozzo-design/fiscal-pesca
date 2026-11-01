@@ -167,7 +167,7 @@ const tagsListas = (p, at) => {
   const auts = (p.autorizacoes || []).filter(a => { const k = a.categoria || a.titulo; return !vistasAut.has(k) && vistasAut.add(k); })
     .map(a => `<span class="tag aut" title="${esc(`${a.titulo}, ${a.categoria} (${a.orgao})`)}">${esc(a.categoria || a.titulo)}</span>`).join('');
   return (ss.length ? ss.map(([a, s]) => `<span class="tag ${SIT[s][1]}">${esc(AREA_CURTA[a])}: ${s === 'atual' ? 'na lista atual' : 'saiu da lista'}</span>`).join('')
-    : '<span class="tag aviso">Fora das listas do MPA</span>') + auts;
+    : auts ? '' : '<span class="tag aviso">Fora das listas do MPA</span>') + auts;
 };
 // Da última consulta ao PesqBrasil: categoria, forma de atuação e ambientes de pesca (Rio, Lagoa...), para ver sem abrir a ficha.
 const infoConsulta = p => {
@@ -340,7 +340,7 @@ function telaFicha(id) {
       ${lics.length ? '' : '<p class="muted peq">Em nenhuma lista do MPA importada.</p>'}</div>
     ${(p.autorizacoes || []).length ? `<div class="card"><h2>Autorizações especiais</h2><ul class="peq">${p.autorizacoes.map(a =>
       `<li><b>${esc(a.titulo)}</b>, categoria ${esc(a.categoria)}, nº ${a.n}. ${esc(a.orgao)}. ${esc(AREA_CURTA[a.area] || a.area)}.</li>`).join('')}</ul>
-      <p class="muted peq">A autorização não substitui a lista de licenciados do MPA.</p></div>` : ''}
+      <p class="muted peq">Na área da lista, a lista municipal vale como licença. Na Bacia do Tramandaí, ela também autoriza o bagre até 15/12.</p></div>` : ''}
     ${['embarcacoes', 'veiculos'].map(t => `<div class="card"><h2>${t === 'veiculos' ? 'Veículos' : 'Embarcações'}</h2><div id="f-${t}"></div>
       <details><summary>Cadastrar ${BENS[t].nome}</summary><div id="f-${t}-form"></div></details></div>`).join('')}
     <div class="card"><h2>Vínculos</h2><p class="muted peq">Pessoas, embarcações, veículos, abordagens e denúncias ligados a esta pessoa.</p>
@@ -647,7 +647,7 @@ function telaAbordagem(param) {
       outrosMesmosDigitos: pesc()?.digitos ? Object.values(db.pescadores).filter(o => o.digitos === pesc().digitos && o.id !== ab.pescadorId).length : 0,
       categoria: ab.categoria || 'Profissional', soLinha: ab.petrechos.every(p => p.tipo === 'Linha e anzol'),
       embarcado: !!ab.embarcacao && ab.embarcacao !== 'Nenhuma' });
-    const motivos = [...s.motivos, ...checar(ab, { camarao: db.cfg.camarao || CAMARAO_PADRAO })];
+    const motivos = [...s.motivos, ...checar(ab, { camarao: db.cfg.camarao || CAMARAO_PADRAO, autorizadoBagre: (pesc()?.autorizacoes || []).some(a => a.area === 'tramandai') })];
     return { cor: corDe(motivos), motivos };
   };
   const opcoesLocal = () => `<option value="">(não informado)</option>${opcoes(LOCAIS[ab.area] || [], ab.localTipo)}`;
@@ -1208,7 +1208,7 @@ function telaDados() {
       <p id="m-pdf" class="msg"></p><div id="r-pdf"></div></div>
 
     <div class="card"><h2>2. Autorizações especiais (prefeitura)</h2>
-      <p class="muted peq">Lista de autorização com nome e CPF: Automonitoramento da Prefeitura de Imbé ou Projeto de Monitoramento da Pesca Artesanal (Baliza Tramandaí, Baliza Imbé, Fora de Baliza). O app lê o título, a categoria e o órgão no PDF. A autorização aparece na busca, na ficha e no semáforo da área. Ela não substitui a lista do MPA.</p>
+      <p class="muted peq">Lista de autorização com nome e CPF: Automonitoramento da Prefeitura de Imbé ou Projeto de Monitoramento da Pesca Artesanal (Baliza Tramandaí, Baliza Imbé, Fora de Baliza). O app lê o título, a categoria e o órgão no PDF. A lista aparece na busca, na ficha e no semáforo. Na área escolhida, ela vale como licença municipal. Na Bacia do Tramandaí, ela também autoriza o bagre até 15/12.</p>
       <label for="a-area">Área</label><select id="a-area">${AREAS_LISTA.map(k => `<option value="${k}">${esc(AREAS[k])}</option>`).join('')}</select>
       <label for="f-aut">Arquivo PDF</label><input type="file" id="f-aut" accept=".pdf,application/pdf">
       <p id="m-aut" class="msg"></p>
@@ -1454,7 +1454,7 @@ function telaGuia() {
     <details class="card card-dobra g"><summary><h2 style="display:inline">Bagre</h2></summary>
       <p class="peq g-item"><b>Espécies ameaçadas.</b> Bagre-branco (<i>Genidens barbus</i>) e bagre-boca-larga (<i>Genidens planifrons</i>) são ameaçados no RS. A pesca destas espécies é proibida o ano todo, em qualquer local (Lei RS 15.223/2018, art. 30, III; Decreto RS 51.797/2014).</p>
       <p class="peq g-item"><b>Estuário da Lagoa dos Patos.</b> A Justiça Federal manteve a proibição dos dois bagres em 10/2025 (2ª Vara Federal de Pelotas, ACP 5002915-31.2019.4.04.7110). O calendário da INC 03/2004 cita bagre em out, nov e de mar a mai. ATENÇÃO: este calendário não libera os dois bagres ameaçados. Rede de espera para bagre: malha mínima de 140 mm.</p>
-      <p class="peq g-item"><b>Bacia do Tramandaí.</b> Pesca de bagre proibida de 15/12 a 31/03 (IN 17/2004, art. 14). A IN 17 cita <i>G. barbus</i>, <i>Netuma planifrons</i> e <i>G. genidens</i>. Fora deste período, os dois bagres ameaçados continuam proibidos.</p>
+      <p class="peq g-item"><b>Bacia do Tramandaí.</b> Pesca de bagre proibida para todos de 15/12 a 31/03 (IN 17/2004, art. 14). A IN 17 cita <i>G. barbus</i>, <i>Netuma planifrons</i> e <i>G. genidens</i>. Até 15/12, só pesca bagre quem está na lista municipal (automonitoramento: Baliza Tramandaí, Baliza Imbé, Fora de Baliza). A lista funciona como plano de manejo (Lei RS 15.223/2018, art. 30, III). ATENÇÃO: <i>G. planifrons</i> continua proibido.</p>
       <p class="peq g-item"><b>Identificação.</b> Registre a espécie na abordagem. Bagre sem espécie fica amarelo no app. Fotografe o exemplar e confira. <i>G. genidens</i> não está na lista de ameaçados usada pelo app. No mar, o tamanho mínimo de <i>G. genidens</i> é 20 cm (IN 53/2005).</p></details>
     <details class="card card-dobra g"><summary><h2 style="display:inline">Camarão</h2></summary>
       <p class="peq g-item"><b>Bacia do Tramandaí: temporada.</b> Pesca de camarão só na temporada da portaria anual. Em 2026: de 23/01 a 21/06 (Portaria Interministerial MPA/MMA 48/2026). A cada ano, atualize as datas em Dados.</p>
@@ -1463,6 +1463,14 @@ function telaGuia() {
       <p class="peq g-item"><b>Estuário da Lagoa dos Patos.</b> Camarão-rosa: de fev a mai (INC 03/2004, art. 2º). Tamanho mínimo: 9 cm, com tolerância de 20% do número de exemplares (art. 6º). Rede de saco e aviãozinho: malha mínima de 24 mm. Andaina de até 10 redes por licenciado. Tralha de até 15 m. Placa com o registro no primeiro calão. Distância de 300 m entre séries paralelas.</p>
       <p class="peq g-item"><b>Lagoa do Peixe.</b> Só pesca quem está no Termo de Compromisso do ICMBio. Aviãozinho com lacre numerado, em caíco sem motor. Só na temporada que o ICMBio abre.</p>
       <p class="peq g-item"><b>Arrasto.</b> Proibido na Bacia do Tramandaí e no estuário da Lagoa dos Patos.</p></details>
+    <details class="card card-dobra g"><summary><h2 style="display:inline">Mar: distância da costa</h2></summary>
+      <p class="muted peq">1 milha náutica = 1.852 m. A distância conta a partir da linha de costa. Vale em todo o litoral do RS.</p>
+      <p class="peq g-item"><b>Emalhe, barco com motor.</b> Proibido até 1 milha da costa (IN Interministerial MPA/MMA 12/2012, art. 6º). Do farol do Albardão ao Chuí: proibido até 5 milhas (art. 7º). Barco acima de 20 AB: proibido até 4 milhas, do Albardão para o norte (art. 10).</p>
+      <p class="peq g-item"><b>Emalhe, barco sem motor.</b> Permitido até 1 milha da costa, com no máximo 1.000 m de rede no total (art. 6º, § 1º).</p>
+      <p class="peq g-item"><b>Barra de Rio Grande.</b> Emalhe proibido na área de proteção do boto: 20 km para cada lado dos molhes, até 1 milha da costa, e dentro do estuário até a Ponta dos Pescadores (art. 8º). Exceção: cabo ou calão de praia.</p>
+      <p class="peq g-item"><b>Arrasto, barco com motor.</b> Proibido em todo o RS, nas 12 milhas da costa (Lei RS 15.223/2018, art. 30, VI, e). O STF confirmou a lei (ADI 6218).</p>
+      <p class="peq g-item"><b>Identificação da rede.</b> RGP na tralha superior, no mínimo a cada 1.000 m. Rede sem identificação: petrecho não permitido (IN 12/2012, art. 3º, II e III).</p>
+      <p class="peq g-item"><b>Na abordagem.</b> Rede a 500 m da praia lançada por barco com motor: emalhe proibido (R13). Marque o local "Embarcado até 1 milha da costa" e a embarcação "Motorizada". Registre o ponto com o GPS. Fotografe a rede, as boias e o barco. Barco ou rede sem identificação: registre na observação.</p></details>
     <details class="card card-dobra g"><summary><h2 style="display:inline">Defesos por região</h2></summary>
       ${Object.entries(DEFESOS).filter(([, ds]) => ds.length).map(([r, ds]) => `<p class="peq g-item"><b>${esc(REGIMES[r].nome)}</b><br>${ds.map(([n, de, ate, t, norma]) =>
         `${esc(n)}: de ${esc(de.split('-').reverse().join('/'))} a ${esc(ate.split('-').reverse().join('/').replace('29/02', '28/02'))}. ${esc(t)} (${esc(norma)}).`).join('<br>')}</p>`).join('')}

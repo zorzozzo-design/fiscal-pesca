@@ -8,7 +8,7 @@ const LOCAIS = {
     'Canal de 200 m na Laguna do Armazém (art. 5º)', 'Faixa de 150 m das margens: Itapeva, Quadros, Pinguela, Malva, Palmital, Passo (art. 6º)',
     'Rio Cornélio, Lagoa Boa Vista ou áreas do art. 7º', 'Raio de 200 m da foz de rio ou canal (art. 9º)', 'Braço Morto do Imbé (art. 10)',
     'Sob a ponte Giuseppe Garibaldi, sentido oeste (art. 25, II)'],
-  mar: ['Praia (desembarcado)', 'Embarcado até 1 milha da costa', 'Embarcado além de 1 milha', 'Barra ou desembocadura (fora de Tramandaí)'],
+  mar: ['Praia (desembarcado)', 'Embarcado até 1 milha da costa', 'Embarcado além de 1 milha', 'Embarcado até 5 milhas, do farol do Albardão ao Chuí', 'Barra ou desembocadura (fora de Tramandaí)'],
   outras: ['Lagoa ou rio', 'Reservatório de hidrelétrica ou açude público', 'Lagoa marginal', 'Até 200 m de barragem, cachoeira ou corredeira',
     'Entre 200 e 1.500 m de barragem, cachoeira ou corredeira', 'Barra ou desembocadura (fora de Tramandaí)'],
   uruguai: ['Lagoa ou rio', 'Reservatório de hidrelétrica ou açude público', 'Lagoa marginal', 'Até 200 m de barragem, cachoeira ou corredeira',
@@ -149,12 +149,19 @@ function checar(ab, cfg = {}) {
     for (const r of de('Rede de emalhe')) {
       const erros = [r.malhaMm != null && (r.malhaMm < 70 || r.malhaMm > 140) && `malha ${r.malhaMm} mm (70 a 140 mm)`,
         r.alturaM > 4 && `altura ${num(r.alturaM)} m (máximo 4 m)`, r.rgpTralha === 'Não' && 'sem RGP na tralha superior'].filter(Boolean);
-      if (erros.length) add('R12', 'vermelho', `Rede de emalhe: ${erros.join('; ')}.`, 'IN Interministerial MPA/MMA 12/2012, arts. 2º e 3º', CRIME_34_II);
-      if (ab.embarcacao === 'Motorizada' && local === 'Embarcado até 1 milha da costa')
-        add('R13', 'vermelho', 'Emalhe por embarcação motorizada a menos de 1 milha da costa.', 'IN Interministerial MPA/MMA 12/2012, art. 6º', CRIME_34);
+      if (erros.length) add('R12', 'vermelho', `Rede de emalhe: ${erros.join('; ')}.`, 'IN Interministerial MPA/MMA 12/2012, art. 2º; art. 3º, II e III (rede sem RGP = petrecho não permitido)', CRIME_34_II);
     }
-    if (ab.embarcacao === 'Motorizada' && de('Rede de arrasto').length)
-      add('R14', 'vermelho', 'Arrasto tracionado por embarcação motorizada na faixa de 12 milhas do RS.', 'Lei RS 15.223/2018', CRIME_34_II);
+    // R13: distância da costa para o emalhe (1 milha náutica = 1.852 m).
+    const ems = de('Rede de emalhe'), motor = ab.embarcacao === 'Motorizada';
+    if (ems.length && local === 'Embarcado até 1 milha da costa') {
+      const total = ems.reduce((t, r) => t + (+r.comprimentoM || 0) * (+r.qtd || 1), 0);
+      if (motor) add('R13', 'vermelho', 'Emalhe por embarcação motorizada a menos de 1 milha (1.852 m) da costa.', 'IN Interministerial MPA/MMA 12/2012, art. 6º', CRIME_34);
+      else if (total > 1000) add('R13', 'vermelho', `Barco sem motor a menos de 1 milha da costa com ${total.toLocaleString('pt-BR')} m de rede (máximo 1.000 m).`, 'IN Interministerial MPA/MMA 12/2012, art. 6º, § 1º', CRIME_34_II);
+    }
+    if (ems.length && motor && local === 'Embarcado até 5 milhas, do farol do Albardão ao Chuí')
+      add('R13', 'vermelho', 'Emalhe por embarcação motorizada a menos de 5 milhas da costa, do farol do Albardão ao Chuí.', 'IN Interministerial MPA/MMA 12/2012, art. 7º', CRIME_34);
+    if (motor && de('Rede de arrasto').length)
+      add('R14', 'vermelho', 'Arrasto tracionado por embarcação motorizada na faixa de 12 milhas do RS.', 'Lei RS 15.223/2018, art. 30, VI, e (constitucional, STF, ADI 6218)', CRIME_34_II);
   }
 
   if (ab.area === 'patos') {
@@ -239,9 +246,17 @@ function checar(ab, cfg = {}) {
   // R27: espécie ameaçada, proibida em qualquer local e época (acima dos calendários da IN 17 e da INC 03).
   for (const p of pes) {
     const k = chave(p.especie);
+    // Bacia do Tramandaí: a lista municipal (automonitoramento) autoriza o bagre fora do defeso da IN 17 (15/12 a 31/03).
+    // Base: plano de manejo, ressalva da Lei RS 15.223/2018, art. 30, III. G. planifrons segue proibido.
+    if (ab.area === 'tramandai' && cfg.autorizadoBagre && k.startsWith('bagre') && !/planifrons/.test(k)) {
+      if (!entre(data, '12-15', '03-31')) add('R27', 'ok', `${p.especie}: pescador autorizado na lista municipal (automonitoramento do bagre). Permitido até 15/12.`,
+        'Lista municipal do automonitoramento; Lei RS 15.223/2018, art. 30, III (plano de manejo); IN 17/2004, art. 14', '');
+      continue;
+    }
     const am = AMEACADAS.find(([re, , onde]) => re.test(k) && !(onde === 'continental' && ab.area === 'mar'));
     if (am) add('R27', 'vermelho', `${p.especie}: espécie ameaçada${k.includes(chave(am[1])) ? '' : ` (${am[1]})`}, pesca proibida em qualquer local e época.`, NORMA_AMEACADAS, CRIME_34_I);
-    else if (CONFERIR_ESPECIE.test(k) && !['outras', 'uruguai', 'mirim'].includes(ab.area)) add('R27', 'amarelo', `${p.especie}: confira a espécie. Há espécies ameaçadas neste grupo, proibidas o ano todo.`, NORMA_AMEACADAS, CRIME_34_I);
+    else if (CONFERIR_ESPECIE.test(k) && !['outras', 'uruguai', 'mirim'].includes(ab.area)) add('R27', 'amarelo', `${p.especie}: confira a espécie. Há espécies ameaçadas neste grupo, proibidas o ano todo.${
+      ab.area === 'tramandai' && k.startsWith('bagre') ? ' Na Bacia do Tramandaí, o bagre só é permitido ao pescador da lista municipal (automonitoramento), até 15/12.' : ''}`, NORMA_AMEACADAS, CRIME_34_I);
     // O peixe-rei-bicudo só existe nas lagoas Emboaba, Caconde, do Horácio e do Lessa (Malabarba e outros, 2013).
     else if (k.startsWith('peixe-rei') && LAGOAS_BICUDO.includes(ab.localPescaId)) add('R27', 'amarelo', `${p.especie}: nesta lagoa vive o peixe-rei-bicudo (Odontesthes bicudo), ameaçado. Confira a espécie: focinho longo e pontudo.`, NORMA_AMEACADAS, CRIME_34_I);
   }
@@ -305,10 +320,10 @@ function defesosDe(area, data) {
 
 // Resumo para "bater o olho" ao escolher o local (mesmo conteúdo das regras acima).
 const RESUMO = {
-  tramandai: ['Licença: só pesca o profissional da lista atual (IN 17, art. 22). Amador: só linha e anzol, sem licença (art. 26, II).',
+  tramandai: ['Licença: lista atual do MPA (IN 17, art. 22) ou lista municipal (o município assumiu o licenciamento). Amador: só linha e anzol, sem licença (art. 26, II).',
     'Rede de espera: malha mínima de 80 mm. Na Lagoa Tramandaí: malha mínima de 90 mm e até 500 m. Em rio, canal ou foz: proibida.',
     'Tarrafa de peixe: malha mínima de 60 mm. Arrasto: proibido.', 'Aviãozinho: só na Laguna do Armazém. Malha mínima de 25 mm. Até 10 redes por pescador.',
-    'Camarão: só na temporada da portaria anual. Bagre: proibido de 15/12 a 31/03.',
+    'Camarão: só na temporada da portaria anual. Bagre: só pescador da lista municipal (automonitoramento), até 15/12. De 15/12 a 31/03, proibido para todos.',
     'Locais proibidos: canal e boca da barra, ponte Giuseppe Garibaldi, Lagoa Gentil, Braço Morto do Imbé e 200 m da foz de rios (arts. 2º a 10). Com GPS, o app avisa nas áreas com coordenadas.',
     'Sob a ponte, sentido oeste: tarrafa embarcada de 25 mm permitida para sardinha e peixe-rei. Só para licenciados (art. 25, II).'],
   patos: ['Licença: só pesca o profissional da lista do estuário (INC 03/2004).', 'Rede de espera: malha mínima de 100 mm. Para bagre: 140 mm. Para peixe-rei: 40 mm. Até 1.830 m por embarcação.',
@@ -327,8 +342,10 @@ const RESUMO = {
   peixe: ['Parque Nacional: só pesca quem está no Termo de Compromisso do ICMBio.',
     'Camarão: só aviãozinho com lacre numerado, em caíco sem motor. Só na temporada que o ICMBio abre pelo monitoramento (2026: aberta em 14/01).'],
   mampituba: ['Barra do Mampituba até a Figueirinha: Portaria SUDEPE 006/1984. O texto não foi localizado. Confira.'],
-  mar: ['Emalhe: malha de 70 a 140 mm. Altura: até 4 m. RGP na tralha superior (IN 12/2012).', 'Barco motorizado: emalhe só além de 1 milha da costa.',
-    'Arrasto por barco motorizado: proibido nas 12 milhas do RS (Lei RS 15.223/2018).',
+  mar: ['Emalhe: malha de 70 a 140 mm. Altura: até 4 m. RGP na tralha superior a cada 1.000 m. Rede sem RGP: petrecho não permitido (IN 12/2012, art. 3º).',
+    'Barco motorizado: emalhe proibido até 1 milha (1.852 m) da costa. Do farol do Albardão ao Chuí: até 5 milhas. Barco acima de 20 AB: até 4 milhas (IN 12/2012, arts. 6º, 7º e 10).',
+    'Barco sem motor, até 1 milha da costa: no máximo 1.000 m de rede (IN 12/2012, art. 6º, § 1º).',
+    'Arrasto por barco motorizado: proibido nas 12 milhas do RS (Lei RS 15.223/2018, art. 30, VI, e).',
     'Tamanho mínimo: tainha, anchova e linguado, 35 cm. Corvina e pescadinha, 25 cm (IN 53/2005).',
     'Anchova: defeso de 1º/12 a 31/03. Barras: de 15/03 a 15/08, só tarrafa.'],
 };

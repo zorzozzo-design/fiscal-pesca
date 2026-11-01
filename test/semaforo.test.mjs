@@ -176,3 +176,11 @@ test('autorização especial aparece no semáforo da área, sem mudar a cor', ()
   assert.ok(r.motivos.some(m => m.nivel === 'ok' && m.texto.includes('Automonitoramento 2025') && m.texto.includes('nº 7')));
   assert.ok(!av({ pescador: p, area: 'mar', atual: null }).motivos.some(m => m.texto.includes('Automonitoramento')));
 });
+
+test('lista municipal vale como licença na área (Tramandaí): fora da lista do MPA mas autorizado = verde', () => {
+  const aut = { id: 'x', titulo: 'Projeto de Monitoramento', categoria: 'Caniço/Tarrafa/Fora da Baliza', orgao: 'Projeto', area: 'tramandai', n: 3 };
+  const p = { ...pesc([], [consulta('2026-10-20')]), autorizacoes: [aut] };
+  const r = av({ pescador: p, soLinha: false });
+  assert.equal(r.cor, 'verde');
+  assert.ok(r.motivos.some(m => m.nivel === 'ok' && /licença municipal/i.test(m.texto) && m.texto.includes('Caniço/Tarrafa/Fora da Baliza')));
+});

@@ -345,3 +345,32 @@ test('R27: peixe-rei sem espécie nas lagoas do peixe-rei-bicudo fica amarelo', 
   const v = checar(ab({ localPescaId: 'bicudo', data: '2026-06-10', pescado: [{ especie: 'Peixe-rei (Odontesthes bicudo)', kg: 2 }] }), cfg);
   assert.ok(v.some(m => m.regra === 'R27' && m.nivel === 'vermelho') && !v.some(m => m.nivel === 'amarelo' && m.regra === 'R27'));
 });
+
+test('mar, distância da costa: emalhe motorizado até 1 milha, 5 milhas do Albardão ao Chuí, barco a remo até 1.000 m de rede', () => {
+  const mar = (localTipo, embarcacao, petrechos) => checar(ab({ area: 'mar', localTipo, embarcacao, data: '2026-06-10', petrechos }), cfg);
+  const em = (m = 100, qtd = 1, comprimentoM = 300) => pet('Rede de emalhe', { malhaMm: m, qtd, comprimentoM, rgpTralha: 'Sim', alturaM: 3 });
+  assert.ok(mar('Embarcado até 1 milha da costa', 'Motorizada', [em()]).some(m => m.regra === 'R13' && m.norma.includes('art. 6º')));
+  assert.ok(mar('Embarcado até 5 milhas, do farol do Albardão ao Chuí', 'Motorizada', [em()]).some(m => m.regra === 'R13' && m.norma.includes('art. 7º')));
+  assert.ok(!mar('Embarcado além de 1 milha', 'Motorizada', [em()]).some(m => m.regra === 'R13'));
+  // barco a remo até 1 milha: permitido até 1.000 m de rede no total (art. 6º, § 1º)
+  assert.ok(!mar('Embarcado até 1 milha da costa', 'A remo', [em(100, 3, 300)]).some(m => m.regra === 'R13'));
+  assert.ok(mar('Embarcado até 1 milha da costa', 'A remo', [em(100, 4, 300)]).some(m => m.regra === 'R13' && /1\.200 m/.test(m.texto) && m.norma.includes('§ 1º')));
+});
+
+test('mar: arrasto motorizado cita a Lei RS 15.223/2018, art. 30, VI, e; rede sem RGP cita art. 3º, III', () => {
+  const r = checar(ab({ area: 'mar', localTipo: 'Embarcado além de 1 milha', embarcacao: 'Motorizada', data: '2026-06-10',
+    petrechos: [pet('Rede de arrasto'), pet('Rede de emalhe', { malhaMm: 100, rgpTralha: 'Não' })] }), cfg);
+  assert.ok(r.find(m => m.regra === 'R14').norma.includes('art. 30, VI, e'));
+  assert.ok(r.find(m => m.regra === 'R12').norma.includes('art. 3º, II e III'));
+});
+
+test('Tramandaí, bagre: autorizado na lista municipal fica ok fora do defeso; sem autorização, bagre sem espécie avisa', () => {
+  const bagre = (especie, data, autorizadoBagre) => checar(ab({ data, pescado: [{ especie, kg: 5 }] }), { ...cfg, autorizadoBagre });
+  const ok = bagre('Bagre-branco (Genidens barbus)', '2026-11-10', true);
+  assert.ok(ok.some(m => m.regra === 'R27' && m.nivel === 'ok' && /15\/12/.test(m.texto)));
+  assert.ok(!ok.some(m => m.nivel === 'vermelho'));
+  assert.ok(bagre('Bagre-branco (Genidens barbus)', '2026-12-20', true).some(m => m.regra === 'R09' && m.nivel === 'vermelho')); // defeso vale para todos
+  assert.ok(bagre('Bagre (Genidens planifrons)', '2026-11-10', true).some(m => m.regra === 'R27' && m.nivel === 'vermelho')); // planifrons segue proibido
+  assert.ok(bagre('Bagre-branco (Genidens barbus)', '2026-11-10', false).some(m => m.regra === 'R27' && m.nivel === 'vermelho'));
+  assert.ok(bagre('Bagre (espécie não identificada)', '2026-11-10', false).some(m => m.regra === 'R27' && m.nivel === 'amarelo' && /lista municipal/.test(m.texto)));
+});
