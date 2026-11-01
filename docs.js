@@ -74,6 +74,7 @@ function termoApreensao(ab, p, cfg) {
 function bensUsados(ab, p) {
   const e = (p.embarcacoes || []).find(x => x.id === ab.embarcacaoId), v = (p.veiculos || []).find(x => x.id === ab.veiculoId);
   const ts = [e && `Embarcação: ${[e.nome, e.inscricao && `inscrição ${e.inscricao}`, e.rgp && `RGP ${e.rgp}`, e.comprimentoM && `${num(e.comprimentoM)} m`, e.propulsao].filter(Boolean).join(', ')}`,
+    ab.embSemId && ab.embarcacao && ab.embarcacao !== 'Nenhuma' && 'Embarcação sem identificação (sem nome e inscrição visíveis no casco)',
     v && `Veículo: ${[v.placa, v.modelo, v.cor, v.tipo].filter(Boolean).join(', ')}`].filter(Boolean);
   return ts.length ? `<p class="doc-texto">${ts.map(esc).join('<br>')}</p>` : '';
 }
@@ -107,7 +108,7 @@ function notificacao(ab, p, cfg) {
 }
 
 // Abordagem com vários envolvidos: local, data e GPS uma vez; cada envolvido com pessoa, ponto, petrechos, pescado e providências.
-const PESSOAIS = ['pescadorId', 'identificadoPor', 'cpfInformado', 'categoria', 'embarcacao', 'comprimentoEmbM', 'embarcacaoId', 'veiculoId', 'localTipo',
+const PESSOAIS = ['pescadorId', 'identificadoPor', 'cpfInformado', 'categoria', 'embarcacao', 'comprimentoEmbM', 'embarcacaoId', 'embSemId', 'veiculoId', 'localTipo',
   'petrechos', 'pescado', 'apreensao', 'notificacao', 'providencias', 'semaforo'];
 // Abordagens gravadas antes (uma pessoa só) viram uma com um envolvido. A providência única vira lista.
 function normalizarAb(a) {

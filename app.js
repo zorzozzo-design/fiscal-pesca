@@ -671,6 +671,7 @@ function telaAbordagem(param) {
         <div><label for="a-cat">Categoria</label><select id="a-cat">${opcoes(CATEGORIAS, ab.categoria || 'Profissional')}</select></div>
         <div><label for="a-emb">Embarcação</label><select id="a-emb">${opcoes(EMBARCACOES, ab.embarcacao || 'Nenhuma')}</select></div>
         <div id="d-comp"${ab.embarcacao && ab.embarcacao !== 'Nenhuma' ? '' : ' hidden'}><label for="a-comp">Comprimento (m)</label><input id="a-comp" type="number" min="0" step="0.5" inputmode="decimal" value="${esc(ab.comprimentoEmbM ?? '')}"></div>
+        <div id="d-semid" style="grid-column:1/-1"${ab.embarcacao && ab.embarcacao !== 'Nenhuma' ? '' : ' hidden'}><label class="chk"><input type="checkbox" id="a-semid"${ab.embSemId ? ' checked' : ''}> Embarcação sem identificação (sem nome e inscrição no casco)</label></div>
       </div></div>
     <div id="sem"></div>
     <div class="card" id="c-consulta" hidden><h2>Consulta ao PesqBrasil</h2><div id="consulta"></div></div>
@@ -725,7 +726,7 @@ function telaAbordagem(param) {
     atual = i;
     $('#a-loc').innerHTML = opcoesLocal();
     $('#a-cat').value = ab.categoria || 'Profissional'; $('#a-emb').value = ab.embarcacao || 'Nenhuma';
-    $('#a-comp').value = ab.comprimentoEmbM ?? ''; $('#d-comp').hidden = !ab.embarcacao || ab.embarcacao === 'Nenhuma';
+    $('#a-comp').value = ab.comprimentoEmbM ?? ''; $('#d-comp').hidden = $('#d-semid').hidden = !ab.embarcacao || ab.embarcacao === 'Nenhuma'; $('#a-semid').checked = !!ab.embSemId;
     $('#ap-on').checked = !!ab.apreensao; $('#nt-on').checked = !!ab.notificacao;
     desenharPessoa(); desenharSem(); desenharConsulta(); desenharQual();
     desenharLinhas(ab.petrechos, '#petrechos', CAMPOS_PET, desenharSem); desenharLinhas(ab.pescado, '#pescado', CAMPOS_PES, desenharSem);
@@ -853,7 +854,7 @@ function telaAbordagem(param) {
   // Embarcação usada: escolhida entre as do cadastro da pessoa ou cadastrada na hora; preenche propulsão e comprimento.
   const aplicarEmb = e => {
     ab.embarcacaoId = e?.id || '';
-    if (e) { ab.embarcacao = e.propulsao; ab.comprimentoEmbM = e.comprimentoM; $('#a-emb').value = e.propulsao; $('#a-comp').value = e.comprimentoM ?? ''; $('#d-comp').hidden = false; }
+    if (e) { ab.embarcacao = e.propulsao; ab.comprimentoEmbM = e.comprimentoM; $('#a-emb').value = e.propulsao; $('#a-comp').value = e.comprimentoM ?? ''; $('#d-comp').hidden = $('#d-semid').hidden = false; }
     desenharSem();
   };
   // Embarcação e veículo usados: escolhidos do cadastro da pessoa ou cadastrados na hora.
@@ -1044,7 +1045,8 @@ function telaAbordagem(param) {
     listar();
   };
   $('#a-loc').onchange = e => { ab.localTipo = e.target.value; desenharSem(); };
-  $('#a-emb').onchange = e => { ab.embarcacao = e.target.value; $('#d-comp').hidden = ab.embarcacao === 'Nenhuma'; desenharSem(); };
+  $('#a-emb').onchange = e => { ab.embarcacao = e.target.value; $('#d-comp').hidden = $('#d-semid').hidden = ab.embarcacao === 'Nenhuma'; desenharSem(); };
+  $('#a-semid').onchange = e => { ab.embSemId = e.target.checked; desenharSem(); };
   $('#a-comp').oninput = e => { ab.comprimentoEmbM = e.target.value === '' ? null : +e.target.value; desenharSem(); };
   $('#a-cat').onchange = e => { ab.categoria = e.target.value; desenharSem(); desenharConsulta(); };
   $('#a-data').onchange = e => { ab.data = e.target.value || ab.data; desenharSem(); desenharConsulta(); };
@@ -1486,7 +1488,7 @@ function telaGuia() {
       <p class="peq g-item"><b>Barra de Rio Grande.</b> Emalhe proibido na área de proteção do boto: 20 km para cada lado dos molhes, até 1 milha da costa, e dentro do estuário até a Ponta dos Pescadores (art. 8º). Exceção: cabo ou calão de praia.</p>
       <p class="peq g-item"><b>Arrasto, barco com motor.</b> Proibido em todo o RS, nas 12 milhas da costa (Lei RS 15.223/2018, art. 30, VI, e). O STF confirmou a lei (ADI 6218).</p>
       <p class="peq g-item"><b>Identificação da rede.</b> RGP na tralha superior, no mínimo a cada 1.000 m. Rede sem identificação: petrecho não permitido (IN 12/2012, art. 3º, II e III).</p>
-      <p class="peq g-item"><b>Na abordagem.</b> Rede a 500 m da praia lançada por barco com motor: emalhe proibido (R13). Marque o local "Embarcado até 500 m da costa" (ou "até 1 milha") e a embarcação "Motorizada". Em área de surfe, marque também a zona da orla. Registre o ponto com o GPS. Fotografe a rede, as boias e o barco. Barco ou rede sem identificação: registre na observação.</p></details>
+      <p class="peq g-item"><b>Na abordagem.</b> Rede a 500 m da praia lançada por barco com motor: emalhe proibido (R13). Marque o local "Embarcado até 500 m da costa" (ou "até 1 milha") e a embarcação "Motorizada". Em área de surfe, marque também a zona da orla. Registre o ponto com o GPS. Fotografe a rede, as boias e o barco. Barco sem nome e inscrição: marque "Embarcação sem identificação" (R37) e comunique a Capitania dos Portos. Rede sem RGP na tralha: marque no petrecho.</p></details>
     <details class="card card-dobra g"><summary><h2 style="display:inline">Orla: áreas de pesca, surfe e banho</h2></summary>
       <p class="muted peq">Cada município do litoral demarca a orla com placas e balizas. A placa no local vale mais que o app. Na abordagem, marque o município da praia e a zona da orla: o app indica a regra (R36). A sanção é municipal e estadual, não a multa do Dec. 6.514/2008.</p>
       <ul class="peq g-item">${GUIA_ESTADUAL.map(t => `<li>${esc(t)}</li>`).join('')}</ul>

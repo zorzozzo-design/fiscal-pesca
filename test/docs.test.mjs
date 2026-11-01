@@ -109,6 +109,11 @@ test('termo de apreensão mostra a embarcação e o veículo usados', () => {
   assert.doesNotMatch(termoApreensao(ab, pe, {}), /Embarcação:/);
 });
 
+test('termo de apreensão registra embarcação sem identificação', () => {
+  assert.match(termoApreensao({ ...ab, embarcacao: 'Motorizada', embSemId: true }, p, {}), /Embarcação sem identificação/);
+  assert.doesNotMatch(termoApreensao({ ...ab, embarcacao: 'Nenhuma', embSemId: true }, p, {}), /sem identificação/);
+});
+
 test('lembrete de backup: sem backup com dados, ou último backup com mais de 7 dias', () => {
   const { lembreteBackup } = globalThis.Docs;
   assert.equal(lembreteBackup(null, '2026-10-26', false), null); // base vazia: nada a guardar

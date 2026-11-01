@@ -1,4 +1,4 @@
-// Regras de pesca checadas na abordagem (R02 a R36; a R01 fica no semáforo, junto da lista).
+// Regras de pesca checadas na abordagem (R02 a R37; a R01 fica no semáforo, junto da lista).
 // Fonte de cada regra: aba "Legislação" do documento do projeto. Indica, não autua.
 (() => {
 
@@ -165,6 +165,11 @@ function checar(ab, cfg = {}) {
     // R36: zoneamento da orla (lei municipal e Lei RS 8.676/1988), em orla.js.
     out.push(...(globalThis.Orla?.checar(ab) || []));
   }
+
+  // R37: embarcação sem nome e inscrição visíveis. Embarcação de pesca precisa de RGP; a marcação do casco é da Marinha.
+  if (ab.embSemId && ab.embarcacao && ab.embarcacao !== 'Nenhuma')
+    add('R37', 'amarelo', 'Embarcação sem identificação: peça o documento da embarcação (TIE) e o RGP dela. Fotografe o casco. Comunique a Capitania dos Portos.',
+      'Lei 11.959/2009, art. 24 (embarcação de pesca inscrita no RGP); Lei 9.537/1998 (inscrição e marcação: Marinha)', '', null);
 
   if (ab.area === 'patos') {
     const malhaMin = especie('bagre') ? 140 : pes.length && pes.every(p => chave(p.especie).startsWith('peixe-rei')) ? 40 : 100;

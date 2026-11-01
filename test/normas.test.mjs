@@ -374,3 +374,14 @@ test('Tramandaí, bagre: autorizado na lista municipal fica ok fora do defeso; s
   assert.ok(bagre('Bagre-branco (Genidens barbus)', '2026-11-10', false).some(m => m.regra === 'R27' && m.nivel === 'vermelho'));
   assert.ok(bagre('Bagre (espécie não identificada)', '2026-11-10', false).some(m => m.regra === 'R27' && m.nivel === 'amarelo' && /lista municipal/.test(m.texto)));
 });
+
+test('R37: embarcação sem identificação é amarelo, em qualquer área, sem multa do Dec. 6.514', () => {
+  const r = checar(ab({ embarcacao: 'Motorizada', embSemId: true }), cfg).filter(m => m.regra === 'R37');
+  assert.equal(r.length, 1);
+  assert.equal(r[0].nivel, 'amarelo');
+  assert.equal(r[0].artigo, null);
+  assert.ok(r[0].norma.includes('11.959/2009, art. 24'));
+  assert.ok(tem(ab({ area: 'mar', embarcacao: 'A remo', embSemId: true }), 'R37'));
+  assert.ok(!tem(ab({ embarcacao: 'Nenhuma', embSemId: true }), 'R37'));
+  assert.ok(!tem(ab({ embarcacao: 'Motorizada' }), 'R37'));
+});
