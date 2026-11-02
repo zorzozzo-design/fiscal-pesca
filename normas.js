@@ -15,7 +15,8 @@ const LOCAIS = {
     'Entre 200 e 1.500 m de barragem, cachoeira ou corredeira', 'Até 500 m de confluência com o rio Uruguai', 'Trecho vedado na piracema (IN 193, art. 3º, V a VIII)'],
   mirim: ['Lagoa Mirim', 'Lagoa Mangueira', 'Canal São Gonçalo'],
   patos: ['Estuário', 'Barra ou desembocadura (fora de Tramandaí)'],
-  peixe: ['Lagoa do Peixe', 'Barra ou desembocadura (fora de Tramandaí)'],
+  peixe: ['Lagoa do Peixe', 'Canal da barra da Lagoa do Peixe', 'Lagamar, valo ou canal proibido (Veiana, Pai João, Ruivo)',
+    'Praia ao sul da barra (trecho de 8 km vedado)', 'Área marinha do Parque', 'Barra ou desembocadura (fora de Tramandaí)'],
   mampituba: ['Barra do Mampituba até a Figueirinha'],
 };
 
@@ -213,6 +214,21 @@ function checar(ab, cfg = {}) {
 
   if (ab.area === 'peixe')
     add('R25', 'amarelo', 'Parque Nacional da Lagoa do Peixe: só pescam os artesanais do Termo de Compromisso do ICMBio, com aviãozinho de lacre numerado, em caíco sem motor, na temporada aberta pelo monitoramento. Confira o cadastro e os lacres.', 'Decreto 93.546/1986; Termo de Compromisso ICMBio', CRIME_34);
+  // R40: Termo de Compromisso 02/2019 (ICMBio e Colônia Z11, aditivo 01/2022). Vigência de 6 anos desde 12/2019: renovação a confirmar.
+  if (ab.area === 'peixe') {
+    const tc = cl => `Termo de Compromisso ICMBio/Colônia Z11 02/2019, ${cl}`;
+    if (ab.embarcacao === 'Motorizada') add('R40', 'vermelho', 'Embarcação motorizada no Parque: proibida.', tc('cl. 7ª, III'), CRIME_34);
+    if (de('Rede de arrasto').length) add('R40', 'vermelho', 'Cerco ou arrasto no Parque: proibido.', tc('cl. 7ª, I'), CRIME_34_II);
+    if (pets.length && local.startsWith('Lagamar, valo ou canal proibido')) add('R40', 'vermelho', 'Pesca em lagamar, valo ou canal proibido (Veiana, Pai João, Ruivo e canais entre lagamares).', tc('cl. 9ª, I'), CRIME_34);
+    if (local === 'Canal da barra da Lagoa do Peixe' && pets.some(p => p.tipo !== 'Tarrafa')) add('R40', 'vermelho', 'Canal da barra da Lagoa do Peixe: só tarrafa, só para tainha.', tc('cl. 9ª, I, e cl. 11ª, § 4º'), CRIME_34);
+    if (pets.length && local.startsWith('Praia ao sul da barra')) add('R40', 'vermelho', 'Praia ao sul da barra da Lagoa do Peixe, trecho de cerca de 8 km: qualquer pesca proibida.', tc('cl. 9ª, III'), CRIME_34);
+    for (const t of de('Tarrafa')) if (t.malhaMm != null && t.malhaMm < 60) add('R40', 'vermelho', `Tarrafa com malha ${t.malhaMm} mm (mínimo 60 mm).`, tc('cl. 11ª, § 2º, b'), CRIME_34_II);
+    for (const a of de('Aviãozinho')) if (a.malhaMm != null && a.malhaMm < 24) add('R40', 'vermelho', `Aviãozinho com malha ${a.malhaMm} mm (mínimo 24 mm).`, tc('cl. 10ª, § 2º'), CRIME_34_II);
+    for (const r of de('Rede de emalhe')) if (r.malhaMm != null && r.malhaMm < 100) {
+      if (r.malhaMm < 40) add('R40', 'vermelho', `Rede de emalhe com malha ${r.malhaMm} mm (mínimo 40 mm, só para peixe-rei).`, tc('cl. 11ª, § 2º, a'), CRIME_34_II);
+      else if (!(pes.length && pes.every(p => chave(p.especie).startsWith('peixe-rei')))) add('R40', 'amarelo', `Rede de emalhe com malha ${r.malhaMm} mm: abaixo de 100 mm só para peixe-rei (tainha 100 mm, linguado 160 mm). Confira a espécie-alvo.`, tc('cl. 11ª, § 2º, a'), CRIME_34_II);
+    }
+  }
   if (ab.area === 'mampituba')
     add('R26', 'amarelo', 'Barra do Mampituba até a Figueirinha: norma própria (Portaria SUDEPE 006/1984), texto não localizado. Confira.', 'Portaria SUDEPE 006/1984', CRIME_34);
 
@@ -366,7 +382,10 @@ const RESUMO = {
     'Lambari em reservatório: proibido de 1º/11 a 28/02.'],
   mirim: ['Licença: só pesca o profissional da lista das Lagoas Mirim e Mangueira, publicada pelo MPA (INC 02/2004).', 'Defeso de todas as espécies: de 1º/11 a 31/01.',
     'Malha e petrechos: INC MMA/SEAP 02/2004. O texto da norma não foi localizado. Confira.'],
-  peixe: ['Parque Nacional: só pesca quem está no Termo de Compromisso do ICMBio.',
+  peixe: ['Parque Nacional: só pesca quem está no Termo de Compromisso do ICMBio (TC 02/2019, Colônia Z11), com carteira e autorização do ICMBio. Vigência de 6 anos desde 12/2019: confira a renovação.',
+    'Proibidos: embarcação motorizada, cerco e arrasto, rede feiticeira. Lagamares da Veiana, do Pai João e do Ruivo, valos e canais: pesca proibida. Canal da barra: só tarrafa, para tainha.',
+    'Peixes: emalhe de 100 mm (tainha), 160 mm (linguado) ou 40 mm (peixe-rei), até 1/3 da largura da lagoa, 100 m entre redes. Tarrafa: 60 mm. Siri: espinhel ou jererê, mínimo 12 cm, fêmea ovada proibida.',
+    'Praia ao sul da barra, trecho de cerca de 8 km (31°27\'03" S a 31°23\'49" S): qualquer pesca proibida.',
     'Camarão: só aviãozinho com lacre numerado, em caíco sem motor. Só na temporada que o ICMBio abre pelo monitoramento (2026: aberta em 14/01).'],
   mampituba: ['Barra do Mampituba até a Figueirinha: Portaria SUDEPE 006/1984. O texto não foi localizado. Confira.'],
   mar: ['Emalhe: malha de 70 a 140 mm. Altura: até 4 m. RGP na tralha superior a cada 1.000 m. Rede sem RGP: petrecho não permitido (IN 12/2012, art. 3º).',

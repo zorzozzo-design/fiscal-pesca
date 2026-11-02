@@ -429,3 +429,21 @@ test('R39: de 01/11 a 14/12, na Bacia do Tramandaí, bagre só para quem está n
   assert.deepEqual(r39('Bagre (Genidens genidens)', '2026-11-10T10:00', false, 'mar'), []); // fora da bacia
   assert.ok(bagre('Bagre (Genidens genidens)', '2026-12-20T10:00', false).some(m => m.regra === 'R09'));
 });
+
+test('R40: Lagoa do Peixe pelo Termo de Compromisso 02/2019 (ICMBio e Colônia Z11)', () => {
+  const pk = extra => checar(ab({ area: 'peixe', localTipo: 'Lagoa do Peixe', ...extra }), cfg).filter(m => m.regra === 'R40');
+  const nv = extra => pk(extra).map(m => m.nivel);
+  assert.ok(LOCAIS.peixe.includes('Canal da barra da Lagoa do Peixe'));
+  assert.deepEqual(nv({ embarcacao: 'Motorizada', petrechos: [pet('Tarrafa', { malhaMm: 70 })] }), ['vermelho']);
+  assert.deepEqual(nv({ petrechos: [pet('Rede de arrasto')] }), ['vermelho']);
+  assert.deepEqual(nv({ localTipo: 'Lagamar, valo ou canal proibido (Veiana, Pai João, Ruivo)', petrechos: [pet('Tarrafa', { malhaMm: 70 })] }), ['vermelho']);
+  assert.deepEqual(nv({ localTipo: 'Canal da barra da Lagoa do Peixe', petrechos: [pet('Tarrafa', { malhaMm: 70 })], pescado: [{ especie: 'Tainha', kg: 3 }] }), []);
+  assert.deepEqual(nv({ localTipo: 'Canal da barra da Lagoa do Peixe', petrechos: [pet('Rede de emalhe', { malhaMm: 100 })] }), ['vermelho']);
+  assert.deepEqual(nv({ localTipo: 'Praia ao sul da barra (trecho de 8 km vedado)', petrechos: [pet('Linha e anzol')] }), ['vermelho']);
+  assert.deepEqual(nv({ petrechos: [pet('Tarrafa', { malhaMm: 50 })] }), ['vermelho']);
+  assert.deepEqual(nv({ petrechos: [pet('Aviãozinho', { malhaMm: 20 })] }), ['vermelho']);
+  assert.deepEqual(nv({ petrechos: [pet('Rede de emalhe', { malhaMm: 30 })] }), ['vermelho']);
+  assert.deepEqual(nv({ petrechos: [pet('Rede de emalhe', { malhaMm: 50 })], pescado: [{ especie: 'Peixe-rei', kg: 2 }] }), []);
+  assert.deepEqual(nv({ petrechos: [pet('Rede de emalhe', { malhaMm: 50 })], pescado: [{ especie: 'Tainha', kg: 2 }] }), ['amarelo']);
+  assert.ok(pk({ embarcacao: 'Motorizada' })[0].norma.includes('02/2019'));
+});
