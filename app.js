@@ -341,7 +341,7 @@ function telaFicha(id) {
       ${lics.length ? '' : '<p class="muted peq">Em nenhuma lista do MPA importada.</p>'}</div>
     ${(p.autorizacoes || []).length ? `<div class="card"><h2>Autorizações especiais</h2><ul class="peq">${p.autorizacoes.map(a =>
       `<li><b>${esc(a.titulo)}</b>, categoria ${esc(a.categoria)}, nº ${a.n}. ${esc(a.orgao)}. ${esc(AREA_CURTA[a.area] || a.area)}.</li>`).join('')}</ul>
-      <p class="muted peq">Na área da lista, a lista municipal vale como licença. Na Bacia do Tramandaí, ela também autoriza o bagre até 15/12.</p></div>` : ''}
+      <p class="muted peq">Na área da lista, a lista municipal vale como licença. Na Bacia do Tramandaí, ela também autoriza o bagre na safra do automonitoramento (01/11 a 14/12).</p></div>` : ''}
     ${['embarcacoes', 'veiculos'].map(t => `<div class="card"><h2>${t === 'veiculos' ? 'Veículos' : 'Embarcações'}</h2><div id="f-${t}"></div>
       <details><summary>Cadastrar ${BENS[t].nome}</summary><div id="f-${t}-form"></div></details></div>`).join('')}
     <div class="card"><h2>Vínculos</h2><p class="muted peq">Pessoas, embarcações, veículos, abordagens e denúncias ligados a esta pessoa.</p>
@@ -1226,7 +1226,7 @@ function telaDados() {
       <p id="m-pdf" class="msg"></p><div id="r-pdf"></div></div>
 
     <div class="card"><h2>2. Autorizações especiais (prefeitura)</h2>
-      <p class="muted peq">Lista de autorização com nome e CPF: Automonitoramento da Prefeitura de Imbé ou Projeto de Monitoramento da Pesca Artesanal (Baliza Tramandaí, Baliza Imbé, Fora de Baliza). O app lê o título, a categoria e o órgão no PDF. A lista aparece na busca, na ficha e no semáforo. Na área escolhida, ela vale como licença municipal. Na Bacia do Tramandaí, ela também autoriza o bagre até 15/12.</p>
+      <p class="muted peq">Lista de autorização com nome e CPF: Automonitoramento da Prefeitura de Imbé ou Projeto de Monitoramento da Pesca Artesanal (Baliza Tramandaí, Baliza Imbé, Fora de Baliza). O app lê o título, a categoria e o órgão no PDF. A lista aparece na busca, na ficha e no semáforo. Na área escolhida, ela vale como licença municipal. Na Bacia do Tramandaí, ela também autoriza o bagre na safra do automonitoramento (01/11 a 14/12).</p>
       <label for="a-area">Área</label><select id="a-area">${AREAS_LISTA.map(k => `<option value="${k}">${esc(AREAS[k])}</option>`).join('')}</select>
       <label for="f-aut">Arquivo PDF</label><input type="file" id="f-aut" accept=".pdf,application/pdf">
       <p id="m-aut" class="msg"></p>
@@ -1472,7 +1472,8 @@ function telaGuia() {
     <details class="card card-dobra g"><summary><h2 style="display:inline">Bagre</h2></summary>
       <p class="peq g-item"><b>Espécies ameaçadas.</b> Bagre-branco (<i>Genidens barbus</i>) e bagre-boca-larga (<i>Genidens planifrons</i>) são ameaçados no RS. A pesca destas espécies é proibida o ano todo, em qualquer local (Lei RS 15.223/2018, art. 30, III; Decreto RS 51.797/2014).</p>
       <p class="peq g-item"><b>Estuário da Lagoa dos Patos.</b> A Justiça Federal manteve a proibição dos dois bagres em 10/2025 (2ª Vara Federal de Pelotas, ACP 5002915-31.2019.4.04.7110). O calendário da INC 03/2004 cita bagre em out, nov e de mar a mai. ATENÇÃO: este calendário não libera os dois bagres ameaçados. Rede de espera para bagre: malha mínima de 140 mm.</p>
-      <p class="peq g-item"><b>Bacia do Tramandaí.</b> Pesca de bagre proibida para todos de 15/12 a 31/03 (IN 17/2004, art. 14). A IN 17 cita <i>G. barbus</i>, <i>Netuma planifrons</i> e <i>G. genidens</i>. De 01/11 a 14/12, só pesca bagre quem está na lista municipal (automonitoramento: Baliza Tramandaí, Baliza Imbé, Fora de Baliza). Fora da lista: vermelho (R39). A lista funciona como plano de manejo (Lei RS 15.223/2018, art. 30, III). ATENÇÃO: <i>G. planifrons</i> continua proibido.</p>
+      <p class="peq g-item"><b>Bacia do Tramandaí: defeso.</b> Pesca de bagre proibida para todos de 15/12 a 31/03 (IN 17/2004, art. 14). A IN 17 cita <i>G. barbus</i>, <i>Netuma planifrons</i> e <i>G. genidens</i>.</p>
+      <p class="peq g-item"><b>Bacia do Tramandaí: safra.</b> O bagre-branco é ameaçado. A pesca só é aberta pelo Projeto de Automonitoramento, autorizado pela Justiça Federal a cada safra (9ª Vara Federal de Porto Alegre; continuidade em 2026 definida em audiência de 24/08/2026). Safra 2026: de 01/11 a 14/12, só para quem está na lista (Baliza Tramandaí, Baliza Imbé, Fora de Baliza). Pessoa fora da lista com bagre: vermelho (R39). Fora da safra, a lista não autoriza. ATENÇÃO: <i>G. planifrons</i> continua proibido.</p>
       <p class="peq g-item"><b>Identificação.</b> Registre a espécie na abordagem. Bagre sem espécie fica amarelo no app. Fotografe o exemplar e confira. <i>G. genidens</i> não está na lista de ameaçados usada pelo app. No mar, o tamanho mínimo de <i>G. genidens</i> é 20 cm (IN 53/2005).</p></details>
     <details class="card card-dobra g"><summary><h2 style="display:inline">Camarão</h2></summary>
       <p class="peq g-item"><b>Bacia do Tramandaí: temporada.</b> Pesca de camarão só na temporada da portaria anual. Em 2026: de 23/01 a 21/06 (Portaria Interministerial MPA/MMA 48/2026). A cada ano, atualize as datas em Dados.</p>

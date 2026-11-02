@@ -366,6 +366,9 @@ test('Tramandaí, bagre: autorizado na lista municipal fica ok fora do defeso; s
   const bagre = (especie, data, autorizadoBagre) => checar(ab({ data, pescado: [{ especie, kg: 5 }] }), { ...cfg, autorizadoBagre });
   const ok = bagre('Bagre-branco (Genidens barbus)', '2026-11-10', true);
   assert.ok(ok.some(m => m.regra === 'R27' && m.nivel === 'ok' && /15\/12/.test(m.texto)));
+  // Fora da safra do automonitoramento (01/11 a 14/12), a lista não autoriza: bagre-branco volta a ser ameaçado proibido.
+  assert.ok(bagre('Bagre-branco (Genidens barbus)', '2026-06-10', true).some(m => m.regra === 'R27' && m.nivel === 'vermelho'));
+  assert.ok(!bagre('Bagre-branco (Genidens barbus)', '2026-06-10', true).some(m => m.nivel === 'ok'));
   assert.ok(!ok.some(m => m.nivel === 'vermelho'));
   assert.ok(bagre('Bagre-branco (Genidens barbus)', '2026-12-20', true).some(m => m.regra === 'R09' && m.nivel === 'vermelho')); // defeso vale para todos
   assert.ok(bagre('Bagre (Genidens planifrons)', '2026-11-10', true).some(m => m.regra === 'R27' && m.nivel === 'vermelho')); // planifrons segue proibido

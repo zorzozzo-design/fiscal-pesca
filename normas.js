@@ -83,6 +83,7 @@ const AMEACADAS = [
 // Só nas águas costeiras e estuarinas: nas bacias interiores "bagre" e "raia" são outras espécies.
 const CONFERIR_ESPECIE = /^(bagre|garoupa|cacao|raia|viola|tubarao)/;
 const LAGOAS_BICUDO = ['peixoto', 'bicudo'];
+const NORMA_SAFRA_BAGRE = 'Projeto de Automonitoramento da Pesca do Bagre, autorizado pela 9ª Vara Federal de Porto Alegre (safra 2026); IN 17/2004, art. 14; Lei RS 15.223/2018, art. 30, III';
 const NORMA_AMEACADAS = 'Lei RS 15.223/2018, art. 30, III; Decreto RS 51.797/2014; Portaria MMA 445/2014';
 
 // Crime e infração administrativa separados. Art. 36 da Lei 9.605: pesca é todo ato tendente a retirar peixe (inclui a tentativa).
@@ -270,21 +271,18 @@ function checar(ab, cfg = {}) {
   // R27: espécie ameaçada, proibida em qualquer local e época (acima dos calendários da IN 17 e da INC 03).
   for (const p of pes) {
     const k = chave(p.especie);
-    // Bacia do Tramandaí: a lista municipal (automonitoramento) autoriza o bagre fora do defeso da IN 17 (15/12 a 31/03).
-    // Base: plano de manejo, ressalva da Lei RS 15.223/2018, art. 30, III. G. planifrons segue proibido.
-    if (ab.area === 'tramandai' && cfg.autorizadoBagre && k.startsWith('bagre') && !/planifrons/.test(k)) {
-      if (!entre(data, '12-15', '03-31')) add('R27', 'ok', `${p.especie}: pescador autorizado na lista municipal (automonitoramento do bagre). Permitido até 15/12.`,
-        'Lista municipal do automonitoramento; Lei RS 15.223/2018, art. 30, III (plano de manejo); IN 17/2004, art. 14', '');
+    // Bacia do Tramandaí: safra do bagre por automonitoramento, autorizada pela Justiça Federal safra a safra (9ª Vara Federal de
+    // Porto Alegre), de 01/11 até o defeso da IN 17 (15/12 a 31/03). Só para quem está na lista. G. planifrons segue proibido.
+    const safra = ab.area === 'tramandai' && k.startsWith('bagre') && entre(data, '11-01', '12-14');
+    if (safra && cfg.autorizadoBagre && !/planifrons/.test(k)) {
+      add('R27', 'ok', `${p.especie}: pescador na lista do automonitoramento. Safra de 01/11 a 14/12 (defeso a partir de 15/12).`, NORMA_SAFRA_BAGRE, '');
       continue;
     }
-    // R39: de 01/11 até o defeso (15/12), na bacia, bagre só para quem está no automonitoramento (orientação da equipe).
-    if (ab.area === 'tramandai' && k.startsWith('bagre') && entre(data, '11-01', '12-14'))
-      add('R39', 'vermelho', `${p.especie}: de 01/11 a 14/12, a pesca do bagre só é permitida a quem está no automonitoramento (lista municipal). Pessoa fora da lista.`,
-        'Automonitoramento do bagre na Bacia do Tramandaí (a partir de 01/11); IN 17/2004, art. 14', CRIME_34);
+    if (safra) add('R39', 'vermelho', `${p.especie}: de 01/11 a 14/12, a pesca do bagre só é permitida a quem está no automonitoramento (lista municipal). Pessoa fora da lista.`, NORMA_SAFRA_BAGRE, CRIME_34);
     const am = AMEACADAS.find(([re, , onde]) => re.test(k) && !(onde === 'continental' && ab.area === 'mar'));
     if (am) add('R27', 'vermelho', `${p.especie}: espécie ameaçada${k.includes(chave(am[1])) ? '' : ` (${am[1]})`}, pesca proibida em qualquer local e época.`, NORMA_AMEACADAS, CRIME_34_I);
     else if (CONFERIR_ESPECIE.test(k) && !['outras', 'uruguai', 'mirim'].includes(ab.area)) add('R27', 'amarelo', `${p.especie}: confira a espécie. Há espécies ameaçadas neste grupo, proibidas o ano todo.${
-      ab.area === 'tramandai' && k.startsWith('bagre') ? ' Na Bacia do Tramandaí, o bagre só é permitido ao pescador da lista municipal (automonitoramento), até 15/12.' : ''}`, NORMA_AMEACADAS, CRIME_34_I);
+      ab.area === 'tramandai' && k.startsWith('bagre') ? ' Na Bacia do Tramandaí, o bagre só é permitido ao pescador da lista municipal (automonitoramento), de 01/11 a 14/12.' : ''}`, NORMA_AMEACADAS, CRIME_34_I);
     // O peixe-rei-bicudo só existe nas lagoas Emboaba, Caconde, do Horácio e do Lessa (Malabarba e outros, 2013).
     else if (k.startsWith('peixe-rei') && LAGOAS_BICUDO.includes(ab.localPescaId)) add('R27', 'amarelo', `${p.especie}: nesta lagoa vive o peixe-rei-bicudo (Odontesthes bicudo), ameaçado. Confira a espécie: focinho longo e pontudo.`, NORMA_AMEACADAS, CRIME_34_I);
   }
@@ -313,7 +311,7 @@ function multaReferencia(motivos, kg) {
 
 // Defesos e períodos por regime, para a faixa da tela inicial e o Guia. [nome, início MM-DD, fim MM-DD, texto, norma].
 const DEFESOS = {
-  tramandai: [['Bagre: só automonitoramento', '11-01', '12-14', 'Pesca de bagre só para quem está na lista municipal do automonitoramento', 'Automonitoramento do bagre'],
+  tramandai: [['Bagre: safra do automonitoramento', '11-01', '12-14', 'Pesca de bagre só para quem está na lista municipal do automonitoramento', 'Automonitoramento autorizado pela Justiça Federal'],
     ['Bagre', '12-15', '03-31', 'Pesca de bagre proibida', 'IN MMA 17/2004, art. 14']],
   outras: [['Piracema', '11-01', '01-31', 'Só anzol simples, 1 petrecho e até 5 kg. Pesca proibida em lagoa marginal e a até 1.500 m de barragem', 'IN IBAMA 197/2008'],
     ['Lambari em reservatório', '11-01', '02-29', 'Pesca de lambari proibida em reservatório público', 'IN IBAMA 51/2004']],
@@ -352,7 +350,7 @@ const RESUMO = {
   tramandai: ['Licença: lista atual do MPA (IN 17, art. 22) ou lista municipal (o município assumiu o licenciamento). Amador: só linha e anzol, sem licença (art. 26, II).',
     'Rede de espera: malha mínima de 80 mm. Na Lagoa Tramandaí: malha mínima de 90 mm e até 500 m. Em rio, canal ou foz: proibida.',
     'Tarrafa de peixe: malha mínima de 60 mm. Arrasto: proibido.', 'Aviãozinho: só na Laguna do Armazém. Malha mínima de 25 mm. Até 10 redes por pescador.',
-    'Camarão: só na temporada da portaria anual. Bagre: só pescador da lista municipal (automonitoramento), até 15/12. De 15/12 a 31/03, proibido para todos.',
+    'Camarão: só na temporada da portaria anual. Bagre: só pescador da lista municipal (automonitoramento), de 01/11 a 14/12. De 15/12 a 31/03, proibido para todos.',
     'Locais proibidos: canal e boca da barra, ponte Giuseppe Garibaldi, Lagoa Gentil, Braço Morto do Imbé e 200 m da foz de rios (arts. 2º a 10). Com GPS, o app avisa nas áreas com coordenadas.',
     'Sob a ponte, sentido oeste: tarrafa embarcada de 25 mm permitida para sardinha e peixe-rei. Só para licenciados (art. 25, II).'],
   patos: ['Licença: só pesca o profissional da lista do estuário (INC 03/2004).', 'Rede de espera: malha mínima de 100 mm. Para bagre: 140 mm. Para peixe-rei: 40 mm. Até 1.830 m por embarcação.',
