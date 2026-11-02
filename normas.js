@@ -1,4 +1,4 @@
-// Regras de pesca checadas na abordagem (R02 a R37; a R01 fica no semáforo, junto da lista).
+// Regras de pesca checadas na abordagem (R02 a R39; a R01 fica no semáforo, junto da lista).
 // Fonte de cada regra: aba "Legislação" do documento do projeto. Indica, não autua.
 (() => {
 
@@ -277,6 +277,10 @@ function checar(ab, cfg = {}) {
         'Lista municipal do automonitoramento; Lei RS 15.223/2018, art. 30, III (plano de manejo); IN 17/2004, art. 14', '');
       continue;
     }
+    // R39: de 01/11 até o defeso (15/12), na bacia, bagre só para quem está no automonitoramento (orientação da equipe).
+    if (ab.area === 'tramandai' && k.startsWith('bagre') && entre(data, '11-01', '12-14'))
+      add('R39', 'vermelho', `${p.especie}: de 01/11 a 14/12, a pesca do bagre só é permitida a quem está no automonitoramento (lista municipal). Pessoa fora da lista.`,
+        'Automonitoramento do bagre na Bacia do Tramandaí (a partir de 01/11); IN 17/2004, art. 14', CRIME_34);
     const am = AMEACADAS.find(([re, , onde]) => re.test(k) && !(onde === 'continental' && ab.area === 'mar'));
     if (am) add('R27', 'vermelho', `${p.especie}: espécie ameaçada${k.includes(chave(am[1])) ? '' : ` (${am[1]})`}, pesca proibida em qualquer local e época.`, NORMA_AMEACADAS, CRIME_34_I);
     else if (CONFERIR_ESPECIE.test(k) && !['outras', 'uruguai', 'mirim'].includes(ab.area)) add('R27', 'amarelo', `${p.especie}: confira a espécie. Há espécies ameaçadas neste grupo, proibidas o ano todo.${
@@ -309,7 +313,8 @@ function multaReferencia(motivos, kg) {
 
 // Defesos e períodos por regime, para a faixa da tela inicial e o Guia. [nome, início MM-DD, fim MM-DD, texto, norma].
 const DEFESOS = {
-  tramandai: [['Bagre', '12-15', '03-31', 'Pesca de bagre proibida', 'IN MMA 17/2004, art. 14']],
+  tramandai: [['Bagre: só automonitoramento', '11-01', '12-14', 'Pesca de bagre só para quem está na lista municipal do automonitoramento', 'Automonitoramento do bagre'],
+    ['Bagre', '12-15', '03-31', 'Pesca de bagre proibida', 'IN MMA 17/2004, art. 14']],
   outras: [['Piracema', '11-01', '01-31', 'Só anzol simples, 1 petrecho e até 5 kg. Pesca proibida em lagoa marginal e a até 1.500 m de barragem', 'IN IBAMA 197/2008'],
     ['Lambari em reservatório', '11-01', '02-29', 'Pesca de lambari proibida em reservatório público', 'IN IBAMA 51/2004']],
   uruguai: [['Piracema', '10-01', '01-31', 'Só linha, 1 por pescador, até 5 kg e barco sem motor. Pesca proibida em lagoa marginal, a até 1.500 m de barragem e a até 500 m de confluência', 'IN IBAMA 193/2008'],

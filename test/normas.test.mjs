@@ -411,3 +411,18 @@ test('Área de exclusão da Barra de Tramandaí (IN 17, art. 2º): mapa de refer
   assert.ok(!m('Linha e anzol').some(x => x.regra === 'R10'));
   assert.ok(LOCAIS.mar.includes('Área da Barra de Tramandaí (IN 17, art. 2º)'));
 });
+
+test('R39: de 01/11 a 14/12, na Bacia do Tramandaí, bagre só para quem está no automonitoramento', () => {
+  const bagre = (especie, data, autorizadoBagre, area = 'tramandai') => checar(ab({ area, data, pescado: [{ especie, kg: 5 }] }), { ...cfg, autorizadoBagre });
+  const r39 = (...a) => bagre(...a).filter(m => m.regra === 'R39');
+  for (const d of ['2026-11-01T06:00', '2026-11-20T10:00', '2026-12-14T23:00']) {
+    const r = r39('Bagre (Genidens genidens)', d, false);
+    assert.equal(r.length, 1, d); assert.equal(r[0].nivel, 'vermelho'); assert.match(r[0].texto, /automonitoramento/);
+  }
+  assert.equal(r39('Bagre', '2026-11-10T10:00', false).length, 1); // sem espécie também
+  assert.deepEqual(r39('Bagre (Genidens genidens)', '2026-11-10T10:00', true), []); // na lista
+  assert.deepEqual(r39('Bagre (Genidens genidens)', '2026-10-31T10:00', false), []); // antes de 01/11
+  assert.deepEqual(r39('Bagre (Genidens genidens)', '2026-12-20T10:00', false), []); // defeso: R09
+  assert.deepEqual(r39('Bagre (Genidens genidens)', '2026-11-10T10:00', false, 'mar'), []); // fora da bacia
+  assert.ok(bagre('Bagre (Genidens genidens)', '2026-12-20T10:00', false).some(m => m.regra === 'R09'));
+});
