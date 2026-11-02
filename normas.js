@@ -8,7 +8,7 @@ const LOCAIS = {
     'Canal de 200 m na Laguna do Armazém (art. 5º)', 'Faixa de 150 m das margens: Itapeva, Quadros, Pinguela, Malva, Palmital, Passo (art. 6º)',
     'Rio Cornélio, Lagoa Boa Vista ou áreas do art. 7º', 'Raio de 200 m da foz de rio ou canal (art. 9º)', 'Braço Morto do Imbé (art. 10)',
     'Sob a ponte Giuseppe Garibaldi, sentido oeste (art. 25, II)'],
-  mar: ['Praia (desembarcado)', 'Embarcado até 500 m da costa', 'Embarcado até 1 milha da costa', 'Embarcado além de 1 milha', 'Embarcado até 5 milhas, do farol do Albardão ao Chuí', 'Barra ou desembocadura (fora de Tramandaí)'],
+  mar: ['Praia (desembarcado)', 'Área da Barra de Tramandaí (IN 17, art. 2º)', 'Embarcado até 500 m da costa', 'Embarcado até 1 milha da costa', 'Embarcado além de 1 milha', 'Embarcado até 5 milhas, do farol do Albardão ao Chuí', 'Barra ou desembocadura (fora de Tramandaí)'],
   outras: ['Lagoa ou rio', 'Reservatório de hidrelétrica ou açude público', 'Lagoa marginal', 'Até 200 m de barragem, cachoeira ou corredeira',
     'Entre 200 e 1.500 m de barragem, cachoeira ou corredeira', 'Barra ou desembocadura (fora de Tramandaí)'],
   uruguai: ['Lagoa ou rio', 'Reservatório de hidrelétrica ou açude público', 'Lagoa marginal', 'Até 200 m de barragem, cachoeira ou corredeira',
@@ -38,7 +38,7 @@ const PROIBIDOS = [
 // Áreas da IN 17/2004 com coordenadas no texto oficial (graus, minutos, segundos -> decimal).
 const dms = (g, m, s) => -(g + m / 60 + s / 3600);
 const P = (la, lo) => [dms(...la), dms(...lo)];
-const RODOVIARIA = P([29, 59, 10.9], [50, 8, 50.3]), CAPAO_GRANDE = P([29, 59, 10.5], [50, 9, 10.0]), CECLIMAR = P([29, 58, 25.5], [50, 8, 18.5]);
+const RODOVIARIA = P([29, 59, 10.9], [50, 8, 50.3]), CAPAO_GRANDE = P([29, 59, 10.5], [50, 9, 10.0]);
 const metros = ([a, b], [c, d]) => 6371000 * 2 * Math.asin(Math.sqrt(Math.sin((c - a) * Math.PI / 360) ** 2 + Math.cos(a * Math.PI / 180) * Math.cos(c * Math.PI / 180) * Math.sin((d - b) * Math.PI / 360) ** 2));
 // Distância do ponto ao segmento AB (aproximação plana, suficiente para centenas de metros).
 const aoSegmento = (p, a, b) => {
@@ -49,8 +49,6 @@ const aoSegmento = (p, a, b) => {
 const noPoligono = (p, vs) => { let d = false; for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
   const [yi, xi] = vs[i], [yj, xj] = vs[j]; if ((yi > p[0]) !== (yj > p[0]) && p[1] < (xj - xi) * (p[0] - yi) / (yj - yi) + xi) d = !d; } return d; };
 const AREAS_IN17 = [
-  // Art. 2º: canal e boca da barra; 3.000 m para o oceano, 2.000 m ao norte, 3.000 m ao sul. Aproximado por 3 km da divisa do CECLIMAR, do lado do mar.
-  ['art. 2º', 'na área do canal e da boca da barra (aproximada)', (la, lo) => metros([la, lo], CECLIMAR) <= 3000 && lo > RODOVIARIA[1]],
   ['art. 5º', 'no canal de 200 m da Laguna do Armazém', (la, lo) => aoSegmento([la, lo], CAPAO_GRANDE, RODOVIARIA) <= 100],
   ['art. 7º, I', 'na área da Lagoa Boa Vista e margens do rio Cornélio', (la, lo) => noPoligono([la, lo],
     [P([29, 38, 51.7], [50, 2, 42.7]), P([29, 37, 47.0], [50, 1, 12.9]), P([29, 37, 22.6], [50, 1, 19.7]), P([29, 38, 27.0], [50, 2, 44.3])])],
@@ -59,6 +57,13 @@ const AREAS_IN17 = [
   ['art. 7º, III', 'na área da Lagoa dos Quadros (Sanga Funda, coroa do peixe-rei, FEPAGRO)', (la, lo) => noPoligono([la, lo],
     [P([29, 38, 16.4], [50, 5, 15.7]), P([29, 39, 0.27], [50, 5, 30.9]), P([29, 38, 50.4], [50, 6, 32.0])])],
 ];
+
+// Art. 2º: área de exclusão da Barra de Tramandaí, mapa de referência da equipe (Area_Exclusao_Pesca_Tramandai_eixo_barra).
+// Estuário pelos marcos de campo (aterro da rodoviária antiga, pontal do Capão Grande, divisa do CECLIMAR) e as margens do canal;
+// mar: do eixo da boca da barra, 3.000 m ao sul, 2.000 m ao norte e 3.000 m para o oceano. [lat, lon], WGS 84.
+const BARRA_TRAMANDAI = [[-29.983489, -50.141210], [-29.983879, -50.140645], [-29.983199, -50.138966], [-29.983321, -50.138468], [-29.982233, -50.135643], [-29.983016, -50.133414], [-29.983194, -50.133008], [-29.983312, -50.132057], [-29.983328, -50.130899], [-29.983232, -50.130143], [-29.982842, -50.129386], [-29.982337, -50.128516], [-29.981469, -50.127642], [-29.981007, -50.127243], [-29.980352, -50.126153], [-29.979701, -50.125202], [-29.979312, -50.124722], [-29.978912, -50.124031], [-29.978283, -50.123248], [-29.977780, -50.122774], [-29.976993, -50.122294], [-29.976400, -50.121860], [-29.976441, -50.121195], [-29.976875, -50.120403], [-29.977387, -50.119977], [-29.978073, -50.119798], [-29.978481, -50.120008], [-29.978845, -50.120031], [-29.979054, -50.119904], [-29.978973, -50.119629], [-30.002305, -50.129977], [-30.011849, -50.100879], [-29.969644, -50.082614], [-29.960100, -50.111699], [-29.975086, -50.118101], [-29.975541, -50.118716], [-29.975867, -50.121477], [-29.976044, -50.122515], [-29.976290, -50.122717], [-29.977538, -50.123924], [-29.978096, -50.124656], [-29.978562, -50.125571], [-29.978617, -50.125768], [-29.978834, -50.126175], [-29.979016, -50.126558], [-29.979167, -50.127175], [-29.979149, -50.127309], [-29.979439, -50.128198], [-29.979706, -50.128578], [-29.980155, -50.129578], [-29.980312, -50.130186], [-29.980577, -50.130540], [-29.981082, -50.131176], [-29.981258, -50.131651], [-29.981676, -50.132278], [-29.982098, -50.132504], [-29.981946, -50.133019], [-29.981403, -50.133305], [-29.980991, -50.133522], [-29.980610, -50.133787], [-29.980307, -50.134492], [-29.979955, -50.135008], [-29.979514, -50.135422], [-29.979446, -50.135717], [-29.979171, -50.136360], [-29.978367, -50.136985], [-29.977970, -50.137074], [-29.977115, -50.137301], [-29.976819, -50.137595], [-29.976452, -50.137782], [-29.976042, -50.137765], [-29.975624, -50.137856], [-29.974927, -50.138095], [-29.974489, -50.138254], [-29.974314, -50.138564], [-29.973750, -50.138472], [-29.986977, -50.154689], [-29.987986, -50.147602], [-29.987071, -50.146976], [-29.986925, -50.146388], [-29.986303, -50.145935], [-29.986254, -50.145332], [-29.985346, -50.144486], [-29.985109, -50.144488], [-29.984711, -50.144252], [-29.984145, -50.144127], [-29.983871, -50.143498]];
+const ateBorda = (p, vs) => Math.min(...vs.map((v, i) => aoSegmento(p, v, vs[(i + 1) % vs.length])));
+const NORMA_ART2 = 'IN 17/2004, art. 2º (mapa da área de exclusão da Barra)';
 
 // IN MMA 53/2005, comprimento total mínimo (cm), pelo nome usado no app.
 const TAMANHO_MINIMO = { 'tainha': 35, 'anchova': 35, 'linguado': 35, 'corvina': 25, 'miraguaia': 65, 'pescada-olhuda': 30, 'pescadinha': 25,
@@ -162,8 +167,19 @@ function checar(ab, cfg = {}) {
       add('R13', 'vermelho', 'Emalhe por embarcação motorizada a menos de 5 milhas da costa, do farol do Albardão ao Chuí.', 'IN Interministerial MPA/MMA 12/2012, art. 7º', CRIME_34);
     if (motor && de('Rede de arrasto').length)
       add('R14', 'vermelho', 'Arrasto tracionado por embarcação motorizada na faixa de 12 milhas do RS.', 'Lei RS 15.223/2018, art. 30, VI, e (constitucional, STF, ADI 6218)', CRIME_34_II);
+    if (local.startsWith('Área da Barra de Tramandaí') && pets.length)
+      add('R10', 'vermelho', 'Pesca na área de exclusão da Barra de Tramandaí (3 km ao sul, 2 km ao norte, 3 km mar adentro).', NORMA_ART2, CRIME_34);
     // R36: zoneamento da orla (lei municipal e Lei RS 8.676/1988), em orla.js.
     out.push(...(globalThis.Orla?.checar(ab) || []));
+  }
+
+  // Área de exclusão da Barra pelo GPS (bacia e mar). Perto do limite, dentro da precisão do GPS: só conferir.
+  // Sobre ou sob a ponte valem os arts. 3º e 25 (R10 e R06 pelo ponto escolhido).
+  if (ab.gps && (ab.area === 'tramandai' || ab.area === 'mar') && pets.length && !/^(Sobre|Sob) a ponte/.test(local)) {
+    const p = [ab.gps.lat, ab.gps.lon], dentro = noPoligono(p, BARRA_TRAMANDAI), borda = ateBorda(p, BARRA_TRAMANDAI);
+    const margem = Math.max(+ab.gps.prec || 0, 20);
+    if (borda <= margem) add('R34', 'amarelo', `Pelo GPS, o ponto fica ${dentro ? 'dentro' : 'fora'} da área de exclusão da Barra, a ${Math.round(borda)} m do limite (precisão ±${Math.round(+ab.gps.prec || 0)} m). Confira no local.`, NORMA_ART2, CRIME_34);
+    else if (dentro && !out.some(m => m.regra === 'R10')) add('R10', 'vermelho', 'Pelo GPS, o ponto fica dentro da área de exclusão da Barra de Tramandaí: pesca proibida.', NORMA_ART2, CRIME_34);
   }
 
   // R37: embarcação sem nome e inscrição visíveis. Embarcação de pesca precisa de RGP; a marcação do casco é da Marinha.

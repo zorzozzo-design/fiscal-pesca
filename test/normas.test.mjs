@@ -313,8 +313,6 @@ test('R34: GPS dentro das áreas da IN 17 pede conferência', () => {
   assert.match(r34(g(-29.6435, -50.0960)).join(), /art\. 7º, III/);
   // art. 5º: sobre o eixo do canal entre o pontal do Capão Grande e a antiga rodoviária
   assert.match(r34(g(-29.98636, -50.14998)).join(), /art\. 5º/);
-  // art. 2º: perto da barra
-  assert.match(r34(g(-29.9750, -50.1300)).join(), /art\. 2º/);
   // longe de tudo (meio da Lagoa Itapeva)
   assert.deepEqual(r34(g(-29.50, -49.90)), []);
   // fora da bacia do Tramandaí, não avalia
@@ -384,4 +382,27 @@ test('R37: embarcação sem identificação é amarelo, em qualquer área, sem m
   assert.ok(tem(ab({ area: 'mar', embarcacao: 'A remo', embSemId: true }), 'R37'));
   assert.ok(!tem(ab({ embarcacao: 'Nenhuma', embSemId: true }), 'R37'));
   assert.ok(!tem(ab({ embarcacao: 'Motorizada' }), 'R37'));
+});
+
+test('Área de exclusão da Barra de Tramandaí (IN 17, art. 2º): mapa de referência', () => {
+  const g = (lat, lon, extra = {}, prec = 10) => ab({ gps: { lat, lon, prec }, petrechos: [pet('Rede de emalhe', { malhaMm: 100 })], ...extra });
+  const art2 = a => checar(a, cfg).filter(m => /art\. 2º/.test(m.norma));
+  // canal (bacia) e mar (3 km mar adentro): vermelho, crime
+  for (const [la, lo, area] of [[-29.9812, -50.1300, 'tramandai'], [-29.985, -50.100, 'mar']]) {
+    const r = art2(g(la, lo, { area, localTipo: '' }));
+    assert.equal(r.length, 1); assert.equal(r[0].regra, 'R10'); assert.equal(r[0].nivel, 'vermelho'); assert.match(r[0].enquadramento, /Lei 9\.605/);
+  }
+  // fora: praia ao norte, mar ao sul, Lagoa Tramandaí
+  for (const [la, lo] of [[-29.950, -50.105], [-30.02, -50.09], [-29.97, -50.16]]) assert.deepEqual(art2(g(la, lo, { area: 'mar' })), []);
+  // perto do limite, dentro da precisão do GPS: amarelo para conferir
+  const borda = art2(g(-29.9805, -50.1345, {}, 30));
+  assert.equal(borda.length, 1); assert.equal(borda[0].regra, 'R34'); assert.equal(borda[0].nivel, 'amarelo');
+  // sobre ou sob a ponte: vale a regra própria (arts. 3º e 25), não o art. 2º pelo GPS
+  assert.deepEqual(art2(g(-29.9812, -50.1300, { localTipo: 'Sobre a ponte Giuseppe Garibaldi (art. 3º)', petrechos: [pet('Linha e anzol')] })), []);
+  // sem petrecho registrado, não indica
+  assert.deepEqual(art2(g(-29.9812, -50.1300, { petrechos: [] })), []);
+  // sem GPS, no mar: ponto escolhido à mão
+  const m = checar(ab({ area: 'mar', localTipo: 'Área da Barra de Tramandaí (IN 17, art. 2º)', petrechos: [pet('Linha e anzol')] }), cfg);
+  assert.ok(m.some(x => x.regra === 'R10' && x.nivel === 'vermelho'));
+  assert.ok(LOCAIS.mar.includes('Área da Barra de Tramandaí (IN 17, art. 2º)'));
 });
