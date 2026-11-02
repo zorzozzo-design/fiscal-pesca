@@ -1111,7 +1111,7 @@ async function itensDoPdf(buf) {
   const itens = [];
   for (let p = 1; p <= doc.numPages; p++) {
     const tc = await (await doc.getPage(p)).getTextContent();
-    for (const it of tc.items) if (it.str?.trim()) itens.push({ p, x: Math.round(it.transform[4]), y: Math.round(it.transform[5]), s: it.str });
+    for (const it of tc.items) if (it.str?.trim()) itens.push({ p, x: Math.round(it.transform[4]), y: Math.round(it.transform[5]), w: it.width, s: it.str });
   }
   return itens;
 }

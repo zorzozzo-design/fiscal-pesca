@@ -311,3 +311,23 @@ test('autorização: a categoria da linha vale para a pessoa; sem dígitos, vinc
   assert.equal(ja.autorizacoes[0].categoria, 'Caniço/Tarrafa/Fora da Baliza');
   assert.equal(Object.values(base).find(p => p.nomeNorm === 'OUTRO SEM DIGITOS').autorizacoes, undefined);
 });
+
+test('lista da Lagoa dos Patos (Word): texto partido em pedaços colados (RGP e nome) e nome quebrado com o número na linha de baixo', () => {
+  // Fictício. w = largura do pedaço (pdf.js). Pedaços colados (sem espaço entre eles) se juntam sem espaço.
+  const it = (y, x, s, w) => ({ p: 1, y, x, s, w });
+  const itens = [
+    it(740, 103, 'Nº', 10), it(742, 234, 'NOME', 30), it(742, 434, 'RGP', 20),
+    it(725, 107, '1', 5), it(726, 137, 'ANA MARIA DA SIL', 100), it(726, 237, 'VA', 14), it(726, 401, 'RSPAXXX111222XX', 80),
+    it(709, 107, '2', 5), it(711, 137, 'BRUNO COSTA', 70), it(711, 401, 'RSPAXXX3334', 62), it(711, 463, '44XX', 20),
+    // nome em duas linhas: a primeira traz o RGP, a segunda traz o número e o fim do nome
+    it(694, 137, 'CARLOS ALBERTO PEREIRA DE', 160), it(694, 401, 'RSPAXXX555666XX', 80),
+    it(680, 104, '3', 5), it(680, 137, 'SOUZA', 35),
+    it(663, 107, '4', 5), it(664, 137, 'DANIELA ROCHA', 80), it(664, 401, 'RSPAXXX777888XX', 80),
+  ];
+  const r = ler(itens);
+  assert.deepEqual(r.registros.map(x => [x.n, x.nome, x.digitos]), [
+    [1, 'ANA MARIA DA SILVA', '111222'], [2, 'BRUNO COSTA', '333444'], [3, 'CARLOS ALBERTO PEREIRA DE SOUZA', '555666'], [4, 'DANIELA ROCHA', '777888']]);
+  assert.equal(r.avisos.length, 0);
+  // Sem largura (listas antigas): pedaços separados continuam com espaço.
+  assert.equal(ler(itens.map(({ w, ...x }) => x)).registros[0].nome, 'ANA MARIA DA SIL VA');
+});

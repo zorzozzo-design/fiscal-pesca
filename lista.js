@@ -27,10 +27,19 @@ function linhas(itens) {
   const ord = itens.filter(i => String(i.s).trim()).slice().sort((a, b) => a.p - b.p || b.y - a.y || a.x - b.x);
   for (const it of ord) {
     const l = out.at(-1);
-    if (l && l.p === it.p && Math.abs(l.y - it.y) <= 3) l.itens.push({ x: it.x, s: String(it.s).trim() });
-    else out.push({ p: it.p, y: it.y, itens: [{ x: it.x, s: String(it.s).trim() }] });
+    const novo = { x: it.x, w: it.w, s: String(it.s).trim() };
+    if (l && l.p === it.p && Math.abs(l.y - it.y) <= 3) l.itens.push(novo);
+    else out.push({ p: it.p, y: it.y, itens: [novo] });
   }
-  for (const l of out) l.itens.sort((a, b) => a.x - b.x);
+  for (const l of out) {
+    l.itens.sort((a, b) => a.x - b.x);
+    // Listas do Word: um texto pode vir partido em pedaços colados ("DA SIL" + "VA", "RSPAXXX6448" + "30XX"). Com a largura, junta sem espaço.
+    l.itens = l.itens.reduce((acc, i) => {
+      const a = acc.at(-1);
+      if (a && a.w != null && i.w != null && i.x - (a.x + a.w) <= 1.5) { a.s += i.s; a.w = i.x + i.w - a.x; } else acc.push({ ...i });
+      return acc;
+    }, []);
+  }
   return out;
 }
 
@@ -47,11 +56,17 @@ const AVISO_TXT = {
 function ler(itens) {
   const brutos = [];
   let pendente = null; // primeira parte de um nome quebrado em duas linhas, que fica sozinha acima do número
+  let semNumero = null; // nome quebrado com o RGP na primeira linha e o número na linha de baixo (listas do Word)
   for (const l of linhas(itens)) {
-    const it = l.itens;
+    let it = l.itens;
+    if (semNumero && semNumero.p === l.p && semNumero.y - l.y <= 20 && /^\d{1,4}$/.test(it[0].s) && it.length >= 2 && !it.some(x => ehRgp(x.s) || ehCpfMasc(x.s)))
+      it = [it[0], ...semNumero.partes, ...it.slice(1), semNumero.rgp];
+    semNumero = null;
     const num = /^\d{1,4}$/.test(it[0].s) && it.length >= 3 && ehRgp(it.at(-1).s);
     if (!num) {
       pendente = it.length === 1 && !ehRgp(it[0].s) ? { p: l.p, y: l.y, x: it[0].x, s: it[0].s } : null;
+      if (it.length >= 2 && ehRgp(it.at(-1).s) && !/^\d/.test(it[0].s) && !it.slice(0, -1).some(x => ehCpfMasc(x.s)))
+        semNumero = { p: l.p, y: l.y, partes: it.slice(0, -1), rgp: it.at(-1) };
       continue;
     }
     const iId = it.findIndex((x, i) => i > 0 && (ehCpfMasc(x.s) || ehRgp(x.s)));
