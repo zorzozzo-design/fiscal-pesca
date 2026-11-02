@@ -91,7 +91,11 @@ test('R01: amador na bacia só pode linha e anzol; não precisa de consulta ao P
   assert.equal(r.cor, 'vermelho');
   assert.ok(tem(r, 'Amador'));
   assert.ok(!tem(r, 'PesqBrasil'));
-  assert.equal(av({ pescador: pesc(), categoria: 'Amador', soLinha: true }).cor, 'verde');
+  // Linha e anzol dispensa a licença da IN 17, não a licença de amador: molinete ou carretilha exige carteira (IN MPA 05/2012).
+  const l = av({ pescador: pesc(), categoria: 'Amador', soLinha: true });
+  assert.equal(l.cor, 'amarelo');
+  assert.ok(l.motivos.some(m => m.norma === 'IN MPA 05/2012, art. 5º'));
+  assert.ok(!l.motivos.some(m => m.nivel === 'vermelho'));
 });
 
 test('R01: fora da lista e com petrecho de profissional, a multa de referência vai para o art. 35 (crime do art. 34, p. ún., II)', () => {

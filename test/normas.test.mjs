@@ -401,8 +401,13 @@ test('Área de exclusão da Barra de Tramandaí (IN 17, art. 2º): mapa de refer
   assert.deepEqual(art2(g(-29.9812, -50.1300, { localTipo: 'Sobre a ponte Giuseppe Garibaldi (art. 3º)', petrechos: [pet('Linha e anzol')] })), []);
   // sem petrecho registrado, não indica
   assert.deepEqual(art2(g(-29.9812, -50.1300, { petrechos: [] })), []);
+  // linha e anzol (linha de mão, caniço, molinete) é permitido na área; outro petrecho junto, não
+  assert.deepEqual(art2(g(-29.9812, -50.1300, { petrechos: [pet('Linha e anzol')] })), []);
+  assert.deepEqual(art2(g(-29.985, -50.100, { area: 'mar', petrechos: [pet('Linha e anzol')] }, 30)), []);
+  assert.equal(art2(g(-29.9812, -50.1300, { petrechos: [pet('Linha e anzol'), pet('Tarrafa', { malhaMm: 70 })] }))[0].nivel, 'vermelho');
   // sem GPS, no mar: ponto escolhido à mão
-  const m = checar(ab({ area: 'mar', localTipo: 'Área da Barra de Tramandaí (IN 17, art. 2º)', petrechos: [pet('Linha e anzol')] }), cfg);
-  assert.ok(m.some(x => x.regra === 'R10' && x.nivel === 'vermelho'));
+  const m = a => checar(ab({ area: 'mar', localTipo: 'Área da Barra de Tramandaí (IN 17, art. 2º)', petrechos: [pet(a)] }), cfg);
+  assert.ok(m('Rede de emalhe').some(x => x.regra === 'R10' && x.nivel === 'vermelho'));
+  assert.ok(!m('Linha e anzol').some(x => x.regra === 'R10'));
   assert.ok(LOCAIS.mar.includes('Área da Barra de Tramandaí (IN 17, art. 2º)'));
 });

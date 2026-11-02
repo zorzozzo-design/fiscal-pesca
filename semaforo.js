@@ -41,7 +41,8 @@ function avaliar({ pescador: p, area, atual, data, identificadoPor, outrosMesmos
   const amador = categoria === 'Amador', semLicenca = categoria === 'Sem RGP ou licença';
 
   if (AMADOR_SO_LINHA.has(area) && amador) {
-    if (soLinha) add(...dispensaLinha(area, 'Amador'));
+    // Linha e anzol dispensa a licença da área, não a de amador: molinete ou carretilha exige carteira (IN MPA 05/2012).
+    if (soLinha) { add(...dispensaLinha(area, 'Amador')); add(...licencaAmador(embarcado)); }
     else add('vermelho', `Amador ${area === 'patos' ? 'no estuário da Lagoa dos Patos' : 'na Bacia do Tramandaí'} só pode pescar com linha e anzol.${AVISO_CRIME}`, r01(area, true));
   } else if (amador) {
     add(...licencaAmador(embarcado));
