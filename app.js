@@ -1453,7 +1453,7 @@ function telaGuia() {
   const agora = Object.keys(REGIMES).map(r => [r, defesosDe(r, hoje)]).filter(([, ds]) => ds.length);
   const ameacadas = new Set(['bagre-branco', 'miraguaia']);
   app.innerHTML = `<div class="card fixo"><h1>Guia</h1>
-      <p class="muted peq">Consulta rápida para a fiscalização. Funciona sem internet. Para as regras completas, com artigos, abra <a href="#/normas">Normas por local</a>.</p>
+      <p class="muted peq">Consulta rápida para a fiscalização. Funciona sem internet. Para as regras completas, com artigos, abra <a href="#/normas">Normas por local</a>. Áreas proibidas com limite no mapa: <a href="#/mapa">Mapa offline</a>.</p>
       <input id="g-q" type="search" placeholder="Buscar peixe, local ou regra" autocomplete="off"></div>
     <div class="card"><h2>Agora (${fmtData(hoje)})</h2>${agora.length ? agora.map(([r, ds]) => `<p class="peq"><b>${esc(REGIMES[r].nome)}</b><br>
       ${ds.map(d => `${esc(d.nome)}: ${d.estado === 'vigente' ? '<b>em vigor</b>' : 'começa em breve'}, ${esc(d.periodo)}. ${esc(d.texto)} (${esc(d.norma)}).`).join('<br>')}</p>`).join('')
@@ -1497,6 +1497,14 @@ function telaGuia() {
       ${MUNICIPIOS_ORLA.map(m => `<div class="g-item"><p class="peq"><b>${esc(m)}</b> · <span class="muted">${esc(ORLA[m].lei)}</span></p>
         <ul class="peq">${ORLA[m].guia.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>`).join('')}
       <p class="muted peq">Demais praias (Torres, Arroio do Sal, Xangri-lá, Osório, Mostardas e outras): só a lei estadual no app. Peça a lei municipal à Prefeitura.</p></details>
+    <details class="card card-dobra g"><summary><h2 style="display:inline">Litoral Médio: Palmares do Sul, Mostardas e Tavares</h2></summary>
+      <p class="peq g-item"><b>Parque Nacional da Lagoa do Peixe</b> (Tavares, Mostardas e São José do Norte). Só pesca o pescador artesanal do Termo de Compromisso 02/2019 (ICMBio e Colônia Z11), com carteira e autorização do ICMBio. Amador e pessoa sem RGP: pesca proibida. O Termo venceu em 12/2025 pelo texto: confira a renovação com o ICMBio. Limites no <a href="#/mapa">Mapa offline</a>.</p>
+      <p class="peq g-item"><b>Parque: proibido.</b> Embarcação com motor. Cerco e arrasto. Rede feiticeira. Lagamares da Veiana, do Pai João e do Ruivo, e os valos e canais entre lagamares. Praia ao sul da barra, trecho de cerca de 8 km: qualquer pesca. Canal da barra: só tarrafa, só para tainha.</p>
+      <p class="peq g-item"><b>Parque: petrechos.</b> Lagoa: rede de emalhe de 100 mm (tainha), 160 mm (linguado) ou 40 mm (peixe-rei), até 1/3 da largura, 100 m entre redes; tarrafa de 60 mm. Camarão-rosa: aviãozinho com lacre, malha de 24 mm, na safra aberta pelo monitoramento (dez a mai), média mínima de 8 cm. Siri: espinhel ou jererê, mínimo 12 cm, fêmea ovada proibida. Mar do Parque: cabo ou calão de cerca de 50 m com malha de 70 mm, espinhel de praia, tarrafa de 60 mm; marisco-branco só na mão.</p>
+      <p class="peq g-item"><b>Zona de amortecimento.</b> O Plano de Manejo (2004) fala em "Zona de Transição", mas não fixa limites nem proíbe a pesca nela. Sem norma com limite, o app não indica proibição fora do Parque.</p>
+      <p class="peq g-item"><b>Lagoa dos Patos, estuário</b> (ao sul de 30°55', Mostardas, Tavares e São José do Norte). Só pesca quem está na lista atual do estuário. Cada pessoa que pesca a bordo precisa de RGP e de estar na lista; a embarcação também precisa de RGP (INC 03/2004, arts. 7º e 14). Rede de espera: 100 mm (bagre 140 mm, peixe-rei 40 mm), até 1.830 m por embarcação. Embarcação até 12 m. Arrasto proibido. Calendário: tainha de out a mai, corvina de out a fev, camarão-rosa de fev a mai.</p>
+      <p class="peq g-item"><b>Lagoa dos Patos, trecho norte, e lagoas costeiras</b> (Quintão, Porteira, Rincão das Éguas, Bacopari, Pinheiro, Capão Alto, Potreirinho, Cipó). Rede de espera de 70 mm; tarrafa e covo de 50 mm; arrasto proibido (IN 43/2004). Piracema de 1º/11 a 31/01: só anzol simples, 1 petrecho e até 5 kg; em lagoa marginal e a até 1.500 m de barragem, pesca proibida (IN 197/2008).</p>
+      <p class="peq g-item"><b>Praia e mar.</b> Quintão (Palmares do Sul): área de surfe com pesca proibida (Leis 165/1988 e 219/1989). Mostardas e Tavares: sem lei municipal de orla; vale a lei estadual. Emalhe por barco com motor: proibido até 1 milha da costa (IN 12/2012). Arrasto por barco com motor: proibido nas 12 milhas (Lei RS 15.223/2018). Barras: de 15/03 a 15/08, só tarrafa (IN 171/2008).</p></details>
     <details class="card card-dobra g"><summary><h2 style="display:inline">Defesos por região</h2></summary>
       ${Object.entries(DEFESOS).filter(([, ds]) => ds.length).map(([r, ds]) => `<p class="peq g-item"><b>${esc(REGIMES[r].nome)}</b><br>${ds.map(([n, de, ate, t, norma]) =>
         `${esc(n)}: de ${esc(de.split('-').reverse().join('/'))} a ${esc(ate.split('-').reverse().join('/').replace('29/02', '28/02'))}. ${esc(t)} (${esc(norma)}).`).join('<br>')}</p>`).join('')}
@@ -1573,9 +1581,46 @@ function telaNormas() {
   listar();
 }
 
+// ---------- mapa offline das áreas com polígono (sem fundo de mapa: só os limites e a sua posição) ----------
+function telaMapa() {
+  const { AREAS_MAPA, noPoligono, ateBorda } = window.Normas;
+  let area = 'peixe', pos = null;
+  app.innerHTML = `<div class="card"><p class="peq"><a href="#/guia">← Guia</a></p><h1>Mapa offline</h1>
+      <p class="muted peq">Limites das áreas proibidas, sem internet. O mapa não tem fundo (ruas, imagem): mostra só os limites e o ponto do GPS. Os limites são aproximados; na dúvida, vale a sinalização no local.</p>
+      <label for="m-area">Área</label><select id="m-area">${Object.entries(AREAS_MAPA).map(([k, a]) => `<option value="${k}">${esc(a.nome)}</option>`).join('')}</select>
+      <div class="linha" style="margin-top:8px"><button class="sec" id="m-gps" type="button">Minha posição</button></div>
+      <p id="m-res" class="peq"></p><div id="m-svg"></div><ul id="m-leg" class="peq"></ul></div>`;
+  $('#m-area').value = area;
+  const desenhar = () => {
+    const a = AREAS_MAPA[area], todos = a.camadas.flatMap(c => c[2]).concat(pos ? [[pos.lat, pos.lon]] : []);
+    const k = Math.cos(todos[0][0] * Math.PI / 180);
+    const xs = todos.map(p => p[1] * k), ys = todos.map(p => p[0]);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    const W = 340, H = Math.max(200, Math.min(520, W * (y1 - y0) / (x1 - x0 || 1))), m = 10;
+    const esc_ = Math.min((W - 2 * m) / (x1 - x0 || 1), (H - 2 * m) / (y1 - y0 || 1));
+    const pt = ([la, lo]) => `${(m + (lo * k - x0) * esc_).toFixed(1)},${(H - m - (la - y0) * esc_).toFixed(1)}`;
+    $('#m-svg').innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${esc(a.nome)}" style="background:var(--card2, transparent);border:1px solid var(--borda);border-radius:8px">
+      ${a.camadas.map(([, cor, ps]) => `<polygon points="${ps.map(pt).join(' ')}" fill="${cor}" fill-opacity=".18" stroke="${cor}" stroke-width="2"/>`).join('')}
+      ${pos ? `<circle cx="${pt([pos.lat, pos.lon]).split(',')[0]}" cy="${pt([pos.lat, pos.lon]).split(',')[1]}" r="6" fill="#1565c0" stroke="#fff" stroke-width="2"/>` : ''}</svg>`;
+    $('#m-leg').innerHTML = a.camadas.map(([n, cor]) => `<li><span style="display:inline-block;width:12px;height:12px;background:${cor};opacity:.6;border-radius:2px"></span> ${esc(n)}</li>`).join('');
+    if (pos) {
+      const p = [pos.lat, pos.lon];
+      $('#m-res').innerHTML = a.camadas.map(([n, , ps]) => `${noPoligono(p, ps) ? '<b>Dentro</b>' : 'Fora'}: ${esc(n)}, a ${Math.round(ateBorda(p, ps)).toLocaleString('pt-BR')} m do limite.`).join('<br>') + ` <span class="muted">(GPS ±${Math.round(pos.prec)} m)</span>`;
+    }
+  };
+  $('#m-area').onchange = e => { area = e.target.value; desenhar(); };
+  $('#m-gps').onclick = () => {
+    if (!navigator.geolocation) { $('#m-res').textContent = 'GPS indisponível neste aparelho.'; return; }
+    $('#m-res').textContent = 'Obtendo posição…';
+    navigator.geolocation.getCurrentPosition(g => { pos = { lat: g.coords.latitude, lon: g.coords.longitude, prec: g.coords.accuracy }; desenhar(); },
+      err => { $('#m-res').textContent = 'Não foi possível obter a posição: ' + err.message; }, { enableHighAccuracy: true, timeout: 20000 });
+  };
+  desenhar();
+}
+
 // ---------- roteamento e bloqueio ----------
 function marcarNav() {
-  const h = location.hash.startsWith('#/dados') ? '#/dados' : location.hash.startsWith('#/normas') || location.hash.startsWith('#/guia') ? '#/guia' : /^#\/(ab|pendencias|denuncia|vinculos)/.test(location.hash) ? '#/abordagens' : '#/';
+  const h = location.hash.startsWith('#/dados') ? '#/dados' : /^#\/(normas|guia|mapa)/.test(location.hash) ? '#/guia' : /^#\/(ab|pendencias|denuncia|vinculos)/.test(location.hash) ? '#/abordagens' : '#/';
   document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('ativo', a.getAttribute('href') === h));
 }
 function rotear() {
@@ -1585,6 +1630,7 @@ function rotear() {
   const h = location.hash;
   if (h === '#/normas') return telaNormas();
   if (h === '#/guia') return telaGuia();
+  if (h === '#/mapa') return telaMapa();
   if (h.startsWith('#/p/')) return telaFicha(decodeURIComponent(h.slice(4)));
   if (h === '#/dados') return telaDados();
   if (h === '#/peixarias') return telaPeixarias();

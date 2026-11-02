@@ -447,3 +447,24 @@ test('R40: Lagoa do Peixe pelo Termo de Compromisso 02/2019 (ICMBio e Colônia Z
   assert.deepEqual(nv({ petrechos: [pet('Rede de emalhe', { malhaMm: 50 })], pescado: [{ especie: 'Tainha', kg: 2 }] }), ['amarelo']);
   assert.ok(pk({ embarcacao: 'Motorizada' })[0].norma.includes('02/2019'));
 });
+
+test('R41: GPS no Parque Nacional da Lagoa do Peixe (Decreto 93.546/1986) e no trecho vedado ao sul da barra', () => {
+  const g = (lat, lon, extra = {}, prec = 10) => checar(ab({ area: 'mar', localTipo: '', gps: { lat, lon, prec }, petrechos: [pet('Linha e anzol')], ...extra }), cfg).filter(m => m.regra === 'R41');
+  // dentro do Parque, profissional: conferir a carteira do ICMBio; amador ou sem RGP: vermelho
+  assert.deepEqual(g(-31.25, -50.95).map(m => m.nivel), ['amarelo']);
+  for (const categoria of ['Amador', 'Sem RGP ou licença']) {
+    const r = g(-31.25, -50.95, { categoria });
+    assert.deepEqual(r.map(m => m.nivel), ['vermelho'], categoria); assert.match(r[0].norma, /93\.546/);
+  }
+  // trecho vedado ao sul da barra: vermelho para todos
+  const v = g(-31.4261, -51.1047);
+  assert.deepEqual(v.map(m => m.nivel), ['vermelho']); assert.match(v[0].norma, /cl\. 9ª, III/);
+  // fora: Lagoa dos Patos e mar longe
+  assert.deepEqual(g(-31.20, -51.05, { area: 'patos' }), []);
+  assert.deepEqual(g(-31.30, -50.90), []);
+  // perto do limite, dentro da precisão: conferir
+  assert.deepEqual(g(-31.25, -50.95, {}, 5000).map(m => m.nivel), ['amarelo']);
+  assert.match(g(-31.25, -50.95, { categoria: 'Amador' }, 5000)[0].texto, /limite/);
+  // sem petrecho, não indica
+  assert.deepEqual(g(-31.25, -50.95, { petrechos: [] }), []);
+});

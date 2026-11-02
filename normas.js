@@ -1,4 +1,4 @@
-// Regras de pesca checadas na abordagem (R02 a R39; a R01 fica no semáforo, junto da lista).
+// Regras de pesca checadas na abordagem (R02 a R41; a R01 fica no semáforo, junto da lista).
 // Fonte de cada regra: aba "Legislação" do documento do projeto. Indica, não autua.
 (() => {
 
@@ -65,6 +65,14 @@ const AREAS_IN17 = [
 const BARRA_TRAMANDAI = [[-29.983489, -50.141210], [-29.983879, -50.140645], [-29.983199, -50.138966], [-29.983321, -50.138468], [-29.982233, -50.135643], [-29.983016, -50.133414], [-29.983194, -50.133008], [-29.983312, -50.132057], [-29.983328, -50.130899], [-29.983232, -50.130143], [-29.982842, -50.129386], [-29.982337, -50.128516], [-29.981469, -50.127642], [-29.981007, -50.127243], [-29.980352, -50.126153], [-29.979701, -50.125202], [-29.979312, -50.124722], [-29.978912, -50.124031], [-29.978283, -50.123248], [-29.977780, -50.122774], [-29.976993, -50.122294], [-29.976400, -50.121860], [-29.976441, -50.121195], [-29.976875, -50.120403], [-29.977387, -50.119977], [-29.978073, -50.119798], [-29.978481, -50.120008], [-29.978845, -50.120031], [-29.979054, -50.119904], [-29.978973, -50.119629], [-30.002305, -50.129977], [-30.011849, -50.100879], [-29.969644, -50.082614], [-29.960100, -50.111699], [-29.975086, -50.118101], [-29.975541, -50.118716], [-29.975867, -50.121477], [-29.976044, -50.122515], [-29.976290, -50.122717], [-29.977538, -50.123924], [-29.978096, -50.124656], [-29.978562, -50.125571], [-29.978617, -50.125768], [-29.978834, -50.126175], [-29.979016, -50.126558], [-29.979167, -50.127175], [-29.979149, -50.127309], [-29.979439, -50.128198], [-29.979706, -50.128578], [-29.980155, -50.129578], [-29.980312, -50.130186], [-29.980577, -50.130540], [-29.981082, -50.131176], [-29.981258, -50.131651], [-29.981676, -50.132278], [-29.982098, -50.132504], [-29.981946, -50.133019], [-29.981403, -50.133305], [-29.980991, -50.133522], [-29.980610, -50.133787], [-29.980307, -50.134492], [-29.979955, -50.135008], [-29.979514, -50.135422], [-29.979446, -50.135717], [-29.979171, -50.136360], [-29.978367, -50.136985], [-29.977970, -50.137074], [-29.977115, -50.137301], [-29.976819, -50.137595], [-29.976452, -50.137782], [-29.976042, -50.137765], [-29.975624, -50.137856], [-29.974927, -50.138095], [-29.974489, -50.138254], [-29.974314, -50.138564], [-29.973750, -50.138472], [-29.986977, -50.154689], [-29.987986, -50.147602], [-29.987071, -50.146976], [-29.986925, -50.146388], [-29.986303, -50.145935], [-29.986254, -50.145332], [-29.985346, -50.144486], [-29.985109, -50.144488], [-29.984711, -50.144252], [-29.984145, -50.144127], [-29.983871, -50.143498]];
 const ateBorda = (p, vs) => Math.min(...vs.map((v, i) => aoSegmento(p, v, vs[(i + 1) % vs.length])));
 const NORMA_ART2 = 'IN 17/2004, art. 2º (mapa da área de exclusão da Barra); linha e anzol permitido';
+
+// Parque Nacional da Lagoa do Peixe: pontos 1 a 29 do Decreto 93.546/1986, art. 2º (coordenadas aproximadas do decreto;
+// P21 recalculado por azimute e distância, o texto traz 55°42'), mais a faixa de mar de 1.000 m entre os pontos 28 e 29
+// (parágrafo único). A costa entre 28 e 29 passa pelos dois pontos do TC 02/2019, cl. 9ª, III. [lat, lon].
+const PARNA_PEIXE = [[-31.45000, -51.18667], [-31.43111, -51.16833], [-31.40083, -51.13667], [-31.39000, -51.13000], [-31.37278, -51.10778], [-31.36833, -51.10611], [-31.35806, -51.09250], [-31.35389, -51.09083], [-31.33583, -51.07722], [-31.33250, -51.07306], [-31.31778, -51.06361], [-31.30583, -51.04833], [-31.29333, -51.03778], [-31.28500, -51.02417], [-31.25667, -51.00472], [-31.25000, -50.99528], [-31.22806, -50.97528], [-31.22833, -50.97167], [-31.16222, -50.91194], [-31.16111, -50.90667], [-31.13179, -50.87941], [-31.12611, -50.88778], [-31.01278, -50.77528], [-31.02889, -50.75361], [-31.07583, -50.75361], [-31.24278, -50.91111], [-31.25000, -50.91083], [-31.25250, -50.90861], [-31.25870, -50.90099], [-31.40318, -51.07276], [-31.45706, -51.12672], [-31.48954, -51.15653], [-31.48333, -51.16417]];
+// TC 02/2019, cl. 9ª, III: trecho de cerca de 8 km ao sul da barra, qualquer pesca proibida (300 m de praia e 1.000 m de mar).
+const PEIXE_VEDADO_SUL = [[-31.44900, -51.13665], [-31.39511, -51.08268], [-31.40318, -51.07276], [-31.45706, -51.12672]];
+const NORMA_PARNA = 'Decreto 93.546/1986 (limites aproximados); Lei 9.985/2000, art. 11; Termo de Compromisso ICMBio/Colônia Z11 02/2019';
 
 // IN MMA 53/2005, comprimento total mínimo (cm), pelo nome usado no app.
 const TAMANHO_MINIMO = { 'tainha': 35, 'anchova': 35, 'linguado': 35, 'corvina': 25, 'miraguaia': 65, 'pescada-olhuda': 30, 'pescadinha': 25,
@@ -183,6 +191,19 @@ function checar(ab, cfg = {}) {
     const margem = Math.max(+ab.gps.prec || 0, 20);
     if (borda <= margem) add('R34', 'amarelo', `Pelo GPS, o ponto fica ${dentro ? 'dentro' : 'fora'} da área de exclusão da Barra, a ${Math.round(borda)} m do limite (precisão ±${Math.round(+ab.gps.prec || 0)} m). Confira no local.`, NORMA_ART2, CRIME_34);
     else if (dentro && !out.some(m => m.regra === 'R10')) add('R10', 'vermelho', 'Pelo GPS, o ponto fica dentro da área de exclusão da Barra de Tramandaí: só linha e anzol é permitido.', NORMA_ART2, CRIME_34);
+  }
+
+  // R41: Parque Nacional da Lagoa do Peixe pelo GPS, em qualquer área escolhida. Limites aproximados: perto da linha, só conferir.
+  if (ab.gps && pets.length) {
+    const p = [ab.gps.lat, ab.gps.lon], margem = Math.max(+ab.gps.prec || 0, 300);
+    const naParna = noPoligono(p, PARNA_PEIXE), bParna = ateBorda(p, PARNA_PEIXE);
+    const noVedado = noPoligono(p, PEIXE_VEDADO_SUL), bVedado = ateBorda(p, PEIXE_VEDADO_SUL);
+    const prof = ab.categoria === 'Profissional';
+    if (bVedado <= margem && (noVedado || naParna)) add('R41', 'amarelo', `Pelo GPS, o ponto fica a ${Math.round(bVedado)} m do limite do trecho vedado ao sul da barra da Lagoa do Peixe. Confira no local.`, `${NORMA_PARNA}, cl. 9ª, III`, CRIME_34);
+    else if (noVedado) add('R41', 'vermelho', 'Pelo GPS, o ponto fica no trecho vedado ao sul da barra da Lagoa do Peixe (cerca de 8 km): qualquer pesca proibida, inclusive para os beneficiários do Termo.', `${NORMA_PARNA}, cl. 9ª, III`, CRIME_34);
+    else if (bParna <= margem) add('R41', 'amarelo', `Pelo GPS, o ponto fica ${naParna ? 'dentro' : 'fora'} do Parque Nacional da Lagoa do Peixe, a ${Math.round(bParna)} m do limite (limites aproximados do decreto). Confira no local.`, NORMA_PARNA, CRIME_34);
+    else if (naParna && prof) add('R41', 'amarelo', 'Pelo GPS, o ponto fica dentro do Parque Nacional da Lagoa do Peixe: só pesca o beneficiário do Termo de Compromisso. Confira a carteira e a autorização do ICMBio.', NORMA_PARNA, CRIME_34);
+    else if (naParna) add('R41', 'vermelho', 'Pelo GPS, o ponto fica dentro do Parque Nacional da Lagoa do Peixe: pesca só para os pescadores artesanais do Termo de Compromisso. Amador e pessoa sem RGP não podem pescar.', NORMA_PARNA, CRIME_34);
   }
 
   // R37: embarcação sem nome e inscrição visíveis. Embarcação de pesca precisa de RGP; a marcação do casco é da Marinha.
@@ -422,5 +443,11 @@ const AMEACADAS_GUIA = [
   ['Raia', 'Dasyatis centroura', 'Mar', 'EN'],
 ];
 
-globalThis.Normas = { checar, multaReferencia, defesosDe, DEFESOS, RESUMO, RESUMO_TODOS, AMEACADAS_GUIA, LOCAIS, TAMANHO_MINIMO, CALENDARIO_PATOS };
+// Mapa offline (Guia): áreas com polígono. [nome, cor, pontos].
+const AREAS_MAPA = {
+  barra: { nome: 'Barra de Tramandaí: área de exclusão (IN 17/2004, art. 2º)', camadas: [['Área de exclusão', '#c62828', BARRA_TRAMANDAI]] },
+  peixe: { nome: 'Parque Nacional da Lagoa do Peixe', camadas: [['Parque Nacional (Decreto 93.546/1986, aproximado)', '#2e7d32', PARNA_PEIXE], ['Trecho vedado ao sul da barra (TC 02/2019)', '#c62828', PEIXE_VEDADO_SUL]] },
+};
+
+globalThis.Normas = { AREAS_MAPA, noPoligono, ateBorda, checar, multaReferencia, defesosDe, DEFESOS, RESUMO, RESUMO_TODOS, AMEACADAS_GUIA, LOCAIS, TAMANHO_MINIMO, CALENDARIO_PATOS };
 })();
