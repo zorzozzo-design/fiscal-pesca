@@ -468,3 +468,12 @@ test('R41: GPS no Parque Nacional da Lagoa do Peixe (Decreto 93.546/1986) e no t
   // sem petrecho, não indica
   assert.deepEqual(g(-31.25, -50.95, { petrechos: [] }), []);
 });
+
+test('Barra de Tramandaí e Imbé: limites no mar contados dos molhes (3 km do molhe sul, 2 km do molhe norte)', () => {
+  const r = (lat, lon) => checar(ab({ area: 'mar', localTipo: '', gps: { lat, lon, prec: 10 }, petrechos: [pet('Rede de emalhe', { malhaMm: 100 })] }), cfg)
+    .filter(m => /art\. 2º/.test(m.norma)).map(m => m.regra);
+  assert.deepEqual(r(-30.00661, -50.12128), ['R10']); // 2.900 m ao sul do molhe sul, 1 km mar adentro
+  assert.deepEqual(r(-30.0087, -50.12225), []); // 3.150 m ao sul
+  assert.deepEqual(r(-29.96246, -50.10144), ['R10']); // 1.900 m ao norte do molhe norte
+  assert.deepEqual(r(-29.96036, -50.10051), []); // 2.150 m ao norte
+});
