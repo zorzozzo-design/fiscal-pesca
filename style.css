@@ -167,8 +167,16 @@ nav a { white-space: nowrap; }
 .end-atual > summary { font-weight: 600; }
 .end-atual input { margin-top: 6px; }
 .tachado { text-decoration: line-through; text-decoration-color: var(--alerta); text-decoration-thickness: 2px; }
-details.card-dobra { padding: 12px 14px; }
-details.card-dobra > summary { list-style: revert; }
+/* Card recolhível: título inteiro tocável (48 px), seta à direita (mesmo padrão do Fiscal Dunas). */
+details.card-dobra { padding: 0 14px; }
+details.card-dobra[open] { padding-bottom: 14px; }
+details.card-dobra > summary { list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  min-height: 48px; padding: 12px 0; -webkit-tap-highlight-color: transparent; }
+details.card-dobra > summary::-webkit-details-marker { display: none; }
+details.card-dobra > summary h2 { margin: 0; }
+details.card-dobra > summary::after { content: ''; flex: none; width: 9px; height: 9px; margin-right: 4px;
+  border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); transition: transform .15s; }
+details.card-dobra[open] > summary::after { transform: rotate(-135deg); }
 
 /* Menu superior: destaque da seção ativa e hover. */
 nav a { padding: 6px 10px; border-radius: 8px; transition: background .12s, color .12s; }
