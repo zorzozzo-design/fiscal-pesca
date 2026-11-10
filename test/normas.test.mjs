@@ -477,3 +477,12 @@ test('Barra de Tramandaí e Imbé: limites no mar contados dos molhes (3 km do m
   assert.deepEqual(r(-29.96246, -50.10144), ['R10']); // 1.900 m ao norte do molhe norte
   assert.deepEqual(r(-29.96036, -50.10051), []); // 2.150 m ao norte
 });
+
+test('R42: pesca com drone é vermelho em qualquer área (rol de petrechos taxativo; Lei 9.605, art. 34, p. ún., II)', () => {
+  for (const area of ['mar', 'tramandai', 'patos', 'outras']) {
+    const r = checar(ab({ area, petrechos: [pet('Linha e anzol'), pet('Drone (lançamento de linha)')] }), cfg).filter(m => m.regra === 'R42');
+    assert.equal(r.length, 1, area); assert.equal(r[0].nivel, 'vermelho');
+    assert.match(r[0].enquadramento, /art\. 34, p\. ún\., II/); assert.equal(r[0].artigo, 35);
+  }
+  assert.ok(!checar(ab({ petrechos: [pet('Linha e anzol')] }), cfg).some(m => m.regra === 'R42'));
+});

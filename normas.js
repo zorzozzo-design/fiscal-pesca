@@ -1,4 +1,4 @@
-// Regras de pesca checadas na abordagem (R02 a R41; a R01 fica no semáforo, junto da lista).
+// Regras de pesca checadas na abordagem (R02 a R42; a R01 fica no semáforo, junto da lista).
 // Fonte de cada regra: aba "Legislação" do documento do projeto. Indica, não autua.
 (() => {
 
@@ -205,6 +205,10 @@ function checar(ab, cfg = {}) {
     else if (naParna && prof) add('R41', 'amarelo', 'Pelo GPS, o ponto fica dentro do Parque Nacional da Lagoa do Peixe: só pesca o beneficiário do Termo de Compromisso. Confira a carteira e a autorização do ICMBio.', NORMA_PARNA, CRIME_34);
     else if (naParna) add('R41', 'vermelho', 'Pelo GPS, o ponto fica dentro do Parque Nacional da Lagoa do Peixe: pesca só para os pescadores artesanais do Termo de Compromisso. Amador e pessoa sem RGP não podem pescar.', NORMA_PARNA, CRIME_34);
   }
+
+  // R42: drone para lançar linha ou rede. O rol de petrechos (amador: INI MPA/MMA 09/2012, art. 5º; profissional: normas de cada área) é taxativo.
+  if (de('Drone (lançamento de linha)').length)
+    add('R42', 'vermelho', 'Pesca com drone: técnica e petrecho fora do rol permitido, para amador e profissional.', 'INI MPA/MMA 09/2012, art. 5º (rol taxativo); Lei 9.605/98, art. 34, p. ún., II', CRIME_34_II);
 
   // R37: embarcação sem nome e inscrição visíveis. Embarcação de pesca precisa de RGP; a marcação do casco é da Marinha.
   if (ab.embSemId && ab.embarcacao && ab.embarcacao !== 'Nenhuma')

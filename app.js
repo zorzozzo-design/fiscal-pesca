@@ -440,7 +440,7 @@ function formBem(tipo, alvo, p, aoSalvar) {
 // ---------- abordagem em campo ----------
 const PESQBRASIL = 'https://pesqbrasil-pescadorprofissional.mpa.gov.br/acesso-externo';
 const SITUACOES = ['Ativo', 'Suspenso', 'Cancelado', 'Em análise', 'Não encontrado'];
-const PETRECHOS = ['Rede de emalhe', 'Tarrafa', 'Tarrafa de camarão', 'Espinhel', 'Aviãozinho', 'Rede de saco', 'Rede de arrasto', 'Linha e anzol', 'Covo/armadilha', 'Outro'];
+const PETRECHOS = ['Rede de emalhe', 'Tarrafa', 'Tarrafa de camarão', 'Espinhel', 'Aviãozinho', 'Rede de saco', 'Rede de arrasto', 'Linha e anzol', 'Covo/armadilha', 'Drone (lançamento de linha)', 'Outro'];
 // Nomes iguais aos da tabela de tamanho mínimo (normas.js) para a checagem funcionar.
 // Espécies ameaçadas (R27) aparecem com o nome científico para a pessoa escolher com certeza.
 const ESPECIES = ['Tainha', 'Camarão-rosa', 'Bagre (espécie não identificada)', 'Bagre-branco (Genidens barbus)', 'Bagre (Genidens planifrons)',
@@ -951,7 +951,7 @@ function telaAbordagem(param) {
   };
   // Só os campos que as regras usam para o tipo: malha (todos menos linha), comprimento (redes, espinhel), altura e RGP na tralha (emalhe no mar).
   const emalheMar = p => p.tipo === 'Rede de emalhe' && (ab.area === 'mar' || p.alturaM != null || !!p.rgpTralha);
-  const CAMPOS_PET = [['tipo', 'Tipo', 'select', PETRECHOS], ['malhaMm', 'Malha (mm)', 'number', 'min="0" step="1" inputmode="numeric" placeholder="nós opostos"', p => p.tipo !== 'Linha e anzol'],
+  const CAMPOS_PET = [['tipo', 'Tipo', 'select', PETRECHOS], ['malhaMm', 'Malha (mm)', 'number', 'min="0" step="1" inputmode="numeric" placeholder="nós opostos"', p => p.tipo !== 'Linha e anzol' && !p.tipo.startsWith('Drone')],
     ['qtd', 'Quantidade', 'number', 'min="1" step="1" inputmode="numeric"'],
     ['comprimentoM', 'Comprimento (m)', 'number', 'min="0" step="1" inputmode="numeric"', p => /^Rede|Espinhel|Outro/.test(p.tipo)],
     ['alturaM', 'Altura (m)', 'number', 'min="0" step="0.1" inputmode="decimal"', emalheMar], ['rgpTralha', 'RGP na tralha', 'select', ['', 'Sim', 'Não'], emalheMar]];
@@ -1517,13 +1517,12 @@ function telaGuia() {
       ${Object.entries(RESUMO).map(([r, ts]) => `<div class="g-item"><p class="peq"><b>${esc(REGIMES[r].nome)}</b></p><ul class="peq">${ts.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>`).join('')}
       <div class="g-item"><p class="peq"><b>Pesca amadora, em qualquer local</b></p><ul class="peq">${RESUMO_TODOS.slice(1).map(t => `<li>${esc(t)}</li>`).join('')}</ul></div></details>
     <details class="card card-dobra g"><summary><h2 style="display:inline">Pesca com drone (praia e lagoa)</h2></summary>
-      <p class="muted peq">O drone leva a linha com a isca para longe da margem e solta. O pescador recolhe com a vara.</p>
-      <p class="peq g-item"><b>Norma.</b> Não há norma federal nem do RS que trate da pesca com drone. A pesca amadora usa os petrechos da INI MPA/MMA 09/2012, art. 5º: linha de mão, caniço simples, caniço com molinete ou carretilha, arbalete, bomba de sucção manual para isca e puçá de siri. O drone não está na lista, mas ele não é petrecho: é só o meio de lançar a linha. Avalie o que está na ponta da linha.</p>
-      <p class="peq g-item"><b>Na abordagem.</b> Registre o petrecho real: "Linha e anzol" quando é uma linha com anzol; "Espinhel" quando a linha tem vários anzóis espaçados; rede, se o drone leva rede. Escreva "lançamento por drone" na observação. Molinete ou carretilha: o amador precisa da carteira de pescador amador.</p>
-      <p class="peq g-item"><b>Petrecho proibido.</b> Espinhel, rede ou vários anzóis levados por drone por pescador amador: petrecho não permitido ao amador (INI 09/2012, art. 5º). Enquadramento: Lei 9.605/98, art. 34, p. ún., II; Dec. 6.514/2008, art. 35.</p>
-      <p class="peq g-item"><b>Onde a isca cai.</b> Vale o local onde a linha fica na água, não onde o pescador está. Isca em área de surfe, na área de exclusão da Barra de Tramandaí e Imbé com petrecho além de linha e anzol, ou dentro do Parque Nacional da Lagoa do Peixe: aplique a regra desse local. Marque o ponto no mapa e registre a distância estimada.</p>
-      <p class="peq g-item"><b>Voo do drone.</b> As regras de voo são da ANAC (RBAC-E 94: cadastro no SISANT para drone acima de 250 g), do DECEA (acesso ao espaço aéreo) e da Anatel (homologação). Não são infração ambiental. No Parque Nacional, confira com o ICMBio se o voo tem autorização e comunique o caso. Drone que persegue ou espanta aves: registre e fotografe.</p>
-      <p class="muted peq">Sem norma específica: na dúvida, oriente, registre com foto e vídeo e consulte o comando antes de autuar só pelo uso do drone.</p></details>
+      <p class="muted peq">O drone leva a linha com a isca (ou a rede) para longe da margem e solta. O pescador recolhe da praia ou da margem.</p>
+      <p class="peq g-item"><b>Pesca com drone é proibida.</b> O rol de petrechos é taxativo, para amador e para profissional. Amador: INI MPA/MMA 09/2012, art. 5º (linha de mão, caniço simples, caniço com molinete ou carretilha, arbalete, bomba de sucção manual para isca, puçá de siri). Profissional: os petrechos das normas de cada área. O drone não está em nenhuma lista.</p>
+      <p class="peq g-item"><b>Enquadramento.</b> Crime: Lei 9.605/98, art. 34, p. ún., II (pescar com petrechos, técnicas e métodos não permitidos) c/c art. 36. Infração: Dec. 6.514/2008, art. 35, p. ún., II. Apreenda o drone, a vara, a linha e o pescado.</p>
+      <p class="peq g-item"><b>Na abordagem.</b> Registre o petrecho "Drone (lançamento de linha)" junto com a linha, o espinhel ou a rede que o drone levou. O app marca vermelho (R42) em qualquer área. Anote modelo e número de série do drone, a distância estimada e o local onde a isca caiu. Fotografe e filme.</p>
+      <p class="peq g-item"><b>Onde a isca cai.</b> Se a linha caiu em área de surfe, na área de exclusão da Barra de Tramandaí e Imbé ou no Parque Nacional da Lagoa do Peixe, registre também a regra desse local.</p>
+      <p class="peq g-item"><b>Voo do drone.</b> Cadastro, espaço aéreo e homologação são da ANAC (RBAC-E 94, SISANT), do DECEA e da Anatel: comunique o caso a esses órgãos se houver irregularidade. No Parque Nacional, comunique o ICMBio. Drone que espanta aves: registre e fotografe.</p></details>
     <details class="card card-dobra g"><summary><h2 style="display:inline">RGP e licença: quem precisa</h2></summary>
       <ul class="peq g-item"><li><b>Precisam de RGP:</b> pescador profissional (artesanal ou industrial), aprendiz, armador, embarcação de pesca, aquicultor e empresa pesqueira (Dec. 8.425/2015).</li>
         <li><b>Amador:</b> precisa da licença de pescador amador. A licença vale 1 ano (IN MPA 05/2012, art. 10). Com barco, use a licença embarcada. O barco deve ser de esporte e recreio (Lei 11.959/2009).</li>
