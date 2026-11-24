@@ -445,7 +445,7 @@ function formBem(tipo, alvo, p, aoSalvar) {
 const PESQBRASIL = 'https://pesqbrasil-pescadorprofissional.mpa.gov.br/acesso-externo';
 const SITUACOES = ['Ativo', 'Suspenso', 'Cancelado', 'Em análise', 'Não encontrado'];
 // Em ordem alfabética; "Outro" no fim.
-const PETRECHOS = ['Aviãozinho', 'Covo/armadilha', 'Drone (lançamento de linha)', 'Espinhel', 'Linha e anzol', 'Rede de arrasto', 'Rede de emalhe', 'Rede de espera', 'Rede de saco', 'Tarrafa', 'Tarrafa de camarão', 'Outro'];
+const PETRECHOS = ['Aviãozinho', 'Covo/armadilha', 'Drone (lançamento de linha)', 'Espinhel', 'Linha e anzol', 'Puçá (coca)', 'Rede de arrasto', 'Rede de emalhe', 'Rede de espera', 'Rede de saco', 'Tarrafa', 'Tarrafa de camarão', 'Outro'];
 // Nomes iguais aos da tabela de tamanho mínimo (normas.js) para a checagem funcionar.
 // Espécies ameaçadas (R27) aparecem com o nome científico para a pessoa escolher com certeza.
 const ESPECIES = ['Tainha', 'Camarão-rosa', 'Bagre (espécie não identificada)', 'Bagre-branco (Genidens barbus)', 'Bagre (Genidens planifrons)',
@@ -959,7 +959,7 @@ function telaAbordagem(param) {
   const CAMPOS_PET = [['tipo', 'Tipo', 'select', PETRECHOS], ['malhaMm', 'Malha (mm)', 'number', 'min="0" step="1" inputmode="numeric" placeholder="nós opostos"', p => p.tipo !== 'Linha e anzol' && !p.tipo.startsWith('Drone')],
     ['qtd', 'Quantidade', 'number', 'min="1" step="1" inputmode="numeric"'],
     ['comprimentoM', 'Comprimento (m)', 'number', 'min="0" step="1" inputmode="numeric"', p => /^Rede|Espinhel|Outro/.test(p.tipo)],
-    ['alturaM', 'Altura (m)', 'number', 'min="0" step="0.1" inputmode="decimal"', emalheMar], ['rgpTralha', 'RGP na tralha', 'select', ['', 'Sim', 'Não'], emalheMar]];
+    ['alturaM', 'Altura (m)', 'number', 'min="0" step="0.1" inputmode="decimal"', emalheMar], ['rgpTralha', 'RGP do pescador no petrecho', 'select', ['', 'Sim', 'Não'], p => emalheMar(p) || (ab.area === 'tramandai' && !['Linha e anzol', 'Drone (lançamento de linha)'].includes(p.tipo))]];
   const CAMPOS_PES = [['especie', 'Espécie', 'text', 'list="especies"'], ['kg', 'Peso (kg)', 'number', 'min="0" step="0.1" inputmode="decimal"'],
     ['menorCm', 'Menor exemplar (cm)', 'number', 'min="0" step="0.5" inputmode="decimal"']];
   $('#b-pet').onclick = () => { ab.petrechos.push({ tipo: 'Rede de emalhe', malhaMm: null, comprimentoM: null, qtd: 1, alturaM: null, rgpTralha: '' }); desenharLinhas(ab.petrechos, '#petrechos', CAMPOS_PET, desenharSem); desenharSem(); };
@@ -1029,7 +1029,9 @@ function telaAbordagem(param) {
     // Locais com nome e, abaixo, municípios (águas da bacia principal). Com GPS, os mais próximos primeiro.
     const listar = () => {
       const q = $('#o-q').value;
-      let ls = buscarLocal(q);
+      // Lagoas primeiro, em ordem alfabética pelo nome próprio ("Lagoa dos Quadros" em Q); depois rios, barras e reservatórios.
+      const ehLagoa = l => /^(Lagoa|Laguna)\s/.test(l.nome), chaveNome = l => l.nome.replace(/^(Lagoa|Laguna)\s+(d[aeo]s?\s+)?/i, '');
+      let ls = buscarLocal(q).slice().sort((a, b) => ehLagoa(b) - ehLagoa(a) || chaveNome(a).localeCompare(chaveNome(b), 'pt'));
       if (ordemGps) ls = ls.slice().sort((a, b) => Math.min(...a.municipios.map(m => ordemGps.indexOf(m))) - Math.min(...b.municipios.map(m => ordemGps.indexOf(m))));
       const ms = q.trim() ? buscarMunicipio(q).slice(0, 8) : ordemGps ? ordemGps.slice(0, 5) : [];
       const itemMun = m => { const bs = baciasDe(m), r = localDoMunicipio(m, bs[0][0]).regime;
@@ -1491,7 +1493,7 @@ function telaGuia() {
       <p class="muted peq">1 milha náutica = 1.852 m. A distância conta a partir da linha de costa. Vale em todo o litoral do RS.</p>
       <p class="peq g-item"><b>Emalhe, barco com motor.</b> Proibido até 1 milha da costa (IN Interministerial MPA/MMA 12/2012, art. 6º). Do farol do Albardão ao Chuí: proibido até 5 milhas (art. 7º). Barco acima de 20 AB: proibido até 4 milhas, do Albardão para o norte (art. 10).</p>
       <p class="peq g-item"><b>Emalhe, barco sem motor.</b> Permitido até 1 milha da costa, com no máximo 1.000 m de rede no total (art. 6º, § 1º).</p>
-      <p class="peq g-item"><b>Barra de Tramandaí.</b> Pesca proibida no canal e na área da boca da barra, entre Tramandaí e Imbé: 3.000 m ao sul do molhe sul (Tramandaí), 2.000 m ao norte do molhe norte (Imbé) e 3.000 m mar adentro. No mar, a área tem cerca de 5,5 km de praia e 1.780 ha no total. No estuário, até a linha do aterro da rodoviária antiga, pontal do Capão Grande e divisa do CECLIMAR (IN 17/2004, art. 2º). Permitido: linha e anzol (linha de mão, caniço, vara com molinete ou carretilha). Molinete ou carretilha: o amador precisa da carteira de pescador amador. Sobre e sob a ponte valem os arts. 3º e 25. Com GPS registrado e outro petrecho, o app confere o ponto no mapa da área (R10); perto do limite, pede conferência (R34).</p>
+      <p class="peq g-item"><b>Barra de Tramandaí.</b> Pesca proibida no canal e na área da boca da barra, entre Tramandaí e Imbé: 3.000 m ao sul do molhe sul (Tramandaí), 2.000 m ao norte do molhe norte (Imbé) e 3.000 m mar adentro. No mar, a área tem cerca de 5,5 km de praia e 1.780 ha no total. No estuário, até a linha do aterro da rodoviária antiga, pontal do Capão Grande e divisa do CECLIMAR (IN 17/2004, art. 2º). Exceções (art. 2º, p. ún., red. INI MPA/MMA 7/2013), sempre desembarcado: I) tarrafa com malha de 60 mm ou mais; III) linha de mão, vara, linha e anzol, carretilha ou molinete, um petrecho por pescador, até 3 anzóis, profissional ou amador; IV) coca (puçá) do pescador profissional na margem de Imbé, junto à Barra, a 140 m do Bico da Pedra em direção ao bueiro (S 29°58'31.2" W 50°07'12.1"). Embarcado: só a tarrafa de 25 mm sob a ponte, sentido oeste, para sardinha e peixe-rei, por profissional licenciado (II). Molinete ou carretilha: o amador precisa da carteira. Com GPS registrado e petrecho fora das exceções, o app confere o ponto no mapa da área (R10); perto do limite, pede conferência (R34).</p>
       <p class="peq g-item"><b>Barra de Rio Grande.</b> Emalhe proibido na área de proteção do boto: 20 km para cada lado dos molhes, até 1 milha da costa, e dentro do estuário até a Ponta dos Pescadores (art. 8º). Exceção: cabo ou calão de praia.</p>
       <p class="peq g-item"><b>Arrasto, barco com motor.</b> Proibido em todo o RS, nas 12 milhas da costa (Lei RS 15.223/2018, art. 30, VI, e). O STF confirmou a lei (ADI 6218).</p>
       <p class="peq g-item"><b>Identificação da rede.</b> RGP na tralha superior, no mínimo a cada 1.000 m. Rede sem identificação: petrecho não permitido (IN 12/2012, art. 3º, II e III).</p>

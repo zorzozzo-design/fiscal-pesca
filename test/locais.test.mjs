@@ -78,9 +78,16 @@ test('busca de município sem acento', () => {
   assert.equal(proximos(-29.76, -57.08)[0], 'Uruguaiana');
 });
 
-test('lagoas do peixe-rei-bicudo estão nos locais (Emboaba e Caconde em peixoto; Horácio e Lessa em bicudo)', () => {
+test('lagoas do peixe-rei-bicudo estão nos locais, uma por item (Emboaba, Caconde, Horácio, Lessa)', () => {
   const { LOCAIS_PESCA } = globalThis.Locais;
-  assert.match(LOCAIS_PESCA.find(l => l.id === 'peixoto').nome, /Caconde/);
-  const b = LOCAIS_PESCA.find(l => l.id === 'bicudo');
-  assert.ok(b && /Horácio/.test(b.nome) && /Lessa/.test(b.nome) && b.regime === 'tramandai');
+  for (const [id, nome] of [['emboaba', /Emboaba/], ['caconde', /Caconde/], ['bicudo', /Horácio/], ['lessa', /Lessa/]]) {
+    const l = LOCAIS_PESCA.find(x => x.id === id);
+    assert.ok(l && nome.test(l.nome) && l.regime === 'tramandai', id);
+  }
+});
+
+test('locais: uma lagoa por item, sem grupos no nome', () => {
+  const { LOCAIS_PESCA } = globalThis.Locais;
+  assert.ok(!LOCAIS_PESCA.some(l => /^Lagoas /.test(l.nome)), LOCAIS_PESCA.filter(l => /^Lagoas /.test(l.nome)).map(l => l.nome).join());
+  for (const id of ['peixoto', 'marcelino', 'pinheiro', 'capaoalto', 'potreirinho', 'cipo']) assert.ok(LOCAIS_PESCA.some(l => l.id === id), id);
 });

@@ -1,4 +1,4 @@
-// Regras de pesca checadas na abordagem (R02 a R42; a R01 fica no semáforo, junto da lista).
+// Regras de pesca checadas na abordagem (R02 a R43; a R01 fica no semáforo, junto da lista).
 // Fonte de cada regra: aba "Legislação" do documento do projeto. Indica, não autua.
 (() => {
 
@@ -26,7 +26,7 @@ const MESES = ['', 'jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set'
 
 // Locais proibidos da IN 17/2004: artigo e petrechos tolerados (vazio = nenhum).
 const PROIBIDOS = [
-  ['Canal da Barra', 'art. 2º', () => false],
+  ['Canal da Barra', 'art. 2º, p. ún. (red. INI MPA/MMA 7/2013)', (p, c) => permitidoArt2(p, c)],
   ['Sobre a ponte', 'art. 3º', p => p.tipo === 'Linha e anzol'],
   ['Lagoa Gentil', 'art. 4º', p => p.tipo === 'Linha e anzol'],
   ['Canal de 200 m', 'art. 5º', () => false],
@@ -35,6 +35,15 @@ const PROIBIDOS = [
   ['Raio de 200 m', 'art. 9º', () => false],
   ['Braço Morto', 'art. 10', p => p.tipo === 'Linha e anzol'],
 ];
+
+// Art. 2º, p. ún. (red. INI MPA/MMA 7/2013): exceções na área da Barra. I: tarrafa desembarcada de 60 mm; II: tarrafa embarcada
+// de 25 mm sob a ponte, sentido oeste (ponto próprio); III: linha desembarcada, um petrecho por pescador, até 3 anzóis;
+// IV: coca (puçá) do profissional na margem de Imbé, a 140 m do Bico da Pedra. c: { embarcado, profissional, linhas }.
+const permitidoArt2 = (p, c) => !c.embarcado && (
+  p.tipo === 'Tarrafa' ? p.malhaMm == null || p.malhaMm >= 60
+  : p.tipo === 'Linha e anzol' ? c.linhas <= 1
+  : p.tipo === 'Puçá (coca)' ? c.profissional : false);
+const PONTO_COCA = [-(29 + 58 / 60 + 31.2 / 3600), -(50 + 7 / 60 + 12.1 / 3600)];
 
 // Áreas da IN 17/2004 com coordenadas no texto oficial (graus, minutos, segundos -> decimal).
 const dms = (g, m, s) => -(g + m / 60 + s / 3600);
@@ -64,7 +73,7 @@ const AREAS_IN17 = [
 // mar: 3.000 m ao sul do molhe sul, 2.000 m ao norte do molhe norte e 3.000 m para o oceano (versão de 02/11/2026). [lat, lon], WGS 84.
 const BARRA_TRAMANDAI = [[-29.983489, -50.141210], [-29.983879, -50.140645], [-29.983199, -50.138966], [-29.983321, -50.138468], [-29.982233, -50.135643], [-29.983016, -50.133414], [-29.983194, -50.133008], [-29.983312, -50.132057], [-29.983328, -50.130899], [-29.983232, -50.130143], [-29.982842, -50.129386], [-29.982337, -50.128516], [-29.981469, -50.127642], [-29.981007, -50.127243], [-29.980352, -50.126153], [-29.979701, -50.125202], [-29.979312, -50.124722], [-29.978912, -50.124031], [-29.978283, -50.123248], [-29.977780, -50.122774], [-29.976993, -50.122294], [-29.976400, -50.121860], [-29.976441, -50.121195], [-29.976875, -50.120403], [-29.977387, -50.119977], [-29.978073, -50.119798], [-29.978481, -50.120008], [-29.978845, -50.120031], [-29.979054, -50.119904], [-29.978973, -50.119629], [-30.004226, -50.130808], [-30.013770, -50.101711], [-29.967723, -50.081783], [-29.958179, -50.110868], [-29.975086, -50.118101], [-29.975541, -50.118716], [-29.975867, -50.121477], [-29.976044, -50.122515], [-29.976290, -50.122717], [-29.977538, -50.123924], [-29.978096, -50.124656], [-29.978562, -50.125571], [-29.978617, -50.125768], [-29.978834, -50.126175], [-29.979016, -50.126558], [-29.979167, -50.127175], [-29.979149, -50.127309], [-29.979439, -50.128198], [-29.979706, -50.128578], [-29.980155, -50.129578], [-29.980312, -50.130186], [-29.980577, -50.130540], [-29.981082, -50.131176], [-29.981258, -50.131651], [-29.981676, -50.132278], [-29.982098, -50.132504], [-29.981946, -50.133019], [-29.981403, -50.133305], [-29.980991, -50.133522], [-29.980610, -50.133787], [-29.980307, -50.134492], [-29.979955, -50.135008], [-29.979514, -50.135422], [-29.979446, -50.135717], [-29.979171, -50.136360], [-29.978367, -50.136985], [-29.977970, -50.137074], [-29.977115, -50.137301], [-29.976819, -50.137595], [-29.976452, -50.137782], [-29.976042, -50.137765], [-29.975624, -50.137856], [-29.974927, -50.138095], [-29.974489, -50.138254], [-29.974314, -50.138564], [-29.973750, -50.138472], [-29.986977, -50.154689], [-29.987986, -50.147602], [-29.987071, -50.146976], [-29.986925, -50.146388], [-29.986303, -50.145935], [-29.986254, -50.145332], [-29.985346, -50.144486], [-29.985109, -50.144488], [-29.984711, -50.144252], [-29.984145, -50.144127], [-29.983871, -50.143498]];
 const ateBorda = (p, vs) => Math.min(...vs.map((v, i) => aoSegmento(p, v, vs[(i + 1) % vs.length])));
-const NORMA_ART2 = 'IN 17/2004, art. 2º (mapa da área de exclusão da Barra); linha e anzol permitido';
+const NORMA_ART2 = 'IN 17/2004, art. 2º, p. ún. (red. INI MPA/MMA 7/2013; mapa da área de exclusão da Barra)';
 
 // Parque Nacional da Lagoa do Peixe: pontos 1 a 29 do Decreto 93.546/1986, art. 2º (coordenadas aproximadas do decreto;
 // P21 recalculado por azimute e distância, o texto traz 55°42'), mais a faixa de mar de 1.000 m entre os pontos 28 e 29
@@ -91,7 +100,7 @@ const AMEACADAS = [
 ];
 // Só nas águas costeiras e estuarinas: nas bacias interiores "bagre" e "raia" são outras espécies.
 const CONFERIR_ESPECIE = /^(bagre|garoupa|cacao|raia|viola|tubarao)/;
-const LAGOAS_BICUDO = ['peixoto', 'bicudo'];
+const LAGOAS_BICUDO = ['emboaba', 'caconde', 'bicudo', 'lessa'];
 const NORMA_SAFRA_BAGRE = 'Projeto de Automonitoramento da Pesca do Bagre, autorizado pela 9ª Vara Federal de Porto Alegre (safra 2026); IN 17/2004, art. 14; Lei RS 15.223/2018, art. 30, III';
 const NORMA_AMEACADAS = 'Lei RS 15.223/2018, art. 30, III; Decreto RS 51.797/2014; Portaria MMA 445/2014';
 
@@ -116,7 +125,9 @@ function checar(ab, cfg = {}) {
   const especie = nome => pes.some(p => chave(p.especie).startsWith(nome));
   const local = ab.localTipo || '';
   const data = ab.data;
-  const alemDaLinha = pets.some(p => p.tipo !== 'Linha e anzol');
+  const ctx2 = { embarcado: (!!ab.embarcacao && ab.embarcacao !== 'Nenhuma') || local.startsWith('Embarcado'), profissional: ab.categoria === 'Profissional',
+    linhas: pets.filter(p => p.tipo === 'Linha e anzol').reduce((t, p) => t + (+p.qtd || 1), 0) };
+  const foraDoArt2 = pets.some(p => !permitidoArt2(p, ctx2));
 
   if (ab.area === 'tramandai') {
     const naLagoa = local === 'Lagoa Tramandaí';
@@ -153,7 +164,7 @@ function checar(ab, cfg = {}) {
     if (especie('bagre') && entre(data, '12-15', '03-31'))
       add('R09', 'vermelho', 'Bagre no período proibido (15/12 a 31/03).', 'IN 17/2004, art. 14', CRIME_34);
     const proib = PROIBIDOS.find(([ini]) => local.startsWith(ini));
-    if (proib && !pets.every(proib[2]))
+    if (proib && !pets.every(p => proib[2](p, ctx2)))
       add('R10', 'vermelho', `Pesca em local proibido: ${local}.`, `IN 17/2004, ${proib[1]}`, CRIME_34);
   }
 
@@ -179,19 +190,19 @@ function checar(ab, cfg = {}) {
       add('R13', 'vermelho', 'Emalhe por embarcação motorizada a menos de 5 milhas da costa, do farol do Albardão ao Chuí.', 'IN Interministerial MPA/MMA 12/2012, art. 7º', CRIME_34);
     if (motor && de('Rede de arrasto').length)
       add('R14', 'vermelho', 'Arrasto tracionado por embarcação motorizada na faixa de 12 milhas do RS.', 'Lei RS 15.223/2018, art. 30, VI, e (constitucional, STF, ADI 6218)', CRIME_34_II);
-    if (local.startsWith('Área da Barra de Tramandaí') && alemDaLinha)
-      add('R10', 'vermelho', 'Petrecho além de linha e anzol na área de exclusão da Barra de Tramandaí e Imbé (3 km ao sul do molhe sul, 2 km ao norte do molhe norte, 3 km mar adentro).', NORMA_ART2, CRIME_34);
+    if (local.startsWith('Área da Barra de Tramandaí') && foraDoArt2)
+      add('R10', 'vermelho', 'Petrecho ou forma de pesca fora das exceções na área de exclusão da Barra de Tramandaí e Imbé (3 km ao sul do molhe sul, 2 km ao norte do molhe norte, 3 km mar adentro).', NORMA_ART2, CRIME_34);
     // R36: zoneamento da orla (lei municipal e Lei RS 8.676/1988), em orla.js.
     out.push(...(globalThis.Orla?.checar(ab) || []));
   }
 
   // Área de exclusão da Barra pelo GPS (bacia e mar). Linha e anzol (linha de mão, caniço, molinete) é permitido na área.
   // Perto do limite, dentro da precisão do GPS: só conferir. Sobre ou sob a ponte valem os arts. 3º e 25.
-  if (ab.gps && (ab.area === 'tramandai' || ab.area === 'mar') && alemDaLinha && !/^(Sobre|Sob) a ponte/.test(local)) {
+  if (ab.gps && (ab.area === 'tramandai' || ab.area === 'mar') && foraDoArt2 && !/^(Sobre|Sob) a ponte/.test(local)) {
     const p = [ab.gps.lat, ab.gps.lon], dentro = noPoligono(p, BARRA_TRAMANDAI), borda = ateBorda(p, BARRA_TRAMANDAI);
     const margem = Math.max(+ab.gps.prec || 0, 20);
     if (borda <= margem) add('R34', 'amarelo', `Pelo GPS, o ponto fica ${dentro ? 'dentro' : 'fora'} da área de exclusão da Barra, a ${Math.round(borda)} m do limite (precisão ±${Math.round(+ab.gps.prec || 0)} m). Confira no local.`, NORMA_ART2, CRIME_34);
-    else if (dentro && !out.some(m => m.regra === 'R10')) add('R10', 'vermelho', 'Pelo GPS, o ponto fica dentro da área de exclusão da Barra de Tramandaí: só linha e anzol é permitido.', NORMA_ART2, CRIME_34);
+    else if (dentro && !out.some(m => m.regra === 'R10')) add('R10', 'vermelho', 'Pelo GPS, o ponto fica dentro da área de exclusão da Barra de Tramandaí. Só é permitido, desembarcado: tarrafa de 60 mm, linha e anzol (um por pescador, até 3 anzóis) e a coca do profissional no ponto de Imbé.', NORMA_ART2, CRIME_34);
   }
 
   // R41: Parque Nacional da Lagoa do Peixe pelo GPS, em qualquer área escolhida. Limites aproximados: perto da linha, só conferir.
@@ -210,6 +221,17 @@ function checar(ab, cfg = {}) {
   // R42: drone para lançar linha ou rede. O rol de petrechos (amador: INI MPA/MMA 09/2012, art. 5º; profissional: normas de cada área) é taxativo.
   if (de('Drone (lançamento de linha)').length)
     add('R42', 'vermelho', 'Pesca com drone: técnica e petrecho fora do rol permitido, para amador e profissional.', 'INI MPA/MMA 09/2012, art. 5º (rol taxativo); Lei 9.605/98, art. 34, p. ún., II', CRIME_34_II);
+
+  // Coca (puçá) na área da Barra: só no ponto de Imbé (art. 2º, p. ún., IV).
+  const naBarra = local.startsWith('Canal da Barra') || local.startsWith('Área da Barra de Tramandaí') || (ab.gps && noPoligono([ab.gps.lat, ab.gps.lon], BARRA_TRAMANDAI));
+  if (naBarra && de('Puçá (coca)').length && ctx2.profissional && !ctx2.embarcado) {
+    const d = ab.gps ? Math.round(metros([ab.gps.lat, ab.gps.lon], PONTO_COCA)) : null;
+    add('R10', 'amarelo', `Coca (puçá): só na margem de Imbé, junto à Barra, a 140 m do Bico da Pedra, em direção ao bueiro (S 29°58'31.2" W 50°07'12.1")${d != null ? `. Pelo GPS, a ${d} m desse ponto` : ''}. Confira.`, 'IN 17/2004, art. 2º, p. ún., IV (red. INI MPA/MMA 7/2013)', CRIME_34);
+  }
+
+  // R43: identificação do petrecho com o RGP do pescador, na bacia (IN 17, art. 21, red. INI 7/2013). Linha e anzol dispensada.
+  if (ab.area === 'tramandai') for (const p of pets) if (p.rgpTralha === 'Não' && !['Linha e anzol', 'Drone (lançamento de linha)'].includes(p.tipo))
+    add('R43', 'vermelho', `${p.tipo} sem o número do RGP do pescador.`, 'IN 17/2004, art. 21 (red. INI MPA/MMA 7/2013)', CRIME_34_II);
 
   // R37: embarcação sem nome e inscrição visíveis. Embarcação de pesca precisa de RGP; a marcação do casco é da Marinha.
   if (ab.embSemId && ab.embarcacao && ab.embarcacao !== 'Nenhuma')
@@ -394,6 +416,8 @@ const RESUMO = {
     'Tarrafa de peixe: malha mínima de 60 mm. Arrasto: proibido.', 'Aviãozinho: só na Laguna do Armazém. Malha mínima de 25 mm. Até 10 redes por pescador.',
     'Camarão: só na temporada da portaria anual. Bagre: só pescador da lista municipal (automonitoramento), de 01/11 a 14/12. De 15/12 a 31/03, proibido para todos.',
     'Locais proibidos: canal e boca da barra, ponte Giuseppe Garibaldi, Lagoa Gentil, Braço Morto do Imbé e 200 m da foz de rios (arts. 2º a 10). Com GPS, o app avisa nas áreas com coordenadas.',
+    'Canal e boca da barra: só desembarcado, tarrafa de 60 mm, linha e anzol (um por pescador, até 3 anzóis) e a coca do profissional no ponto de Imbé; tarrafa embarcada de 25 mm só sob a ponte, sentido oeste (art. 2º, p. ún., red. INI MPA/MMA 7/2013).',
+    'Petrechos com o número do RGP do pescador, menos linha e anzol com até 3 anzóis. Rede de espera: boias brancas na parte de cima (art. 21, red. INI 7/2013).',
     'Sob a ponte, sentido oeste: tarrafa embarcada de 25 mm permitida para sardinha e peixe-rei. Só para licenciados (art. 25, II).'],
   patos: ['Licença: só pesca o profissional da lista do estuário (INC 03/2004).', 'Rede de espera: malha mínima de 100 mm. Para bagre: 140 mm. Para peixe-rei: 40 mm. Até 1.830 m por embarcação.',
     'Rede de saco e aviãozinho: malha mínima de 24 mm. Andaina de até 10 redes.', 'Arrasto: proibido. Embarcação: até 12 m.',

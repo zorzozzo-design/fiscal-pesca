@@ -68,7 +68,8 @@ test('R10: locais proibidos da IN 17, com as exceções de cada artigo', () => {
   const barra = L.find(l => l.startsWith('Canal da Barra'));
   const ponte = L.find(l => l.startsWith('Sobre a ponte'));
   const faixa = L.find(l => l.startsWith('Faixa de 150 m'));
-  assert.ok(tem(ab({ localTipo: barra, petrechos: [pet('Linha e anzol')] }), 'R10'));
+  assert.ok(tem(ab({ localTipo: barra, petrechos: [pet('Rede de emalhe', { malhaMm: 100 })] }), 'R10'));
+  assert.ok(!tem(ab({ localTipo: barra, petrechos: [pet('Linha e anzol')] }), 'R10')); // INI 7/2013
   assert.ok(!tem(ab({ localTipo: ponte, petrechos: [pet('Linha e anzol')] }), 'R10'));
   assert.ok(tem(ab({ localTipo: ponte, petrechos: [pet('Tarrafa', { malhaMm: 60 })] }), 'R10'));
   assert.ok(!tem(ab({ localTipo: faixa, petrechos: [pet('Tarrafa', { malhaMm: 60 })] }), 'R10'));
@@ -338,7 +339,8 @@ test('R35: amador só com os petrechos da Portaria SAP/MAPA 616/2022 (fora de Tr
 
 test('R27: peixe-rei sem espécie nas lagoas do peixe-rei-bicudo fica amarelo', () => {
   const r = local => checar(ab({ localPescaId: local, data: '2026-06-10', pescado: [{ especie: 'Peixe-rei', kg: 2 }] }), cfg);
-  for (const l of ['peixoto', 'bicudo']) assert.ok(r(l).some(m => m.regra === 'R27' && m.nivel === 'amarelo' && /bicudo/.test(m.texto)), l);
+  assert.ok(!r('peixoto').some(m => /bicudo/.test(m.texto)));
+  for (const l of ['emboaba', 'caconde', 'bicudo', 'lessa']) assert.ok(r(l).some(m => m.regra === 'R27' && m.nivel === 'amarelo' && /bicudo/.test(m.texto)), l);
   assert.ok(!r('tramandai').some(m => /bicudo/.test(m.texto)));
   // espécie já informada como bicudo: vermelho, sem o amarelo
   const v = checar(ab({ localPescaId: 'bicudo', data: '2026-06-10', pescado: [{ especie: 'Peixe-rei (Odontesthes bicudo)', kg: 2 }] }), cfg);
@@ -408,7 +410,7 @@ test('Área de exclusão da Barra de Tramandaí (IN 17, art. 2º): mapa de refer
   // linha e anzol (linha de mão, caniço, molinete) é permitido na área; outro petrecho junto, não
   assert.deepEqual(art2(g(-29.9812, -50.1300, { petrechos: [pet('Linha e anzol')] })), []);
   assert.deepEqual(art2(g(-29.985, -50.100, { area: 'mar', petrechos: [pet('Linha e anzol')] }, 30)), []);
-  assert.equal(art2(g(-29.9812, -50.1300, { petrechos: [pet('Linha e anzol'), pet('Tarrafa', { malhaMm: 70 })] }))[0].nivel, 'vermelho');
+  assert.equal(art2(g(-29.9812, -50.1300, { petrechos: [pet('Linha e anzol'), pet('Rede de emalhe', { malhaMm: 100 })] }))[0].nivel, 'vermelho');
   // sem GPS, no mar: ponto escolhido à mão
   const m = a => checar(ab({ area: 'mar', localTipo: 'Área da Barra de Tramandaí (IN 17, art. 2º)', petrechos: [pet(a)] }), cfg);
   assert.ok(m('Rede de emalhe').some(x => x.regra === 'R10' && x.nivel === 'vermelho'));
@@ -494,4 +496,39 @@ test('Rede de espera: é rede de emalhe fixa e segue as mesmas regras', () => {
   assert.equal(regras('Rede de espera'), regras('Rede de emalhe'));
   assert.ok(regras('Rede de espera').includes('R13'));
   assert.equal(globalThis.Orla.checar({ area: 'mar', praia: 'Tramandaí', zonaOrla: 'surfe', data: '2026-05-10T10:00', categoria: 'Profissional', localTipo: 'Praia (desembarcado)', petrechos: [pet('Rede de espera')] })[0].nivel, 'vermelho');
+});
+
+test('IN 17, art. 2º, p. ún. (INI MPA/MMA 7/2013): exceções na área da Barra de Tramandaí e Imbé', () => {
+  const canal = (petrechos, extra = {}) => checar(ab({ area: 'tramandai', localTipo: 'Canal da Barra e Boca da Barra (IN 17, art. 2º)', embarcacao: 'Nenhuma', petrechos, ...extra }), cfg)
+    .filter(m => /art\. 2º/.test(m.norma) && m.regra === 'R10' && m.nivel === 'vermelho');
+  // I: tarrafa desembarcada de 60 mm
+  assert.deepEqual(canal([pet('Tarrafa', { malhaMm: 60 })]), []);
+  assert.equal(canal([pet('Tarrafa', { malhaMm: 50 })]).length, 1);
+  assert.equal(canal([pet('Tarrafa', { malhaMm: 70 })], { embarcacao: 'A remo' }).length, 1);
+  // III: linha desembarcada, um petrecho por pescador
+  assert.deepEqual(canal([pet('Linha e anzol')]), []);
+  assert.equal(canal([pet('Linha e anzol', { qtd: 2 })]).length, 1);
+  assert.equal(canal([pet('Linha e anzol')], { embarcacao: 'A remo' }).length, 1);
+  // IV: coca (puçá) do profissional, desembarcada: permitida, com aviso do ponto
+  assert.deepEqual(canal([pet('Puçá (coca)')]), []);
+  assert.equal(canal([pet('Puçá (coca)')], { categoria: 'Amador' }).length, 1);
+  const coca = checar(ab({ area: 'tramandai', localTipo: 'Canal da Barra e Boca da Barra (IN 17, art. 2º)', petrechos: [pet('Puçá (coca)')] }), cfg);
+  assert.ok(coca.some(m => m.nivel === 'amarelo' && /Bico da Pedra/.test(m.texto)));
+  // rede continua proibida
+  assert.equal(canal([pet('Rede de emalhe', { malhaMm: 100 })]).length, 1);
+  assert.match(canal([pet('Rede de emalhe', { malhaMm: 100 })])[0].norma, /7\/2013/);
+  // mar, pelo GPS: linha embarcada não é exceção; tarrafa de 60 mm desembarcada é
+  const mar = (petrechos, extra = {}) => checar(ab({ area: 'mar', localTipo: 'Praia (desembarcado)', embarcacao: 'Nenhuma', gps: { lat: -29.985, lon: -50.100, prec: 10 }, petrechos, ...extra }), cfg)
+    .filter(m => /art\. 2º/.test(m.norma));
+  assert.deepEqual(mar([pet('Tarrafa', { malhaMm: 60 })]), []);
+  assert.equal(mar([pet('Linha e anzol')], { localTipo: 'Embarcado até 1 milha da costa', embarcacao: 'A remo' }).length, 1);
+});
+
+test('IN 17, art. 21 (INI 7/2013): petrecho sem o RGP do pescador', () => {
+  const r = (petrechos, area = 'tramandai') => checar(ab({ area, localTipo: 'Lagoa Tramandaí', petrechos }), cfg).filter(m => m.regra === 'R43');
+  assert.deepEqual(r([pet('Tarrafa', { malhaMm: 60, rgpTralha: 'Não' })]).map(m => m.nivel), ['vermelho']);
+  assert.deepEqual(r([pet('Tarrafa', { malhaMm: 60, rgpTralha: 'Sim' })]), []);
+  assert.deepEqual(r([pet('Linha e anzol', { rgpTralha: 'Não' })]), []);
+  assert.deepEqual(r([pet('Rede de espera', { malhaMm: 80, rgpTralha: 'Sim' })]), []);
+  assert.deepEqual(r([pet('Tarrafa', { malhaMm: 60, rgpTralha: 'Não' })], 'patos'), []);
 });
