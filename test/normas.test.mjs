@@ -532,3 +532,40 @@ test('IN 17, art. 21 (INI 7/2013): petrecho sem o RGP do pescador', () => {
   assert.deepEqual(r([pet('Rede de espera', { malhaMm: 80, rgpTralha: 'Sim' })]), []);
   assert.deepEqual(r([pet('Tarrafa', { malhaMm: 60, rgpTralha: 'Não' })], 'patos'), []);
 });
+
+test('R16 na Bacia do Tramandaí: piracema vale nas lagoas de cima (IN 197/2008, art. 3º, V só exclui Tramandaí, Armazém, Custódia e Manoel Vicente)', () => {
+  const nov = '2026-11-24T10:00';
+  const r16 = a => checar(ab({ data: nov, petrechos: [pet('Rede de emalhe', { malhaMm: 90, rgpTralha: 'Sim' })], ...a }), cfg).filter(m => m.regra === 'R16');
+  for (const id of ['itapeva', 'quadros', 'pinguela', 'malvas', 'palmital', 'passo', 'cornelio', 'rioscardoso', 'cerquinha', 'emboaba']) {
+    const m = r16({ localPescaId: id });
+    assert.ok(m.some(x => x.nivel === 'vermelho' && x.norma.includes('197/2008, art. 4º')), id);
+  }
+  for (const id of ['tramandai', 'armazem', 'custodias', 'manoelvicente']) assert.equal(r16({ localPescaId: id }).length, 0, id);
+  // O ponto escolhido manda: Lagoa Tramandaí ou Armazém fora; canal, ponte e Braço Morto: conferir.
+  assert.equal(r16({ localPescaId: 'itapeva', localTipo: 'Lagoa Tramandaí' }).length, 0);
+  assert.ok(r16({ localPescaId: 'barratramandai', localTipo: 'Canal da Barra e Boca da Barra (IN 17, art. 2º)' }).every(x => x.nivel === 'amarelo'));
+  assert.ok(r16({ localPescaId: 'bracomorto' }).some(x => x.nivel === 'amarelo'));
+  // Escolhido pelo município: não se sabe a lagoa.
+  assert.ok(r16({ localPescaId: 'm:Osório:L010' }).every(x => x.nivel === 'amarelo'));
+  assert.ok(r16({ localPescaId: '', localTipo: 'Faixa de 150 m das margens: Itapeva, Quadros, Pinguela, Malva, Palmital, Passo (art. 6º)' }).some(x => x.nivel === 'vermelho'));
+  // Linha e anzol até 5 kg passa; mais de 5 kg não; fora do período nada.
+  assert.equal(r16({ localPescaId: 'itapeva', petrechos: [pet('Linha e anzol')], pescado: [{ especie: 'Traíra', kg: 4 }] }).length, 0);
+  assert.ok(r16({ localPescaId: 'itapeva', petrechos: [pet('Linha e anzol')], pescado: [{ especie: 'Traíra', kg: 6 }] }).some(x => x.nivel === 'vermelho'));
+  assert.equal(r16({ localPescaId: 'itapeva', data: '2026-10-31T10:00' }).length, 0);
+  assert.ok(r16({ localPescaId: 'itapeva', data: '2027-01-31T10:00' }).length);
+});
+
+test('Defesos e resumo da Bacia do Tramandaí trazem a piracema', () => {
+  const { defesosDe, RESUMO } = globalThis.Normas;
+  assert.ok(defesosDe('tramandai', '2026-11-24').some(d => d.nome.startsWith('Piracema') && d.estado === 'vigente'));
+  assert.ok(RESUMO.tramandai.some(t => t.includes('Piracema') && t.includes('Custódia')));
+});
+
+test('R44: aviãozinho no mar é vermelho (rol de petrechos taxativo)', () => {
+  const mar = a => checar(ab({ area: 'mar', localTipo: 'Embarcado até 1 milha da costa', embarcacao: 'A remo', ...a }), cfg).filter(m => m.regra === 'R44');
+  const m = mar({ petrechos: [pet('Aviãozinho', { malhaMm: 25 })] });
+  assert.ok(m.some(x => x.nivel === 'vermelho' && x.enquadramento.includes('34, p. ún., II')));
+  assert.equal(mar({ localTipo: 'Praia (desembarcado)', embarcacao: 'Nenhuma', petrechos: [pet('Aviãozinho')] }).length, 1);
+  assert.equal(mar({ petrechos: [pet('Tarrafa')] }).length, 0);
+  assert.ok(!tem(ab({ localTipo: 'Laguna do Armazém', petrechos: [pet('Aviãozinho', { malhaMm: 25 })] }), 'R44'));
+});

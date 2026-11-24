@@ -49,10 +49,10 @@ function termoApreensao(ab, p, cfg) {
     ${cabecalho(cfg, 'TERMO DE APREENSÃO E FIEL DEPOSITÁRIO')}
     <div class="doc-faixa">APREENSÃO</div>
     <p class="doc-texto">Em decorrência da lavratura do ${marca(a.docTipo === 'BO/TC-COP')}BO/TC-COP / ${marca(a.docTipo === 'BA')}BA nº <b>${esc(a.docNumero) || linha(15)}</b>,
-      que consta como responsável pelos fatos constatados o(a) Sr(a) <b>${esc(nomeProprio(p.nome))}</b>${fmtCpf(p) ? `, CPF <b>${esc(fmtCpf(p))}</b>` : ''},
+      ${p ? `que consta como responsável pelos fatos constatados o(a) Sr(a) <b>${esc(nomeProprio(p.nome))}</b>${fmtCpf(p) ? `, CPF <b>${esc(fmtCpf(p))}</b>` : ''}` : 'sendo o responsável pelos fatos constatados <b>autor desconhecido</b> (material encontrado sem responsável)'},
       fica(m) apreendido(s) o(s) animal(is), produto(s), petrecho(s) e/ou material(is) abaixo descrito(s):</p>
     <table class="doc-linhas">${linhas}</table>
-    ${bensUsados(ab, p)}
+    ${bensUsados(ab, p || {})}
     <table class="doc-grade"><tr><td class="doc-assin">Assinatura do responsável cujos bens / animais foram apreendidos:</td></tr></table>
     <div class="doc-faixa">FIEL DEPOSITÁRIO</div>
     <p class="doc-texto doc-negrito">Nomeio como FIEL DEPOSITÁRIO dos animais/produtos/bens aqui apreendidos, a pessoa abaixo qualificada, que desde já, fica ciente de que NÃO PODERÁ vender, usufruir, e/ou emprestar os mesmos, devendo apresentá-los quando solicitado pelo depositante, nas mesmas condições e quantidades que recebeu, conforme Art. 640 e 652 do Código Civil vigente.</p>
@@ -108,7 +108,7 @@ function notificacao(ab, p, cfg) {
 }
 
 // Abordagem com vários envolvidos: local, data e GPS uma vez; cada envolvido com pessoa, ponto, petrechos, pescado e providências.
-const PESSOAIS = ['pescadorId', 'identificadoPor', 'cpfInformado', 'categoria', 'embarcacao', 'comprimentoEmbM', 'embarcacaoId', 'embSemId', 'veiculoId', 'localTipo',
+const PESSOAIS = ['pescadorId', 'identificadoPor', 'cpfInformado', 'categoria', 'embarcacao', 'comprimentoEmbM', 'embarcacaoId', 'embSemId', 'veiculoId', 'autorDesconhecido', 'localTipo',
   'petrechos', 'pescado', 'apreensao', 'notificacao', 'providencias', 'semaforo'];
 // Abordagens gravadas antes (uma pessoa só) viram uma com um envolvido. A providência única vira lista.
 function normalizarAb(a) {
@@ -127,9 +127,10 @@ function pendenciasDe(a, pessoa) {
   const out = [], feitas = new Set(a.resolvidas || []);
   const add = (e, k, texto, resolvivel = false) => { const chave = `${e.id}:${k}`; if (!feitas.has(chave)) out.push({ chave, envolvido: e.id, texto, resolvivel }); };
   for (const e of a.envolvidos || []) {
-    const p = pessoa(e.pescadorId), quem = p ? nomeProprio(p.nome) : 'Envolvido sem pessoa';
+    const p = pessoa(e.pescadorId), quem = p ? nomeProprio(p.nome) : e.autorDesconhecido ? 'Autor desconhecido' : 'Envolvido sem pessoa';
     const provs = e.providencias || [];
-    if (!p) add(e, 'pessoa', `${quem}: identificar a pessoa.`);
+    // Autor desconhecido: identificar se possível; a equipe pode dar por resolvido quando não houver como.
+    if (!p) add(e, 'pessoa', `${quem}: identificar a pessoa${e.autorDesconhecido ? ', se possível' : ''}.`, !!e.autorDesconhecido);
     for (const pr of provs) if (PEDE_NUMERO.has(pr.tipo) && !String(pr.numero || '').trim()) add(e, `num:${pr.tipo}`, `${quem}: falta o número (${pr.tipo}).`);
     if (e.semaforo?.cor === 'vermelho' && !provs.some(pr => DOCUMENTOS.includes(pr.tipo)))
       add(e, 'sem-documento', `${quem}: irregular sem BA, BO ou auto registrado.`, true);

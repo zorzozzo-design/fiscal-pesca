@@ -188,3 +188,10 @@ test('lista municipal vale como licença na área (Tramandaí): fora da lista do
   assert.equal(r.cor, 'verde');
   assert.ok(r.motivos.some(m => m.nivel === 'ok' && /licença municipal/i.test(m.texto) && m.texto.includes('Caniço/Tarrafa/Fora da Baliza')));
 });
+
+test('autor desconhecido: não avalia a pessoa, só um amarelo explicando', () => {
+  const r = av({ pescador: null, identificadoPor: 'nome', autorDesconhecido: true });
+  assert.equal(r.cor, 'amarelo');
+  assert.equal(r.motivos.length, 1);
+  assert.ok(tem(r, 'Autor desconhecido'));
+});

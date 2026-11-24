@@ -479,7 +479,7 @@ const listaAbordagens = abs => !abs.length ? '<p class="muted peq">Nenhuma abord
   .sort((a, b) => b.data.localeCompare(a.data)).map(a => { const es = a.envolvidos, cor = avisoNaLista(a);
     const provs = [...new Set(es.flatMap(e => (e.providencias || []).map(p => p.tipo)))];
     return `<li><a href="#/ab/${a.id}">
-    <div class="nome">${esc(es.map(e => db.pescadores[e.pescadorId] ? nomeProprio(db.pescadores[e.pescadorId].nome) : 'Pessoa removida').join(', '))}</div>
+    <div class="nome">${esc(es.map(e => db.pescadores[e.pescadorId] ? nomeProprio(db.pescadores[e.pescadorId].nome) : (e.autorDesconhecido ? 'Autor desconhecido' : 'Pessoa removida')).join(', '))}</div>
     <div class="info">${fmtData(a.data)} ${esc(a.data.slice(11, 16))} · ${esc(localPesca(a.localPescaId)?.nome || AREA_CURTA[a.area])}${a.local && a.local !== localPesca(a.localPescaId)?.nome ? ' · ' + esc(a.local) : ''}${provs.length ? ' · ' + esc(provs.join(', ')) : ''}</div>
     ${cor === 'resolvido' ? '<span class="tag">Providências adotadas</span>' : `<span class="tag sem-${cor}">${COR_TXT[cor]}</span>`}${es.length > 1 ? `<span class="tag">${es.length} envolvidos</span>` : ''}</a></li>`; }).join('')}</ul>`;
 
@@ -651,7 +651,7 @@ function telaAbordagem(param) {
     const s = avaliar({ pescador: pesc(), area: ab.area, atual: atualDe(ab.area), data: ab.data, identificadoPor: ab.identificadoPor,
       outrosMesmosDigitos: pesc()?.digitos ? Object.values(db.pescadores).filter(o => o.digitos === pesc().digitos && o.id !== ab.pescadorId).length : 0,
       categoria: ab.categoria || 'Profissional', soLinha: ab.petrechos.every(p => p.tipo === 'Linha e anzol'),
-      embarcado: !!ab.embarcacao && ab.embarcacao !== 'Nenhuma' });
+      embarcado: !!ab.embarcacao && ab.embarcacao !== 'Nenhuma', autorDesconhecido: !!ab.autorDesconhecido && !pesc() });
     const motivos = [...s.motivos, ...checar(ab, { camarao: db.cfg.camarao || CAMARAO_PADRAO, autorizadoBagre: (pesc()?.autorizacoes || []).some(a => a.area === 'tramandai') })];
     return { cor: corDe(motivos), motivos };
   };
@@ -711,7 +711,7 @@ function telaAbordagem(param) {
   // Só redesenha os botões quando algo muda: assim o toque não se perde quando um campo perde o foco e o semáforo recalcula.
   const desenharEnvs = () => {
     const html = A.envolvidos.map((e, i) => { const p = db.pescadores[e.pescadorId];
-      return `<button type="button" class="chip sem-${semaforoDe(i).cor}${i === atual ? ' ativo' : ''}" data-env="${i}">${esc(p ? nomeProprio(p.nome).split(' ')[0] : `Pessoa ${i + 1}`)}</button>`; }).join('')
+      return `<button type="button" class="chip sem-${semaforoDe(i).cor}${i === atual ? ' ativo' : ''}" data-env="${i}">${esc(p ? nomeProprio(p.nome).split(' ')[0] : e.autorDesconhecido ? 'Desconhecido' : `Pessoa ${i + 1}`)}</button>`; }).join('')
       + '<button type="button" class="chip" data-env="+">+ Pessoa</button>'
       + (A.envolvidos.length > 1 ? '<button type="button" class="chip" data-env="-">Remover esta</button>' : '');
     if ($('#envs').innerHTML !== html) $('#envs').innerHTML = html;
@@ -788,7 +788,7 @@ function telaAbordagem(param) {
   };
 
   const escolher = (p, porCpf, cpf) => {
-    ab.pescadorId = p.id;
+    ab.pescadorId = p.id; ab.autorDesconhecido = false;
     ab.identificadoPor = porCpf ? 'cpf' : 'nome';
     ab.cpfInformado = porCpf ? cpf : '';
     desenharPessoa(); desenharSem(); desenharConsulta(); desenharQual();
@@ -802,7 +802,7 @@ function telaAbordagem(param) {
     $('#qual').querySelectorAll('[data-q]').forEach(el => el.oninput = () => { p[el.dataset.q] = el.value.trim(); p.atualizadoEm = agora(); sujos.add(p.id); });
   };
 
-  const exigePessoa = msgId => { if (pesc()) return true; $(msgId).textContent = 'Selecione a pessoa abordada antes.'; $(msgId).className = 'msg erro'; return false; };
+  const exigePessoa = (msgId, aceitaDesconhecido = false) => { if (pesc() || (aceitaDesconhecido && ab.autorDesconhecido)) return true; $(msgId).textContent = 'Selecione a pessoa abordada antes.'; $(msgId).className = 'msg erro'; return false; };
 
   const CAMPOS_AP = [['tipo', 'Tipo', 'select', ['Petrecho', 'Pescado', 'Outro']], ['descricao', 'Descrição', 'text', ''],
     ['quantidade', 'Quantidade', 'number', 'min="0" step="0.1" inputmode="decimal"'], ['unidade', 'Unidade', 'select', UNIDADES]];
@@ -829,7 +829,7 @@ function telaAbordagem(param) {
     $('#ap').querySelectorAll('[data-f]').forEach(el => el.oninput = () => { (a.fiel ||= {})[el.dataset.f] = el.value; });
     $('#b-ap-add').onclick = () => { a.itens.push({ tipo: 'Petrecho', descricao: '', quantidade: 1, unidade: 'un' }); desenharLinhas(a.itens, '#ap-itens', CAMPOS_AP); };
     $('#b-ap-trazer').onclick = () => { a.itens.push(...itensDaAbordagem(ab)); desenharLinhas(a.itens, '#ap-itens', CAMPOS_AP); };
-    $('#b-ap-imp').onclick = () => { if (exigePessoa('#m-ap')) imprimir(termoApreensao(ab, pesc(), db.cfg)); };
+    $('#b-ap-imp').onclick = () => { if (exigePessoa('#m-ap', true)) imprimir(termoApreensao(ab, pesc(), db.cfg)); };
   };
   $('#ap-on').onchange = e => {
     ab.apreensao = e.target.checked ? (ab.apreensao || { docTipo: 'BO/TC-COP', docNumero: ab.providencias.find(p => p.tipo.startsWith('BO'))?.numero || '', itens: itensDaAbordagem(ab), fiel: {}, destinacao: '' }) : null;
@@ -900,7 +900,14 @@ function telaAbordagem(param) {
       return;
     }
     $('#embs').innerHTML = '';
-    $('#pessoa').innerHTML = `
+    // Petrecho encontrado sem responsável: as regras de petrecho, local e época continuam valendo.
+    const desc = `<div><label class="chk"><input type="checkbox" id="p-desc"${ab.autorDesconhecido ? ' checked' : ''}> Autor desconhecido (petrecho sem responsável)</label></div>`;
+    const marcarDesc = () => $('#p-desc').onchange = e => { ab.autorDesconhecido = e.target.checked; desenharPessoa(); desenharSem(); };
+    if (ab.autorDesconhecido) {
+      $('#pessoa').innerHTML = `${desc}<p class="muted peq">O semáforo avalia só o petrecho, o local e a época. Fica a pendência de identificar a pessoa. Se identificar, desmarque e selecione.</p>`;
+      marcarDesc(); return;
+    }
+    $('#pessoa').innerHTML = `${desc}
       <label for="p-q">CPF, nome ou RGP</label><input id="p-q" type="search" autocomplete="off" placeholder="Digite o CPF do documento ou o nome">
       <p id="p-msg" class="muted peq"></p><ul id="p-res" class="lista"></ul>
       <details id="p-novo"><summary>Pessoa fora da base: cadastrar</summary>
@@ -920,7 +927,7 @@ function telaAbordagem(param) {
       $('#p-res').querySelectorAll('a').forEach(a => a.onclick = e => { e.preventDefault(); escolher(db.pescadores[a.dataset.id], porCpf, cpf); });
       if (!res.length && q.length >= 3) $('#p-novo').open = true;
     };
-    $('#p-q').oninput = buscarPessoa;
+    $('#p-q').oninput = buscarPessoa; marcarDesc();
     $('#b-novo').onclick = async () => {
       const nome = $('#n-nome').value.trim(), cpf = $('#n-cpf').value.replace(/\D/g, '');
       const m = $('#m-novo');
@@ -1080,11 +1087,11 @@ function telaAbordagem(param) {
   $('#a-obs').oninput = e => { ab.obs = e.target.value; };
   $('#b-salvar').onclick = async () => {
     const m = $('#m-ab');
-    const sem = A.envolvidos.findIndex(e => !db.pescadores[e.pescadorId]);
-    if (sem >= 0) { trocarEnv(sem); m.textContent = 'Selecione ou cadastre a pessoa abordada.'; m.className = 'msg erro'; return; }
+    const sem = A.envolvidos.findIndex(e => !db.pescadores[e.pescadorId] && !e.autorDesconhecido);
+    if (sem >= 0) { trocarEnv(sem); m.textContent = 'Selecione ou cadastre a pessoa abordada, ou marque "Autor desconhecido".'; m.className = 'msg erro'; return; }
     A.envolvidos.forEach((e, i) => {
       const p = db.pescadores[e.pescadorId];
-      if (e.identificadoPor === 'cpf' && !p.cpf) { p.cpf = e.cpfInformado; if (!p.digitos) p.digitos = p.cpf.slice(3, 9); p.atualizadoEm = agora(); sujos.add(p.id); }
+      if (p && e.identificadoPor === 'cpf' && !p.cpf) { p.cpf = e.cpfInformado; if (!p.digitos) p.digitos = p.cpf.slice(3, 9); p.atualizadoEm = agora(); sujos.add(p.id); }
       e.semaforo = semaforoDe(i);
     });
     A.criadoEm ||= agora();
@@ -1493,6 +1500,7 @@ function telaGuia() {
       <p class="muted peq">1 milha náutica = 1.852 m. A distância conta a partir da linha de costa. Vale em todo o litoral do RS.</p>
       <p class="peq g-item"><b>Emalhe, barco com motor.</b> Proibido até 1 milha da costa (IN Interministerial MPA/MMA 12/2012, art. 6º). Do farol do Albardão ao Chuí: proibido até 5 milhas (art. 7º). Barco acima de 20 AB: proibido até 4 milhas, do Albardão para o norte (art. 10).</p>
       <p class="peq g-item"><b>Emalhe, barco sem motor.</b> Permitido até 1 milha da costa, com no máximo 1.000 m de rede no total (art. 6º, § 1º).</p>
+      <p class="peq g-item"><b>Aviãozinho no mar.</b> Petrecho fora do rol da pesca costeira: vermelho no app, em qualquer distância da costa (R44). Não há norma que o preveja no mar; ele só é previsto na Laguna do Armazém (IN 17/2004), no estuário da Lagoa dos Patos (INC 03/2004) e no Parque da Lagoa do Peixe. Enquadramento: Lei 9.605/98, art. 34, p. ún., II.</p>
       <p class="peq g-item"><b>Barra de Tramandaí.</b> Pesca proibida no canal e na área da boca da barra, entre Tramandaí e Imbé: 3.000 m ao sul do molhe sul (Tramandaí), 2.000 m ao norte do molhe norte (Imbé) e 3.000 m mar adentro. No mar, a área tem cerca de 5,5 km de praia e 1.780 ha no total. No estuário, até a linha do aterro da rodoviária antiga, pontal do Capão Grande e divisa do CECLIMAR (IN 17/2004, art. 2º). Exceções (art. 2º, p. ún., red. INI MPA/MMA 7/2013), sempre desembarcado: I) tarrafa com malha de 60 mm ou mais; III) linha de mão, vara, linha e anzol, carretilha ou molinete, um petrecho por pescador, até 3 anzóis, profissional ou amador; IV) coca (puçá) do pescador profissional na margem de Imbé, junto à Barra, a 140 m do Bico da Pedra em direção ao bueiro (S 29°58'31.2" W 50°07'12.1"). Embarcado: só a tarrafa de 25 mm sob a ponte, sentido oeste, para sardinha e peixe-rei, por profissional licenciado (II). Molinete ou carretilha: o amador precisa da carteira. Com GPS registrado e petrecho fora das exceções, o app confere o ponto no mapa da área (R10); perto do limite, pede conferência (R34).</p>
       <p class="peq g-item"><b>Barra de Rio Grande.</b> Emalhe proibido na área de proteção do boto: 20 km para cada lado dos molhes, até 1 milha da costa, e dentro do estuário até a Ponta dos Pescadores (art. 8º). Exceção: cabo ou calão de praia.</p>
       <p class="peq g-item"><b>Arrasto, barco com motor.</b> Proibido em todo o RS, nas 12 milhas da costa (Lei RS 15.223/2018, art. 30, VI, e). O STF confirmou a lei (ADI 6218).</p>

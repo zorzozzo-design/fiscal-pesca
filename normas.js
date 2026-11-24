@@ -1,4 +1,4 @@
-// Regras de pesca checadas na abordagem (R02 a R43; a R01 fica no semáforo, junto da lista).
+// Regras de pesca checadas na abordagem (R02 a R44; a R01 fica no semáforo, junto da lista).
 // Fonte de cada regra: aba "Legislação" do documento do projeto. Indica, não autua.
 (() => {
 
@@ -43,6 +43,17 @@ const permitidoArt2 = (p, c) => !c.embarcado && (
   p.tipo === 'Tarrafa' ? p.malhaMm == null || p.malhaMm >= 60
   : p.tipo === 'Linha e anzol' ? c.linhas <= 1
   : p.tipo === 'Puçá (coca)' ? c.profissional : false);
+// IN 197/2008 (piracema) vale na Bacia do Tramandaí, menos nas lagoas da IN 17 do art. 3º, V: Tramandaí, Armazém, Custódia e
+// Manoel Vicente. Canal da barra, ponte e Braço Morto ligam a Lagoa Tramandaí ao mar e não são citados: conferir.
+const FORA_IN197 = new Set(['tramandai', 'armazem', 'custodias', 'manoelvicente']), CANAL_IN197 = new Set(['barratramandai', 'ponte', 'bracomorto']);
+const piracemaTramandai = (id = '', local = '') => {
+  if (local === 'Lagoa Tramandaí' || local === 'Laguna do Armazém') return '';
+  if (/^(Canal da Barra|Sobre a ponte|Sob a ponte|Braço Morto)/.test(local)) return 'conferir';
+  if (FORA_IN197.has(id)) return '';
+  if (CANAL_IN197.has(id)) return 'conferir';
+  if (id && !id.startsWith('m:')) return 'sim';
+  return /^(Faixa de 150 m|Rio Cornélio)/.test(local) ? 'sim' : 'conferir';
+};
 const PONTO_COCA = [-(29 + 58 / 60 + 31.2 / 3600), -(50 + 7 / 60 + 12.1 / 3600)];
 
 // Áreas da IN 17/2004 com coordenadas no texto oficial (graus, minutos, segundos -> decimal).
@@ -326,11 +337,20 @@ function checar(ab, cfg = {}) {
       add('R33', 'vermelho', 'Defeso da Lagoa Mirim e Mangueira (1º/11 a 31/01), todas as espécies.', 'INC MMA/SEAP 02/2004 (planilha de defesos do MPA)', CRIME_34);
   }
 
-  if (ab.area === 'outras' && entre(data, '11-01', '01-31')) {
+  const pirTr = ab.area === 'tramandai' ? piracemaTramandai(ab.localPescaId, local) : '';
+  if ((ab.area === 'outras' || pirTr === 'sim') && entre(data, '11-01', '01-31')) {
+    const art3 = pirTr ? ' (vale na Bacia do Tramandaí: o art. 3º, V só exclui as lagoas Tramandaí, Armazém, Custódia e Manoel Vicente)' : '';
     if (pets.some(p => p.tipo !== 'Linha e anzol'))
-      add('R16', 'vermelho', 'Piracema (1º/11 a 31/01): só anzol simples, um petrecho por pescador.', 'IN IBAMA 197/2008, art. 4º', CRIME_34);
-    if (kg > 5) add('R16', 'vermelho', `Piracema: ${num(kg)} kg (máximo 5 kg por pescador).`, 'IN IBAMA 197/2008, art. 7º', CRIME_34);
+      add('R16', 'vermelho', 'Piracema (1º/11 a 31/01): só anzol simples, um petrecho por pescador.', `IN IBAMA 197/2008, art. 4º${art3}`, CRIME_34);
+    if (kg > 5) add('R16', 'vermelho', `Piracema: ${num(kg)} kg (máximo 5 kg por pescador).`, `IN IBAMA 197/2008, art. 7º${art3}`, CRIME_34);
   }
+  if (pirTr === 'conferir' && entre(data, '11-01', '01-31') && (pets.some(p => p.tipo !== 'Linha e anzol') || kg > 5))
+    add('R16', 'amarelo', 'Piracema (1º/11 a 31/01): vale em toda a Bacia do Tramandaí, menos nas lagoas Tramandaí, Armazém, Custódia e Manoel Vicente. Confira onde fica o ponto: fora delas, só anzol simples, um petrecho e até 5 kg.', 'IN IBAMA 197/2008, arts. 3º, V, 4º e 7º', CRIME_34);
+
+  // R44: aviãozinho no mar. Só tem previsão na Laguna do Armazém (IN 17), no estuário da Lagoa dos Patos (INC 03/2004) e no Parque da
+  // Lagoa do Peixe (Termo de Compromisso). Rol de petrechos taxativo: fora dele, petrecho não permitido.
+  if (ab.area === 'mar' && de('Aviãozinho').length)
+    add('R44', 'vermelho', 'Aviãozinho no mar: petrecho fora do rol permitido na pesca costeira.', 'Rol de petrechos taxativo (sem norma expressa para o mar; o aviãozinho só é previsto na Laguna do Armazém, IN 17/2004, art. 18, no estuário da Lagoa dos Patos, INC 03/2004, e no Parque da Lagoa do Peixe)', CRIME_34_II);
 
   // R27: espécie ameaçada, proibida em qualquer local e época (acima dos calendários da IN 17 e da INC 03).
   for (const p of pes) {
@@ -375,7 +395,8 @@ function multaReferencia(motivos, kg) {
 
 // Defesos e períodos por regime, para a faixa da tela inicial e o Guia. [nome, início MM-DD, fim MM-DD, texto, norma].
 const DEFESOS = {
-  tramandai: [['Bagre: safra do automonitoramento', '11-01', '12-14', 'Pesca de bagre só para quem está na lista municipal do automonitoramento', 'Automonitoramento autorizado pela Justiça Federal'],
+  tramandai: [['Piracema (fora das lagoas Tramandaí, Armazém, Custódia e Manoel Vicente)', '11-01', '01-31', 'Nas demais lagoas e rios da bacia (Itapeva, Quadros, Pinguela, Malvas, Palmital, Passo e outras): só anzol simples, 1 petrecho e até 5 kg', 'IN IBAMA 197/2008, arts. 3º, V, e 4º'],
+    ['Bagre: safra do automonitoramento', '11-01', '12-14', 'Pesca de bagre só para quem está na lista municipal do automonitoramento', 'Automonitoramento autorizado pela Justiça Federal'],
     ['Bagre', '12-15', '03-31', 'Pesca de bagre proibida', 'IN MMA 17/2004, art. 14']],
   outras: [['Piracema', '11-01', '01-31', 'Só anzol simples, 1 petrecho e até 5 kg. Pesca proibida em lagoa marginal e a até 1.500 m de barragem', 'IN IBAMA 197/2008'],
     ['Lambari em reservatório', '11-01', '02-29', 'Pesca de lambari proibida em reservatório público', 'IN IBAMA 51/2004']],
@@ -418,7 +439,8 @@ const RESUMO = {
     'Locais proibidos: canal e boca da barra, ponte Giuseppe Garibaldi, Lagoa Gentil, Braço Morto do Imbé e 200 m da foz de rios (arts. 2º a 10). Com GPS, o app avisa nas áreas com coordenadas.',
     'Canal e boca da barra: só desembarcado, tarrafa de 60 mm, linha e anzol (um por pescador, até 3 anzóis) e a coca do profissional no ponto de Imbé; tarrafa embarcada de 25 mm só sob a ponte, sentido oeste (art. 2º, p. ún., red. INI MPA/MMA 7/2013).',
     'Petrechos com o número do RGP do pescador, menos linha e anzol com até 3 anzóis. Rede de espera: boias brancas na parte de cima (art. 21, red. INI 7/2013).',
-    'Sob a ponte, sentido oeste: tarrafa embarcada de 25 mm permitida para sardinha e peixe-rei. Só para licenciados (art. 25, II).'],
+    'Sob a ponte, sentido oeste: tarrafa embarcada de 25 mm permitida para sardinha e peixe-rei. Só para licenciados (art. 25, II).',
+    'Piracema, de 1º/11 a 31/01, em toda a bacia menos nas lagoas Tramandaí, Armazém, Custódia e Manoel Vicente: só anzol simples, 1 petrecho e até 5 kg (IN 197/2008, arts. 3º, V, e 4º).'],
   patos: ['Licença: só pesca o profissional da lista do estuário (INC 03/2004).', 'Rede de espera: malha mínima de 100 mm. Para bagre: 140 mm. Para peixe-rei: 40 mm. Até 1.830 m por embarcação.',
     'Rede de saco e aviãozinho: malha mínima de 24 mm. Andaina de até 10 redes.', 'Arrasto: proibido. Embarcação: até 12 m.',
     'Calendário: tainha de out a mai. Corvina de out a fev. Camarão-rosa de fev a mai, com 9 cm no mínimo.'],

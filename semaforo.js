@@ -35,9 +35,14 @@ const licencaAmador = embarcado => ['amarelo', `Amador: confira a licença de pe
   { regra: 'R01', artigo: 37, norma: 'IN MPA 05/2012, art. 5º', enquadramento: 'Dec. 6.514/2008, art. 37' }];
 
 // soLinha: só linha e anzol (ou nenhum petrecho), que dispensa a licença ambiental na bacia (IN 17/2004, art. 26, II).
-function avaliar({ pescador: p, area, atual, data, identificadoPor, outrosMesmosDigitos, categoria = 'Profissional', soLinha = false, embarcado = false }) {
+function avaliar({ pescador: p, area, atual, data, identificadoPor, outrosMesmosDigitos, categoria = 'Profissional', soLinha = false, embarcado = false, autorDesconhecido = false }) {
   const motivos = [];
   const add = (nivel, texto, extra) => motivos.push({ nivel, texto, ...extra });
+  // Petrecho sem responsável: não há pessoa para avaliar. Valem só as regras de petrecho, local e época (normas.js).
+  if (autorDesconhecido && !p) {
+    add('amarelo', 'Autor desconhecido: petrecho sem responsável. Lista, licença e PesqBrasil não avaliados; o semáforo mostra só petrecho, local e época.');
+    return { cor: corDe(motivos), motivos };
+  }
   const amador = categoria === 'Amador', semLicenca = categoria === 'Sem RGP ou licença';
 
   if (AMADOR_SO_LINHA.has(area) && amador) {

@@ -131,3 +131,17 @@ test('lista de abordagens: aviso some quando o envolvido tem providência adotad
   assert.equal(avisoNaLista({ envolvidos: [e('amarelo', [{ tipo: 'Orientação' }]), e('amarelo')] }), 'amarelo');
   assert.equal(avisoNaLista({ envolvidos: [e('verde'), e(undefined)] }), 'verde');
 });
+
+test('autor desconhecido: pendência de identificar que pode ser resolvida e termo sem qualificação', () => {
+  const { pendenciasDe, PESSOAIS } = globalThis.Docs;
+  assert.ok(PESSOAIS.includes('autorDesconhecido'));
+  const a = { id: 'a1', data: '2026-11-24T10:00', envolvidos: [{ id: 'e1', pescadorId: null, autorDesconhecido: true, categoria: 'Profissional',
+    semaforo: { cor: 'vermelho' }, providencias: [{ tipo: 'BA', numero: '12' }], apreensao: { itens: [{ descricao: 'Rede' }], destinacao: 'Destruição' } }] };
+  const ps = pendenciasDe(a, () => null);
+  const pe = ps.find(p => p.chave === 'e1:pessoa');
+  assert.ok(pe && pe.resolvivel && pe.texto.startsWith('Autor desconhecido'));
+  assert.ok(!ps.some(p => /qualificação|consulta/.test(p.texto)));
+  const h = termoApreensao({ ...ab, apreensao: { ...ab.apreensao, itens: itensDaAbordagem(ab) } }, null, cfg);
+  assert.match(h, /autor desconhecido/i);
+  assert.doesNotMatch(h, /CPF <b>/);
+});
