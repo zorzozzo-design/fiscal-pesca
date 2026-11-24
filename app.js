@@ -30,9 +30,6 @@ const AREAS = Object.fromEntries(Object.entries(REGIMES).map(([k, v]) => [k, v.n
 const AREA_CURTA = { tramandai: 'Tramandaí', patos: 'Lagoa dos Patos', mar: 'Mar', outras: 'Guaíba e Litoral', uruguai: 'Uruguai', mirim: 'Lagoa Mirim', peixe: 'Lagoa do Peixe', mampituba: 'Barra do Mampituba' };
 const AREAS_LISTA = Object.keys(REGIMES).filter(k => REGIMES[k].lista);
 const localPesca = id => (id ? porId(id) : null);
-// Resumo "O que vale aqui" aberto ou fechado: lembra a escolha (preferência deste aparelho).
-const lerAberto = () => { try { return localStorage.getItem('fpesca-resumo') !== '0'; } catch { return true; } };
-const gravarAberto = v => { try { localStorage.setItem('fpesca-resumo', v ? '1' : '0'); } catch { /* sem armazenamento */ } };
 const lerLocalTurno = () => { try { return localStorage.getItem('fpesca-local') || ''; } catch { return ''; } };
 const gravarLocalTurno = id => { try { localStorage.setItem('fpesca-local', id); } catch { /* armazenamento indisponível */ } };
 const SIT = { atual: ['Na lista atual', 'ok'], saiu: ['Saiu da lista atual', 'alerta'], nunca: ['Sem licença na área', 'aviso'] };
@@ -817,7 +814,7 @@ function telaAbordagem(param) {
       <h3>Itens apreendidos</h3><div id="ap-itens"></div>
       <div class="linha"><button class="sec" id="b-ap-add" type="button">Adicionar item</button>
         <button class="sec" id="b-ap-trazer" type="button">Trazer petrechos e pescado da abordagem</button></div>
-      <details${a.fiel?.nome ? ' open' : ''}><summary>Fiel depositário</summary><div class="grade">
+      <details><summary>Fiel depositário</summary><div class="grade">
         ${FIEL.map(([k, rot]) => `<div><label for="fd-${k}">${rot}</label><input id="fd-${k}" data-f="${k}" value="${esc(a.fiel?.[k] || '')}"></div>`).join('')}</div></details>
       <label for="ap-dest">Destinação, quando não houver fiel depositário</label>
       <select id="ap-dest"><option value=""></option>${opcoes(DESTINOS, a.destinacao)}</select>
@@ -1021,10 +1018,9 @@ function telaAbordagem(param) {
           ${l.conferir ? `<div class="peq aviso-txt">Classificação a confirmar: ${esc(l.base)}.</div>` : ''}${avisoPatos}
           ${l.bacia && baciasDe(l.municipios[0]).length > 1 ? `<div class="chips">${baciasDe(l.municipios[0]).map(([b, pct]) =>
             `<button type="button" class="chip${b === l.bacia ? ' ativo' : ''}" data-bacia="${b}">${esc(BACIAS[b])} ${pct}%</button>`).join('')}</div>` : ''}
-          <details class="resumo"${lerAberto() ? ' open' : ''}><summary class="peq">O que vale aqui</summary>
+          <details class="resumo"><summary class="peq">O que vale aqui</summary>
             <ul class="peq">${[...(RESUMO[ab.area] || []), ...RESUMO_TODOS].map(t => `<li>${esc(t)}</li>`).join('')}</ul></details>
           <div class="peq"><a href="#" id="o-trocar">Trocar local</a> · <a href="#/normas">Normas por local</a></div></div>`;
-      $('#onde details.resumo').ontoggle = e => gravarAberto(e.target.open);
       $('#o-trocar').onclick = e => { e.preventDefault(); ab.localPescaId = ''; desenharOnde(); };
       $('#onde').querySelectorAll('[data-bacia]').forEach(b => b.onclick = () => escolherLocal(localDoMunicipio(l.municipios[0], b.dataset.bacia)));
       return;
@@ -1168,7 +1164,7 @@ async function importarAutorizacao(arquivo, area) {
 const htmlAvisos = imp => `
   ${imp.avisos.length ? `<details><summary>${imp.avisos.length} aviso(s) da lista</summary><ul class="peq">
     ${imp.avisos.map(a => `<li>Nº ${a.n} ${esc(a.nome)}: ${esc(a.texto)}</li>`).join('')}</ul></details>` : ''}
-  ${imp.revisar.length ? `<details open><summary>${imp.revisar.length} para revisar: mesmos dígitos de pessoa já na base, nome diferente</summary><ul class="peq">
+  ${imp.revisar.length ? `<details><summary>${imp.revisar.length} para revisar: mesmos dígitos de pessoa já na base, nome diferente</summary><ul class="peq">
     ${imp.revisar.map(a => `<li>Nº ${a.n} ${esc(a.nome)} x ${a.outros.map(esc).join(', ')}. Cadastrado como pessoa separada.</li>`).join('')}</ul></details>` : ''}`;
 
 // ---------- backup ----------
@@ -1472,7 +1468,7 @@ function telaGuia() {
     <div class="card"><h2>Agora (${fmtData(hoje)})</h2>${agora.length ? agora.map(([r, ds]) => `<p class="peq"><b>${esc(REGIMES[r].nome)}</b><br>
       ${ds.map(d => `${esc(d.nome)}: ${d.estado === 'vigente' ? '<b>em vigor</b>' : 'começa em breve'}, ${esc(d.periodo)}. ${esc(d.texto)} (${esc(d.norma)}).`).join('<br>')}</p>`).join('')
       : '<p class="muted peq">Nenhum defeso em vigor ou próximo.</p>'}</div>
-    <details class="card card-dobra g" open><summary><h2 style="display:inline">Peixes ameaçados: pesca proibida</h2></summary>
+    <details class="card card-dobra g"><summary><h2 style="display:inline">Peixes ameaçados: pesca proibida</h2></summary>
       <p class="muted peq">Pesca proibida em todo o RS, o ano todo, em qualquer tamanho (Lei RS 15.223/2018, art. 30, III; Decreto RS 51.797/2014). Na dúvida sobre a espécie, fotografe o exemplar e registre na abordagem.</p>
       <ul class="lista g-lista">${AMEACADAS_GUIA.map(([pop, cie, amb, cat]) => `<li class="g-item"><div class="nome">${esc(pop)}</div>
         <div class="info"><i>${esc(cie)}</i> · ${esc(amb)} · ${esc(cat.split(' e ').map(c => CAT[c] || c).join(' / '))}</div></li>`).join('')}</ul>
