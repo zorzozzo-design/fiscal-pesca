@@ -110,7 +110,8 @@ function checar(ab, cfg = {}) {
   const out = [];
   const add = (regra, nivel, texto, norma, enquadramento, artigo = 35) => out.push({ regra, nivel, texto, norma, enquadramento, artigo });
   const pets = ab.petrechos || [], pes = ab.pescado || [];
-  const de = tipo => pets.filter(p => p.tipo === tipo);
+  // Rede de espera é rede de emalhe fixa: mesmas regras.
+  const de = tipo => pets.filter(p => p.tipo === tipo || (tipo === 'Rede de emalhe' && p.tipo === 'Rede de espera'));
   const kg = pes.reduce((t, p) => t + (+p.kg || 0), 0);
   const especie = nome => pes.some(p => chave(p.especie).startsWith(nome));
   const local = ab.localTipo || '';

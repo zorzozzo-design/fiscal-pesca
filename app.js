@@ -440,7 +440,8 @@ function formBem(tipo, alvo, p, aoSalvar) {
 // ---------- abordagem em campo ----------
 const PESQBRASIL = 'https://pesqbrasil-pescadorprofissional.mpa.gov.br/acesso-externo';
 const SITUACOES = ['Ativo', 'Suspenso', 'Cancelado', 'Em análise', 'Não encontrado'];
-const PETRECHOS = ['Rede de emalhe', 'Tarrafa', 'Tarrafa de camarão', 'Espinhel', 'Aviãozinho', 'Rede de saco', 'Rede de arrasto', 'Linha e anzol', 'Covo/armadilha', 'Drone (lançamento de linha)', 'Outro'];
+// Em ordem alfabética; "Outro" no fim.
+const PETRECHOS = ['Aviãozinho', 'Covo/armadilha', 'Drone (lançamento de linha)', 'Espinhel', 'Linha e anzol', 'Rede de arrasto', 'Rede de emalhe', 'Rede de espera', 'Rede de saco', 'Tarrafa', 'Tarrafa de camarão', 'Outro'];
 // Nomes iguais aos da tabela de tamanho mínimo (normas.js) para a checagem funcionar.
 // Espécies ameaçadas (R27) aparecem com o nome científico para a pessoa escolher com certeza.
 const ESPECIES = ['Tainha', 'Camarão-rosa', 'Bagre (espécie não identificada)', 'Bagre-branco (Genidens barbus)', 'Bagre (Genidens planifrons)',
@@ -950,14 +951,14 @@ function telaAbordagem(param) {
     });
   };
   // Só os campos que as regras usam para o tipo: malha (todos menos linha), comprimento (redes, espinhel), altura e RGP na tralha (emalhe no mar).
-  const emalheMar = p => p.tipo === 'Rede de emalhe' && (ab.area === 'mar' || p.alturaM != null || !!p.rgpTralha);
+  const emalheMar = p => (p.tipo === 'Rede de emalhe' || p.tipo === 'Rede de espera') && (ab.area === 'mar' || p.alturaM != null || !!p.rgpTralha);
   const CAMPOS_PET = [['tipo', 'Tipo', 'select', PETRECHOS], ['malhaMm', 'Malha (mm)', 'number', 'min="0" step="1" inputmode="numeric" placeholder="nós opostos"', p => p.tipo !== 'Linha e anzol' && !p.tipo.startsWith('Drone')],
     ['qtd', 'Quantidade', 'number', 'min="1" step="1" inputmode="numeric"'],
     ['comprimentoM', 'Comprimento (m)', 'number', 'min="0" step="1" inputmode="numeric"', p => /^Rede|Espinhel|Outro/.test(p.tipo)],
     ['alturaM', 'Altura (m)', 'number', 'min="0" step="0.1" inputmode="decimal"', emalheMar], ['rgpTralha', 'RGP na tralha', 'select', ['', 'Sim', 'Não'], emalheMar]];
   const CAMPOS_PES = [['especie', 'Espécie', 'text', 'list="especies"'], ['kg', 'Peso (kg)', 'number', 'min="0" step="0.1" inputmode="decimal"'],
     ['menorCm', 'Menor exemplar (cm)', 'number', 'min="0" step="0.5" inputmode="decimal"']];
-  $('#b-pet').onclick = () => { ab.petrechos.push({ tipo: PETRECHOS[0], malhaMm: null, comprimentoM: null, qtd: 1, alturaM: null, rgpTralha: '' }); desenharLinhas(ab.petrechos, '#petrechos', CAMPOS_PET, desenharSem); desenharSem(); };
+  $('#b-pet').onclick = () => { ab.petrechos.push({ tipo: 'Rede de emalhe', malhaMm: null, comprimentoM: null, qtd: 1, alturaM: null, rgpTralha: '' }); desenharLinhas(ab.petrechos, '#petrechos', CAMPOS_PET, desenharSem); desenharSem(); };
   $('#b-pes').onclick = () => { ab.pescado.push({ especie: '', kg: null, menorCm: null }); desenharLinhas(ab.pescado, '#pescado', CAMPOS_PES, desenharSem); };
 
   const mostrarGps = () => { $('#gps').innerHTML = ab.gps ? `<a href="https://maps.google.com/?q=${ab.gps.lat},${ab.gps.lon}" target="_blank" rel="noopener">${ab.gps.lat.toFixed(5)}, ${ab.gps.lon.toFixed(5)}</a> (±${Math.round(ab.gps.prec)} m)` : ''; };

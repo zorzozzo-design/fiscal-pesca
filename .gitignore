@@ -4,3 +4,4 @@ node_modules/
 *.csv
 *.xlsx
 backup-*.json
+!test/fixtures/*.xlsx

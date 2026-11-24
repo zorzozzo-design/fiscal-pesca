@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import '../orla.js';
 import '../normas.js';
 const { checar, multaReferencia, LOCAIS } = globalThis.Normas;
 
@@ -485,4 +486,12 @@ test('R42: pesca com drone é vermelho em qualquer área (rol de petrechos taxat
     assert.match(r[0].enquadramento, /art\. 34, p\. ún\., II/); assert.equal(r[0].artigo, 35);
   }
   assert.ok(!checar(ab({ petrechos: [pet('Linha e anzol')] }), cfg).some(m => m.regra === 'R42'));
+});
+
+test('Rede de espera: é rede de emalhe fixa e segue as mesmas regras', () => {
+  const regras = tipo => checar(ab({ area: 'mar', localTipo: 'Embarcado até 1 milha da costa', embarcacao: 'Motorizada', petrechos: [pet(tipo, { malhaMm: 50 })] }), cfg)
+    .map(m => [m.regra, m.nivel]).sort().join();
+  assert.equal(regras('Rede de espera'), regras('Rede de emalhe'));
+  assert.ok(regras('Rede de espera').includes('R13'));
+  assert.equal(globalThis.Orla.checar({ area: 'mar', praia: 'Tramandaí', zonaOrla: 'surfe', data: '2026-05-10T10:00', categoria: 'Profissional', localTipo: 'Praia (desembarcado)', petrechos: [pet('Rede de espera')] })[0].nivel, 'vermelho');
 });

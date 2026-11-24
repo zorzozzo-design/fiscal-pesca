@@ -6,7 +6,7 @@ const ZONAS = {
   pesca: 'Área de pesca', surfe: 'Área de surfe', banho: 'Área de banho ou lazer', plataforma: 'Até 200 m da plataforma de pesca',
   especial: 'Área Especial da Barra (molhes até a Rua Bento Gonçalves)', barra: 'Até 1.000 m da barra de rio', outra: 'Outro trecho da orla', naosei: 'Não sei (sem placa visível)',
 };
-const REDES = new Set(['Rede de emalhe', 'Rede de arrasto', 'Aviãozinho', 'Rede de saco']);
+const REDES = new Set(['Rede de emalhe', 'Rede de espera', 'Rede de arrasto', 'Aviãozinho', 'Rede de saco']);
 const ESTADUAL = 'Lei RS 8.676/1988, art. 1º, § 2º (redação da Lei 13.660/2011)';
 const SANCAO = 'Sanção administrativa: Decreto RS 49.245/2012, art. 5º (apreensão, advertência, multa de 100 UFIR); BM fiscaliza (art. 2º, III)';
 
