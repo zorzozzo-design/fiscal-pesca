@@ -3,7 +3,7 @@ const { avaliar, ultimaConsulta, corDe, AREAS_COM_LISTA } = window.Semaforo;
 const { checar, multaReferencia, defesosDe, DEFESOS, RESUMO, RESUMO_TODOS, AMEACADAS_GUIA, TAMANHO_MINIMO, LOCAIS } = window.Normas;
 const { lerXlsx, lerEstabelecimentos, mesclarEstabelecimentos } = window.Planilha;
 const { ORLA, MUNICIPIOS_ORLA, zonasDe, GUIA_ESTADUAL } = window.Orla;
-const { avisoNaLista, lembreteBackup, NOTIF_ABERTURA, itensDaAbordagem, termoApreensao, notificacao, motivoSugerido, normalizarAb, pendenciasDe, PESSOAIS, DESTINOS } = window.Docs;
+const { fielDe, avisoNaLista, lembreteBackup, NOTIF_ABERTURA, itensDaAbordagem, termoApreensao, notificacao, motivoSugerido, normalizarAb, pendenciasDe, PESSOAIS, DESTINOS } = window.Docs;
 
 // ---------- utilitários ----------
 const $ = s => document.querySelector(s);
@@ -807,6 +807,7 @@ function telaAbordagem(param) {
   const desenharApreensao = () => {
     const a = ab.apreensao;
     if (!a) { $('#ap').innerHTML = ''; return; }
+    const abordados = [...new Set(A.envolvidos.map(e => e.pescadorId))].map(id => db.pescadores[id]).filter(Boolean);
     $('#ap').innerHTML = `
       <div class="grade">
         <div><label for="ap-tipo">Documento lavrado</label><select id="ap-tipo">${opcoes(['BO/TC-COP', 'BA'], a.docTipo)}</select></div>
@@ -814,7 +815,9 @@ function telaAbordagem(param) {
       <h3>Itens apreendidos</h3><div id="ap-itens"></div>
       <div class="linha"><button class="sec" id="b-ap-add" type="button">Adicionar item</button>
         <button class="sec" id="b-ap-trazer" type="button">Trazer petrechos e pescado da abordagem</button></div>
-      <details><summary>Fiel depositário</summary><div class="grade">
+      <details id="ap-fiel"><summary>Fiel depositário</summary>
+        ${abordados.length ? `<label for="fd-de">Preencher com um abordado</label><select id="fd-de"><option value=""></option>${abordados.map(p => `<option value="${esc(p.id)}">${esc(nomeProprio(p.nome))}</option>`).join('')}</select>` : ''}
+        <div class="grade">
         ${FIEL.map(([k, rot]) => `<div><label for="fd-${k}">${rot}</label><input id="fd-${k}" data-f="${k}" value="${esc(a.fiel?.[k] || '')}"></div>`).join('')}</div></details>
       <label for="ap-dest">Destinação, quando não houver fiel depositário</label>
       <select id="ap-dest"><option value=""></option>${opcoes(DESTINOS, a.destinacao)}</select>
@@ -824,6 +827,10 @@ function telaAbordagem(param) {
     $('#ap-num').oninput = e => { a.docNumero = e.target.value; };
     $('#ap-dest').onchange = e => { a.destinacao = e.target.value; };
     $('#ap').querySelectorAll('[data-f]').forEach(el => el.oninput = () => { (a.fiel ||= {})[el.dataset.f] = el.value; });
+    if ($('#fd-de')) $('#fd-de').onchange = e => {
+      const p = db.pescadores[e.target.value]; if (!p) return;
+      a.fiel = fielDe(p); desenharApreensao(); $('#ap-fiel').open = true;
+    };
     $('#b-ap-add').onclick = () => { a.itens.push({ tipo: 'Petrecho', descricao: '', quantidade: 1, unidade: 'un' }); desenharLinhas(a.itens, '#ap-itens', CAMPOS_AP); };
     $('#b-ap-trazer').onclick = () => { a.itens.push(...itensDaAbordagem(ab)); desenharLinhas(a.itens, '#ap-itens', CAMPOS_AP); };
     $('#b-ap-imp').onclick = () => { if (exigePessoa('#m-ap', true)) imprimir(termoApreensao(ab, pesc(), db.cfg)); };

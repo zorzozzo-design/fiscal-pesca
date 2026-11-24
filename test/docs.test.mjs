@@ -145,3 +145,23 @@ test('autor desconhecido: pendência de identificar que pode ser resolvida e ter
   assert.match(h, /autor desconhecido/i);
   assert.doesNotMatch(h, /CPF <b>/);
 });
+
+test('fielDe: preenche o fiel depositário com o cadastro de um abordado', () => {
+  const { fielDe } = globalThis.Docs;
+  assert.deepEqual(fielDe({ nome: 'JOÃO DA SILVA', cpf: '12345678901', rg: '1234567', telefone: '51 99999-0000', endereco: 'Rua A, 10', bairro: 'Centro', municipio: 'Imbé' }),
+    { nome: 'João da Silva', rg: '1234567', cpf: '123.456.789-01', telefone: '51 99999-0000', endereco: 'Rua A, 10, Centro', municipioUf: 'Imbé/RS' });
+  // Sem CPF completo (só dígitos do meio), sem qualificação: campos vazios, sem inventar.
+  assert.deepEqual(fielDe({ nome: 'MARIA', digitos: '456789' }), { nome: 'Maria', rg: '', cpf: '', telefone: '', endereco: '', municipioUf: '' });
+  assert.equal(fielDe({ nome: 'X', municipio: 'Osório/RS' }).municipioUf, 'Osório/RS');
+});
+
+test('qualificação: RG dispensado quando há CPF completo', () => {
+  const { pendenciasDe } = globalThis.Docs;
+  const a = { id: 'a1', data: '2026-11-24T10:00', envolvidos: [{ id: 'e1', pescadorId: 'p1', categoria: 'Profissional', semaforo: { cor: 'verde' },
+    providencias: [], notificacao: { motivo: 'x' } }] };
+  const q = p => pendenciasDe(a, () => p).some(x => x.chave === 'e1:qualificacao');
+  assert.equal(q({ nome: 'A', cpf: '12345678901', endereco: 'Rua A', municipio: 'Imbé' }), false);
+  assert.equal(q({ nome: 'A', digitos: '456789', endereco: 'Rua A', municipio: 'Imbé' }), true);
+  assert.equal(q({ nome: 'A', rg: '123', endereco: 'Rua A', municipio: 'Imbé' }), false);
+  assert.equal(q({ nome: 'A', cpf: '12345678901', municipio: 'Imbé' }), true);
+});

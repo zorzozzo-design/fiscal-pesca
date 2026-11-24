@@ -40,6 +40,10 @@ const cabecalho = (cfg, titulo) => `
 
 const campo = (rot, val, cls = '') => `<td class="${cls}"><span class="doc-rot">${rot}</span> ${esc(val)}</td>`;
 
+// Fiel depositário a partir do cadastro de um abordado. CPF só se completo; município sem UF recebe /RS.
+const fielDe = p => ({ nome: nomeProprio(p.nome), rg: p.rg || '', cpf: p.cpf ? fmtCpf(p) : '', telefone: p.telefone || '',
+  endereco: [p.endereco, p.bairro].filter(Boolean).join(', '), municipioUf: !p.municipio ? '' : p.municipio.includes('/') ? p.municipio : `${p.municipio}/RS` });
+
 function termoApreensao(ab, p, cfg) {
   const a = ab.apreensao, f = a.fiel || {}, ag = cfg.agente || {};
   const itens = a.itens || [];
@@ -138,8 +142,8 @@ function pendenciasDe(a, pessoa) {
       if (!(e.apreensao.itens || []).length) add(e, 'ap-itens', `${quem}: apreensão sem itens no termo.`);
       if (!e.apreensao.fiel?.nome && !e.apreensao.destinacao) add(e, 'ap-destino', `${quem}: apreensão sem fiel depositário nem destinação.`);
     }
-    if (p && (e.apreensao || e.notificacao || provs.some(pr => DOCUMENTOS.includes(pr.tipo))) && !(p.rg && p.endereco && p.municipio))
-      add(e, 'qualificacao', `${quem}: qualificação incompleta (RG, endereço, município).`);
+    if (p && (e.apreensao || e.notificacao || provs.some(pr => DOCUMENTOS.includes(pr.tipo))) && !((p.rg || p.cpf) && p.endereco && p.municipio))
+      add(e, 'qualificacao', `${quem}: qualificação incompleta (RG ou CPF, endereço, município).`);
     if (p && e.categoria !== 'Amador' && !(p.consultas || []).some(c => c.data.slice(0, 10) <= a.data.slice(0, 10) && c.data.slice(0, 10) >= diaMenos(a.data, 30)))
       add(e, 'consulta', `${quem}: sem consulta ao PesqBrasil nos 30 dias da abordagem.`, true);
     if (e.notificacao) add(e, 'comparecimento', `${quem}: acompanhar o comparecimento da notificação.`, true);
@@ -162,5 +166,5 @@ function lembreteBackup(ultimo, hoje, temDados) {
   return dias > 7 ? `O último backup tem ${dias} dias. Faça um backup.` : null;
 }
 
-globalThis.Docs = { avisoNaLista, lembreteBackup, NOTIF_ABERTURA, itensDaAbordagem, termoApreensao, notificacao, motivoSugerido, normalizarAb, pendenciasDe, PESSOAIS, DESTINOS };
+globalThis.Docs = { fielDe, avisoNaLista, lembreteBackup, NOTIF_ABERTURA, itensDaAbordagem, termoApreensao, notificacao, motivoSugerido, normalizarAb, pendenciasDe, PESSOAIS, DESTINOS };
 })();
