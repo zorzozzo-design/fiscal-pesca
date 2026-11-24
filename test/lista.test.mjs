@@ -331,3 +331,13 @@ test('lista da Lagoa dos Patos (Word): texto partido em pedaços colados (RGP e 
   // Sem largura (listas antigas): pedaços separados continuam com espaço.
   assert.equal(ler(itens.map(({ w, ...x }) => x)).registros[0].nome, 'ANA MARIA DA SIL VA');
 });
+
+test('consulta do PesqBrasil sem cadastro: "não foi encontrado" vira situação "Não encontrado"', () => {
+  const { lerConsulta } = globalThis.Lista;
+  const txt = 'Consulte o RGP\nO CPF e/ou RGP informado não foi encontrado no Pesq Brasil ou é inválido. Caso tenha interesse em obter o RGP, clique aqui para acessar o sistema e solicitar sua licença.';
+  const r = lerConsulta(txt);
+  assert.equal(r.situacao, 'Não encontrado');
+  assert.equal(r.naoEncontrado, true);
+  assert.deepEqual([r.rgp, r.digitos, r.locais], ['', null, []]);
+  assert.equal(lerConsulta(txt.replace(/\n/g, '\r\n').replace('Pesq Brasil', 'PesqBrasil')).situacao, 'Não encontrado');
+});

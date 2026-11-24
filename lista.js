@@ -184,6 +184,10 @@ function criar(base, { nome, cpf }) {
 function lerConsulta(texto) {
   const t = String(texto ?? '').replace(/\r/g, '');
   const campo = rotulo => (t.match(new RegExp(`^\\s*${rotulo}:[ \\t]*(.+?)\\s*$`, 'm')) || [])[1] || '';
+  // Sem cadastro: o site responde "O CPF e/ou RGP informado não foi encontrado no Pesq Brasil ou é inválido".
+  if (/n[ãa]o foi encontrado no Pesq ?Brasil/i.test(t))
+    return { nome: '', digitos: digitos(t.match(/\*{3}\d{6}\*{2}/)?.[0]), rgp: '', situacao: 'Não encontrado', naoEncontrado: true, tipoRegistro: '', uf: '', municipio: '',
+      categoria: '', formaAtuacao: '', produto: '', anoNascimento: '', primeiroRgp: '', locais: [] };
   const situacao = campo('Situação do RGP');
   if (!situacao) return null;
   const rgp = (t.match(/RSP[A-Z]?\*{3}\d{6}\*{2}|[A-Z]{2}-P\d{7}-\d/) || [''])[0];

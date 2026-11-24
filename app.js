@@ -213,9 +213,13 @@ function colarConsulta(alvo, fixa = null) {
     const lido = lerConsulta(e.target.value), r = alvo.querySelector('#cc-res');
     if (!e.target.value.trim()) { r.innerHTML = ''; return; }
     if (!lido) { r.innerHTML = '<p class="msg erro">O app não reconheceu o resultado. Copie a página a partir de "Resultado da consulta" e cole de novo.</p>'; return; }
-    const resumo = `<p class="peq"><b>${esc(lido.nome || 'Sem nome')}</b> · ${esc(fmtDig(lido.digitos))} · ${esc(lido.rgp)}<br>
+    const resumo = lido.naoEncontrado ? '<p class="msg erro">PesqBrasil: CPF ou RGP não encontrado. A pessoa não tem cadastro no RGP.</p>' : `<p class="peq"><b>${esc(lido.nome || 'Sem nome')}</b> · ${esc(fmtDig(lido.digitos))} · ${esc(lido.rgp)}<br>
       ${[lido.situacao, lido.categoria, lido.formaAtuacao, lido.produto].filter(Boolean).map(esc).join(' · ')}
       ${lido.locais.length ? `<br>Locais: ${[...new Set(lido.locais.map(l => `${l.tipo} (${l.municipio})`))].map(esc).join(', ')}` : ''}</p>`;
+    if (lido.naoEncontrado && !fixa) {
+      r.innerHTML = '<p class="msg erro">PesqBrasil: CPF ou RGP não encontrado (pessoa sem cadastro). O resultado não traz o CPF: abra a ficha da pessoa ou a abordagem e cole lá.</p>';
+      return;
+    }
     if (fixa) {
       const outro = lido.digitos && fixa.digitos && lido.digitos !== fixa.digitos;
       r.innerHTML = resumo + (outro ? `<p class="msg erro">Esta consulta é de outro CPF (${esc(fmtDig(lido.digitos))}).</p>`
@@ -768,6 +772,7 @@ function telaAbordagem(param) {
       }
       if (!SITUACOES.includes(lido.situacao)) $('#c-sit').insertAdjacentHTML('beforeend', `<option>${esc(lido.situacao)}</option>`);
       $('#c-sit').value = lido.situacao; $('#c-mun').value = lido.municipio; $('#c-pri').value = lido.primeiroRgp;
+      if (lido.naoEncontrado) { m.className = 'msg erro'; m.textContent = 'PesqBrasil: CPF ou RGP não encontrado. A pessoa não tem cadastro no RGP. Registre a consulta.'; return; }
       m.className = 'muted peq';
       m.textContent = [lido.categoria, lido.formaAtuacao, lido.produto, lido.tipoRegistro].filter(Boolean).join(' · ')
         + (lido.locais.length ? ` · Locais de pesca: ${lido.locais.map(l => `${l.tipo} em ${l.municipio}/${l.uf}`).join(', ')}` : '');
