@@ -165,3 +165,13 @@ test('qualificação: RG dispensado quando há CPF completo', () => {
   assert.equal(q({ nome: 'A', rg: '123', endereco: 'Rua A', municipio: 'Imbé' }), false);
   assert.equal(q({ nome: 'A', cpf: '12345678901', municipio: 'Imbé' }), true);
 });
+
+test('embarcação usada entra nos itens de apreensão', () => {
+  const base = { petrechos: [], pescado: [] };
+  assert.deepEqual(itensDaAbordagem({ ...base, embarcacao: 'Nenhuma' }), []);
+  assert.deepEqual(itensDaAbordagem({ ...base, embarcacao: 'Motorizada', comprimentoEmbM: 6.5, embSemId: true }),
+    [{ tipo: 'Embarcação', descricao: 'Embarcação motorizada, 6,5 m, sem identificação', quantidade: 1, unidade: 'un' }]);
+  const pe = { embarcacoes: [{ id: 'b1', nome: 'Gaivota', inscricao: '123ABC', comprimentoM: 7, propulsao: 'Motorizada' }] };
+  assert.deepEqual(itensDaAbordagem({ ...base, embarcacao: 'Motorizada', embarcacaoId: 'b1' }, pe),
+    [{ tipo: 'Embarcação', descricao: 'Embarcação Gaivota, inscrição 123ABC, 7 m, Motorizada', quantidade: 1, unidade: 'un' }]);
+});

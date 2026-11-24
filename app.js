@@ -801,7 +801,7 @@ function telaAbordagem(param) {
 
   const exigePessoa = (msgId, aceitaDesconhecido = false) => { if (pesc() || (aceitaDesconhecido && ab.autorDesconhecido)) return true; $(msgId).textContent = 'Selecione a pessoa abordada antes.'; $(msgId).className = 'msg erro'; return false; };
 
-  const CAMPOS_AP = [['tipo', 'Tipo', 'select', ['Petrecho', 'Pescado', 'Outro']], ['descricao', 'Descrição', 'text', ''],
+  const CAMPOS_AP = [['tipo', 'Tipo', 'select', ['Petrecho', 'Embarcação', 'Pescado', 'Outro']], ['descricao', 'Descrição', 'text', ''],
     ['quantidade', 'Quantidade', 'number', 'min="0" step="0.1" inputmode="decimal"'], ['unidade', 'Unidade', 'select', UNIDADES]];
   const FIEL = [['nome', 'Nome'], ['rg', 'RG'], ['cpf', 'CPF'], ['telefone', 'Telefone'], ['endereco', 'Endereço'], ['municipioUf', 'Município/UF']];
   const desenharApreensao = () => {
@@ -832,11 +832,11 @@ function telaAbordagem(param) {
       a.fiel = fielDe(p); desenharApreensao(); $('#ap-fiel').open = true;
     };
     $('#b-ap-add').onclick = () => { a.itens.push({ tipo: 'Petrecho', descricao: '', quantidade: 1, unidade: 'un' }); desenharLinhas(a.itens, '#ap-itens', CAMPOS_AP); };
-    $('#b-ap-trazer').onclick = () => { a.itens.push(...itensDaAbordagem(ab)); desenharLinhas(a.itens, '#ap-itens', CAMPOS_AP); };
+    $('#b-ap-trazer').onclick = () => { a.itens.push(...itensDaAbordagem(ab, pesc() || {})); desenharLinhas(a.itens, '#ap-itens', CAMPOS_AP); };
     $('#b-ap-imp').onclick = () => { if (exigePessoa('#m-ap', true)) imprimir(termoApreensao(ab, pesc(), db.cfg)); };
   };
   $('#ap-on').onchange = e => {
-    ab.apreensao = e.target.checked ? (ab.apreensao || { docTipo: 'BO/TC-COP', docNumero: ab.providencias.find(p => p.tipo.startsWith('BO'))?.numero || '', itens: itensDaAbordagem(ab), fiel: {}, destinacao: '' }) : null;
+    ab.apreensao = e.target.checked ? (ab.apreensao || { docTipo: 'BO/TC-COP', docNumero: ab.providencias.find(p => p.tipo.startsWith('BO'))?.numero || '', itens: itensDaAbordagem(ab, pesc() || {}), fiel: {}, destinacao: '' }) : null;
     marcarProv('Apreensão', e.target.checked);
     desenharApreensao();
   };

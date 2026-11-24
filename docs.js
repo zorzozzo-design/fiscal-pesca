@@ -15,12 +15,19 @@ const linha = n => '_'.repeat(n);
 const DESTINOS = ['Recolhimento', 'Doação', 'Soltura', 'Destruição'];
 
 // Petrechos e pescado registrados na abordagem viram itens do termo (editáveis depois).
-function itensDaAbordagem(ab) {
+// Embarcação: do cadastro da pessoa, se escolhida; senão, tipo e comprimento informados na abordagem.
+const descEmbarcacao = (ab, p = {}) => {
+  const e = (p.embarcacoes || []).find(x => x.id === ab.embarcacaoId);
+  return e ? `Embarcação ${[e.nome, e.inscricao && `inscrição ${e.inscricao}`, e.rgp && `RGP ${e.rgp}`, e.comprimentoM && `${num(e.comprimentoM)} m`, e.propulsao].filter(Boolean).join(', ')}`
+    : [`Embarcação ${ab.embarcacao.toLowerCase()}`, ab.comprimentoEmbM && `${num(ab.comprimentoEmbM)} m`, ab.embSemId && 'sem identificação'].filter(Boolean).join(', ');
+};
+function itensDaAbordagem(ab, p) {
   const pet = (ab.petrechos || []).map(x => ({ tipo: 'Petrecho', unidade: 'un', quantidade: x.qtd || 1,
     descricao: [x.tipo, x.malhaMm ? `malha ${x.malhaMm} mm` : '', x.comprimentoM ? `${x.comprimentoM} m` : ''].filter(Boolean).join(', ') }));
   const pes = (ab.pescado || []).filter(x => x.especie).map(x => ({ tipo: 'Pescado', unidade: 'kg', quantidade: x.kg || 0,
     descricao: [x.especie, x.menorCm ? `menor exemplar ${num(x.menorCm)} cm` : ''].filter(Boolean).join(', ') }));
-  return [...pet, ...pes];
+  const emb = ab.embarcacao && ab.embarcacao !== 'Nenhuma' ? [{ tipo: 'Embarcação', descricao: descEmbarcacao(ab, p), quantidade: 1, unidade: 'un' }] : [];
+  return [...pet, ...emb, ...pes];
 }
 
 // Motivos de irregularidade; sem nenhum, os pontos a conferir.
