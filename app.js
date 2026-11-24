@@ -3,7 +3,7 @@ const { avaliar, ultimaConsulta, corDe, AREAS_COM_LISTA } = window.Semaforo;
 const { checar, multaReferencia, defesosDe, DEFESOS, RESUMO, RESUMO_TODOS, AMEACADAS_GUIA, TAMANHO_MINIMO, LOCAIS } = window.Normas;
 const { lerXlsx, lerEstabelecimentos, mesclarEstabelecimentos } = window.Planilha;
 const { ORLA, MUNICIPIOS_ORLA, zonasDe, GUIA_ESTADUAL } = window.Orla;
-const { lembreteBackup, NOTIF_ABERTURA, itensDaAbordagem, termoApreensao, notificacao, motivoSugerido, normalizarAb, pendenciasDe, PESSOAIS, DESTINOS } = window.Docs;
+const { avisoNaLista, lembreteBackup, NOTIF_ABERTURA, itensDaAbordagem, termoApreensao, notificacao, motivoSugerido, normalizarAb, pendenciasDe, PESSOAIS, DESTINOS } = window.Docs;
 
 // ---------- utilitários ----------
 const $ = s => document.querySelector(s);
@@ -475,14 +475,13 @@ const tabelaConsultas = p => !(p.consultas || []).length ? '<p class="muted peq"
     <td>${esc(c.municipio)}</td><td>${fmtData(c.primeiroRgp)}</td><td>${esc([c.categoria, c.formaAtuacao, c.produto].filter(Boolean).join(', '))}</td>
     <td>${esc((c.locais || []).map(l => `${l.tipo} ${l.municipio}`).join(', '))}</td><td>${esc(c.obs)}</td></tr>`).join('')}</tbody></table></div>`;
 
-const piorCor = cs => ['vermelho', 'amarelo', 'verde'].find(c => cs.includes(c)) || 'verde';
 const listaAbordagens = abs => !abs.length ? '<p class="muted peq">Nenhuma abordagem.</p>' : `<ul class="lista">${abs.map(normalizarAb)
-  .sort((a, b) => b.data.localeCompare(a.data)).map(a => { const es = a.envolvidos, cor = piorCor(es.map(e => e.semaforo?.cor));
+  .sort((a, b) => b.data.localeCompare(a.data)).map(a => { const es = a.envolvidos, cor = avisoNaLista(a);
     const provs = [...new Set(es.flatMap(e => (e.providencias || []).map(p => p.tipo)))];
     return `<li><a href="#/ab/${a.id}">
     <div class="nome">${esc(es.map(e => db.pescadores[e.pescadorId] ? nomeProprio(db.pescadores[e.pescadorId].nome) : 'Pessoa removida').join(', '))}</div>
     <div class="info">${fmtData(a.data)} ${esc(a.data.slice(11, 16))} · ${esc(localPesca(a.localPescaId)?.nome || AREA_CURTA[a.area])}${a.local && a.local !== localPesca(a.localPescaId)?.nome ? ' · ' + esc(a.local) : ''}${provs.length ? ' · ' + esc(provs.join(', ')) : ''}</div>
-    <span class="tag sem-${cor}">${COR_TXT[cor]}</span>${es.length > 1 ? `<span class="tag">${es.length} envolvidos</span>` : ''}</a></li>`; }).join('')}</ul>`;
+    ${cor === 'resolvido' ? '<span class="tag">Providências adotadas</span>' : `<span class="tag sem-${cor}">${COR_TXT[cor]}</span>`}${es.length > 1 ? `<span class="tag">${es.length} envolvidos</span>` : ''}</a></li>`; }).join('')}</ul>`;
 
 // Imprime (ou salva em PDF) só o documento, escondendo o app.
 function imprimir(html) {

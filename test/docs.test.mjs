@@ -121,3 +121,13 @@ test('lembrete de backup: sem backup com dados, ou último backup com mais de 7 
   assert.equal(lembreteBackup('2026-10-20T10:00', '2026-10-26', true), null);
   assert.match(lembreteBackup('2026-10-10T10:00', '2026-10-26', true), /16 dias/);
 });
+
+test('lista de abordagens: aviso some quando o envolvido tem providência adotada', () => {
+  const { avisoNaLista } = globalThis.Docs;
+  const e = (cor, providencias = []) => ({ semaforo: { cor }, providencias });
+  assert.equal(avisoNaLista({ envolvidos: [e('vermelho')] }), 'vermelho');
+  assert.equal(avisoNaLista({ envolvidos: [e('vermelho', [{ tipo: 'BO/TC', numero: '' }])] }), 'resolvido');
+  assert.equal(avisoNaLista({ envolvidos: [e('amarelo', [{ tipo: 'Orientação' }]), e('verde')] }), 'resolvido');
+  assert.equal(avisoNaLista({ envolvidos: [e('amarelo', [{ tipo: 'Orientação' }]), e('amarelo')] }), 'amarelo');
+  assert.equal(avisoNaLista({ envolvidos: [e('verde'), e(undefined)] }), 'verde');
+});

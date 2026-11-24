@@ -145,6 +145,12 @@ function pendenciasDe(a, pessoa) {
   }
   return out;
 }
+// Aviso na lista de abordagens: envolvido com providência adotada conta como resolvido. O semáforo completo fica na abordagem.
+function avisoNaLista(a) {
+  const abertos = (a.envolvidos || []).map(e => e.semaforo?.cor).filter((c, i) => (c === 'vermelho' || c === 'amarelo') && !(a.envolvidos[i].providencias || []).length);
+  if (abertos.length) return abertos.includes('vermelho') ? 'vermelho' : 'amarelo';
+  return (a.envolvidos || []).some(e => e.semaforo?.cor === 'vermelho' || e.semaforo?.cor === 'amarelo') ? 'resolvido' : 'verde';
+}
 const diaMenos = (iso, n) => { const d = new Date(iso.slice(0, 10) + 'T12:00'); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); };
 
 // Lembrete na tela inicial: os dados só existem no aparelho. Sem dados, não há o que guardar.
@@ -155,5 +161,5 @@ function lembreteBackup(ultimo, hoje, temDados) {
   return dias > 7 ? `O último backup tem ${dias} dias. Faça um backup.` : null;
 }
 
-globalThis.Docs = { lembreteBackup, NOTIF_ABERTURA, itensDaAbordagem, termoApreensao, notificacao, motivoSugerido, normalizarAb, pendenciasDe, PESSOAIS, DESTINOS };
+globalThis.Docs = { avisoNaLista, lembreteBackup, NOTIF_ABERTURA, itensDaAbordagem, termoApreensao, notificacao, motivoSugerido, normalizarAb, pendenciasDe, PESSOAIS, DESTINOS };
 })();
