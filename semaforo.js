@@ -73,7 +73,9 @@ function avaliar({ pescador: p, area, atual, data, identificadoPor, outrosMesmos
   for (const a of p?.autorizacoes || []) if (a.area === area) add('ok', `Licença municipal: ${a.categoria} (${a.titulo}), nº ${a.n}.`);
 
   const c = p ? ultimaConsulta(p.consultas, data) : null;
-  if (amador || (semLicenca && !c)) { /* amador não tem RGP de profissional; sem RGP, a consulta é opcional */ }
+  // Não encontrado no PesqBrasil: não tem RGP nem carteira de pescador (profissional ou amador).
+  if (c?.situacao === 'Não encontrado') add('vermelho', `PesqBrasil em ${fmtData(c.data)}: CPF não encontrado. Sem RGP e sem carteira de pescador.${soLinha ? '' : AVISO_CRIME}`, { ...semLic('Lei 11.959/2009, art. 6º, §1º, III', !soLinha), regra: undefined });
+  else if (amador || (semLicenca && !c)) { /* amador não tem RGP de profissional; sem RGP, a consulta é opcional */ }
   else if (!c) add('amarelo', 'Sem consulta ao PesqBrasil registrada.');
   else if (VERMELHO.has(c.situacao)) add('vermelho', `PesqBrasil em ${fmtData(c.data)}: RGP ${c.situacao.toLowerCase()}.${soLinha ? '' : AVISO_CRIME}`, { ...semLic('Lei 11.959/2009, art. 6º, §1º, III', !soLinha), regra: undefined });
   else if (c.situacao !== 'Ativo') add('amarelo', `PesqBrasil em ${fmtData(c.data)}: ${c.situacao.toLowerCase()}. O protocolo não vale como licença desde 31/03/2025 (Portaria MPA 401/2024): confira.`);

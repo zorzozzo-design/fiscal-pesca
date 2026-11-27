@@ -2,6 +2,7 @@ const { corrigirCadastro, juntarPessoas, lerAutorizacao, mesclarAutorizacao, nor
 const { avaliar, ultimaConsulta, corDe, AREAS_COM_LISTA } = window.Semaforo;
 const { checar, multaReferencia, defesosDe, DEFESOS, RESUMO, RESUMO_TODOS, AMEACADAS_GUIA, TAMANHO_MINIMO, LOCAIS } = window.Normas;
 const { lerXlsx, lerEstabelecimentos, mesclarEstabelecimentos } = window.Planilha;
+const { lerFrotaPdf, lerFrotaPlanilha, mesclarFrota, buscarFrota, lembreteFrota, fiscalizacoesDe } = window.Frota;
 const { ORLA, MUNICIPIOS_ORLA, zonasDe, GUIA_ESTADUAL } = window.Orla;
 const { fielDe, avisoNaLista, lembreteBackup, NOTIF_ABERTURA, itensDaAbordagem, termoApreensao, notificacao, motivoSugerido, normalizarAb, pendenciasDe, PESSOAIS, DESTINOS } = window.Docs;
 
@@ -91,6 +92,9 @@ async function salvar() {
   if (loteRm.length) await tx('pescadores', 'readwrite', s => loteRm.forEach(id => s.delete(id)));
   await tx('kv', 'readwrite', s => s.put(meta, 'meta'));
 }
+// Lista de embarcações do MPA: grande e pública; gravada à parte (só ao importar) para não pesar em cada salvamento.
+let frota = [];
+const salvarFrota = async () => { const v = await cifrar(chave, salt, frota); await tx('kv', 'readwrite', s => s.put(v, 'frota')); };
 async function lerLoja(loja) {
   const d = await idb();
   return new Promise((ok, erro) => {
@@ -104,6 +108,8 @@ async function carregar(meta) {
   db = { cfg: m.cfg, importacoes: m.importacoes || [], pescadores: {}, abordagens: {} };
   for (const [id, v] of await lerLoja('pescadores')) db.pescadores[id] = await decifrar(chave, v);
   for (const [id, v] of await lerLoja('abordagens')) db.abordagens[id] = await decifrar(chave, v);
+  const fr = await tx('kv', 'readonly', s => s.get('frota'));
+  frota = fr ? await decifrar(chave, fr) : [];
 }
 
 // ---------- tela de senha ----------
@@ -264,7 +270,7 @@ function telaLista() {
     return;
   }
   // Busca e filtros fixos no topo; a lista rola dentro da própria caixa.
-  const lembrete = lembreteBackup(db.cfg.ultimoBackup, hojeIso(), true);
+  const lembrete = [lembreteBackup(db.cfg.ultimoBackup, hojeIso(), true), lembreteFrota(db.cfg.importacaoFrota?.data, hojeIso())].filter(Boolean).join(' ');
   app.innerHTML = `<div class="tela-lista"><div class="lista-topo">${lembrete ? `<p class="msg erro peq lembrete">${esc(lembrete)} <a href="#/dados">Abrir Dados</a></p>` : ''}${faixaDefesos()}
       <p class="muted peq">${AREAS_LISTA.map(a => `${esc(AREA_CURTA[a])}: ${esc(at[a] || 'lista não importada')}`).join(' · ')}
         · <a href="#" id="b-colar">Colar consulta do PesqBrasil</a> · <a href="#/peixarias">Peixarias</a></p>
@@ -1259,6 +1265,14 @@ function telaDados() {
         <div class="muted peq">${fmtDH(i.data)} · ${i.registros} estabelecimentos, ${i.novos} novos, ${i.atualizados} atualizados</div>
         ${i.avisos.length ? `<details><summary>${i.avisos.length} aviso(s)</summary><ul class="peq">${i.avisos.map(a => `<li>Linha ${a.linha} ${esc(a.nome)}: ${esc(a.texto)}</li>`).join('')}</ul></details>` : ''}</div>`).join('')}</div>
 
+    <div class="card"><h2>Embarcações de pesca (lista do MPA)</h2>
+      <p class="muted peq">Baixe a lista no <a href="https://www.gov.br/mpa/pt-br/assuntos/cadastro-registro-e-monitoramento/painel-unificado-do-registro-geral-da-atividade-pesqueira" target="_blank" rel="noopener">Painel Unificado do RGP</a> e importe aqui, em PDF ou .xlsx. A lista nova atualiza as embarcações pelo RGP. Atualize a cada 6 meses. Consulte em <a href="#/embarcacoes">Embarcações</a>.</p>
+      <label for="f-frota">Arquivo PDF ou .xlsx</label><input type="file" id="f-frota" accept=".pdf,.xlsx,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+      <p id="m-frota" class="msg"></p>
+      ${db.cfg.importacaoFrota ? ((i) => `<div class="revisar" style="border-color:var(--borda)"><b>Última lista: ${esc(i.arquivo)}</b>
+        <div class="muted peq">${fmtDH(i.data)} · ${i.registros} embarcações, ${i.novos} novas, ${i.atualizados} atualizadas · ${frota.length} na base</div>
+        ${i.avisos.map(a => `<p class="muted peq">${esc(a)}</p>`).join('')}</div>`)(db.cfg.importacaoFrota) : ''}</div>
+
     <div class="card"><h2>4. Listas importadas</h2>
       ${imps.length ? imps.map(i => `<div class="revisar" style="border-color:var(--borda)">
         <b>${esc(AREAS[i.area] || i.area)} · ${esc(i.temporada)}</b>
@@ -1350,6 +1364,27 @@ function telaDados() {
       msg('#m-est', `${imp.registros} estabelecimentos: ${imp.novos} novos, ${imp.atualizados} atualizados.`);
       aviso('Planilha importada.');
     } catch (err) { msg('#m-est', err.message, true); aviso('A planilha não foi importada.', 'erro'); }
+  };
+
+  $('#f-frota').onchange = async e => {
+    const arq = e.target.files[0];
+    e.target.value = '';
+    if (!arq) return;
+    try {
+      const imp = await ocupado(async () => {
+        const buf = await arq.arrayBuffer();
+        const lido = /\.pdf$/i.test(arq.name) ? lerFrotaPdf(await itensDoPdf(buf)) : lerFrotaPlanilha(await lerXlsx(buf));
+        if (!lido.registros.length) throw new Error('Nenhuma embarcação encontrada no arquivo.');
+        const r = mesclarFrota(frota, lido.registros);
+        await salvarFrota();
+        db.cfg.importacaoFrota = { arquivo: arq.name, data: agora(), registros: lido.registros.length, novos: r.novos, atualizados: r.atualizados, avisos: lido.avisos };
+        await salvar();
+        return db.cfg.importacaoFrota;
+      }, 'Lendo a lista de embarcações');
+      telaDados();
+      msg('#m-frota', `${imp.registros} embarcações: ${imp.novos} novas, ${imp.atualizados} atualizadas.`);
+      aviso('Lista de embarcações importada.');
+    } catch (err) { msg('#m-frota', err.message, true); aviso('A lista não foi importada.', 'erro'); }
   };
 
   const baixarBlob = (blob, nome) => {
@@ -1460,6 +1495,46 @@ function telaPeixarias() {
   };
   $('#e-q').oninput = e => { filtroEst.q = e.target.value; listar(); };
   $('#e-st').onchange = e => { filtroEst.st = e.target.value; listar(); };
+  listar();
+}
+
+// ---------- embarcações de pesca (lista do MPA) e suas fiscalizações ----------
+const STATUS_FROTA = { Deferida: 'sem-verde', Suspensa: 'sem-amarelo', Cancelada: 'sem-vermelho' };
+let filtroFrota = { q: '', uf: 'RS' };
+function telaEmbarcacoes() {
+  const ufs = [...new Set(frota.map(e => e.uf).filter(Boolean))].sort();
+  const lembrete = lembreteFrota(db.cfg.importacaoFrota?.data, hojeIso());
+  app.innerHTML = `<div class="card"><h1>Embarcações</h1>
+      ${lembrete ? `<p class="msg erro peq">${esc(lembrete)}</p>` : ''}
+      ${frota.length ? `<p class="muted peq">Lista do MPA importada em ${fmtDH(db.cfg.importacaoFrota?.data)}. Fiscalizações: abordagens em que a embarcação foi usada (cadastro da pessoa com o mesmo RGP ou inscrição).</p>
+        <div class="filtros" style="grid-template-columns:2fr 1fr">
+        <input id="f-q" type="search" placeholder="Nome, RGP ou inscrição na Marinha" value="${esc(filtroFrota.q)}" autocomplete="off">
+        <select id="f-uf"><option value="">Todas as UFs</option>${ufs.map(u => `<option${filtroFrota.uf === u ? ' selected' : ''}>${esc(u)}</option>`).join('')}</select></div>`
+      : '<p>Nenhuma lista importada. Baixe a lista no Painel Unificado do RGP (MPA) e importe em <a href="#/dados">Dados</a>.</p>'}</div>
+    <div id="f-res"></div>`;
+  if (!frota.length) return;
+  const abs = Object.values(db.abordagens), pessoa = id => db.pescadores[id];
+  const listar = () => {
+    const es = buscarFrota(frota, filtroFrota.q).filter(e => !filtroFrota.uf || e.uf === filtroFrota.uf);
+    const mostra = es.slice(0, 50);
+    $('#f-res').innerHTML = `<p class="muted peq">${es.length} de ${frota.length}${es.length > mostra.length ? ', mostrando 50: refine a busca' : ''}</p>` + mostra.map(e => {
+      const fs = fiscalizacoesDe(e, abs, pessoa), num = v => v == null ? '-' : String(v).replace('.', ',');
+      return `<div class="card"><h2>${esc(e.nome || 'Sem nome')}</h2><span class="tag ${STATUS_FROTA[e.status] || 'aviso'}">${esc(e.status || 'Sem situação')}</span>
+        <div class="grade" style="margin-top:8px">
+          <div><span>RGP</span>${esc(e.rgp || '-')}</div>
+          <div><span>Inscrição na Marinha</span>${e.marinhaPerdida ? '<span class="muted">perdida na exportação</span>' : esc(e.marinha || '-')}</div>
+          <div><span>UF</span>${esc(e.uf || '-')}</div>
+          <div><span>Petrecho</span>${esc(e.petrecho || '-')}</div>
+          <div><span>Comprimento</span>${num(e.comprimentoM)} m · AB ${num(e.ab)}</div>
+          <div><span>Propulsão</span>${esc(e.propulsao || '-')}${e.hp ? ` · ${num(e.hp)} HP` : ''}</div>
+          <div><span>Tripulação</span>${num(e.tripulacao)}${e.covos ? ` · ${num(e.covos)} covos` : ''}</div>
+          <div><span>Ano de construção</span>${num(e.ano)}</div></div>
+        <h3>Fiscalizações (${fs.length})</h3>
+        ${fs.length ? `<ul class="peq">${fs.map(a => `<li><a href="#/ab/${encodeURIComponent(a.id)}">${fmtDH(a.data)}</a> · ${esc(localPesca(a.localPescaId)?.nome || a.local || '')}</li>`).join('')}</ul>` : '<p class="muted peq">Nenhuma abordagem registrada com esta embarcação.</p>'}</div>`;
+    }).join('');
+  };
+  $('#f-q').oninput = e => { filtroFrota.q = e.target.value; listar(); };
+  $('#f-uf').onchange = e => { filtroFrota.uf = e.target.value; listar(); };
   listar();
 }
 
@@ -1645,7 +1720,7 @@ function telaMapa() {
 
 // ---------- roteamento e bloqueio ----------
 function marcarNav() {
-  const h = location.hash.startsWith('#/dados') ? '#/dados' : /^#\/(normas|guia|mapa)/.test(location.hash) ? '#/guia' : /^#\/(ab|pendencias|denuncia|vinculos)/.test(location.hash) ? '#/abordagens' : '#/';
+  const h = location.hash.startsWith('#/dados') ? '#/dados' : /^#\/(normas|guia|mapa)/.test(location.hash) ? '#/guia' : /^#\/(ab|pendencias|denuncia|vinculos)/.test(location.hash) ? '#/abordagens' : location.hash.startsWith('#/embarcacoes') ? '#/embarcacoes' : '#/';
   document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('ativo', a.getAttribute('href') === h));
 }
 function rotear() {
@@ -1659,6 +1734,7 @@ function rotear() {
   if (h.startsWith('#/p/')) return telaFicha(decodeURIComponent(h.slice(4)));
   if (h === '#/dados') return telaDados();
   if (h === '#/peixarias') return telaPeixarias();
+  if (h === '#/embarcacoes') return telaEmbarcacoes();
   if (h === '#/abordagens') return telaAbordagens();
   if (h === '#/pendencias') return telaAbordagens('pend');
   if (h === '#/denuncias') return telaDenuncias();

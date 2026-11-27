@@ -195,3 +195,12 @@ test('autor desconhecido: não avalia a pessoa, só um amarelo explicando', () =
   assert.equal(r.motivos.length, 1);
   assert.ok(tem(r, 'Autor desconhecido'));
 });
+
+test('PesqBrasil "não encontrado": sem RGP nem carteira, vermelho em qualquer categoria', () => {
+  const p = { nome: 'X', cpf: '52998224725', consultas: [{ data: '2026-11-27T07:00', situacao: 'Não encontrado', naoEncontrado: true }] };
+  for (const categoria of ['Profissional', 'Amador', 'Sem RGP ou licença']) for (const soLinha of [false, true]) {
+    const r = av({ pescador: p, data: '2026-11-27T08:00', identificadoPor: 'cpf', categoria, soLinha });
+    assert.equal(r.cor, 'vermelho', `${categoria} ${soLinha}`);
+    assert.ok(tem(r, 'não encontrado'), `${categoria} ${soLinha}`);
+  }
+});
