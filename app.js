@@ -2,7 +2,7 @@ const { corrigirCadastro, juntarPessoas, lerAutorizacao, mesclarAutorizacao, nor
 const { avaliar, ultimaConsulta, corDe, AREAS_COM_LISTA } = window.Semaforo;
 const { checar, multaReferencia, defesosDe, DEFESOS, RESUMO, RESUMO_TODOS, AMEACADAS_GUIA, TAMANHO_MINIMO, LOCAIS } = window.Normas;
 const { lerXlsx, lerEstabelecimentos, mesclarEstabelecimentos } = window.Planilha;
-const { textoDe, lerCsv, lerFrotaPdf, lerFrotaPlanilha, mesclarFrota, buscarFrota, lembreteFrota, fiscalizacoesDe } = window.Frota;
+const { registroDaEmbarcacao, conferirEmbarcacao, textoDe, lerCsv, lerFrotaPdf, lerFrotaPlanilha, mesclarFrota, buscarFrota, lembreteFrota, fiscalizacoesDe } = window.Frota;
 const { ORLA, MUNICIPIOS_ORLA, zonasDe, GUIA_ESTADUAL } = window.Orla;
 const { fielDe, avisoNaLista, lembreteBackup, NOTIF_ABERTURA, itensDaAbordagem, termoApreensao, notificacao, motivoSugerido, normalizarAb, pendenciasDe, PESSOAIS, DESTINOS } = window.Docs;
 
@@ -655,7 +655,8 @@ function telaAbordagem(param) {
       outrosMesmosDigitos: pesc()?.digitos ? Object.values(db.pescadores).filter(o => o.digitos === pesc().digitos && o.id !== ab.pescadorId).length : 0,
       categoria: ab.categoria || 'Profissional', soLinha: ab.petrechos.every(p => p.tipo === 'Linha e anzol'),
       embarcado: !!ab.embarcacao && ab.embarcacao !== 'Nenhuma', autorDesconhecido: !!ab.autorDesconhecido && !pesc() });
-    const motivos = [...s.motivos, ...checar(ab, { camarao: db.cfg.camarao || CAMARAO_PADRAO, autorizadoBagre: (pesc()?.autorizacoes || []).some(a => a.area === 'tramandai') })];
+    const emb = (pesc()?.embarcacoes || []).find(x => x.id === ab.embarcacaoId);
+    const motivos = [...s.motivos, ...(emb && frota.length ? conferirEmbarcacao(registroDaEmbarcacao(frota, emb), ab.tie, emb) : []), ...checar(ab, { camarao: db.cfg.camarao || CAMARAO_PADRAO, autorizadoBagre: (pesc()?.autorizacoes || []).some(a => a.area === 'tramandai') })];
     return { cor: corDe(motivos), motivos };
   };
   const opcoesLocal = () => `<option value="">(não informado)</option>${opcoes(LOCAIS[ab.area] || [], ab.localTipo)}`;
@@ -673,7 +674,7 @@ function telaAbordagem(param) {
           <div class="linha" style="margin-top:6px"><button class="sec" id="b-gps" type="button">Registrar GPS</button><span id="gps" class="muted peq"></span></div></div>
         <div><label for="a-data">Data e hora</label><input id="a-data" type="datetime-local" value="${esc(ab.data)}"></div>
       </div></div>
-    <div class="card"><h2>Pessoas abordadas</h2><div id="envs" class="chips envs"></div><div id="pessoa"></div><div id="embs"></div>
+    <div class="card"><h2>Pessoas abordadas</h2><div id="envs" class="chips envs"></div><div id="pessoa"></div><div id="embs"></div><div id="tie"></div>
       <div class="grade">
         <div><label for="a-cat">Categoria</label><select id="a-cat">${opcoes(CATEGORIAS, ab.categoria || 'Profissional')}</select></div>
         <div><label for="a-emb">Embarcação</label><select id="a-emb">${opcoes(EMBARCACOES, ab.embarcacao || 'Nenhuma')}</select></div>
@@ -870,7 +871,23 @@ function telaAbordagem(param) {
   const aplicarEmb = e => {
     ab.embarcacaoId = e?.id || '';
     if (e) { ab.embarcacao = e.propulsao; ab.comprimentoEmbM = e.comprimentoM; $('#a-emb').value = e.propulsao; $('#a-comp').value = e.comprimentoM ?? ''; $('#d-comp').hidden = $('#d-semid').hidden = false; }
-    desenharSem();
+    desenharTie(); desenharSem();
+  };
+  // Autorização de pesca (lista do MPA) x TIE: o agente digita os dados do TIE e o app compara.
+  const TIE = [['comprimentoM', 'Comprimento (m)'], ['ab', 'AB'], ['hp', 'Potência (HP)'], ['ano', 'Ano de construção']];
+  const desenharTie = () => {
+    const emb = (pesc()?.embarcacoes || []).find(x => x.id === ab.embarcacaoId), reg = emb && registroDaEmbarcacao(frota, emb);
+    if (!emb || !frota.length) { $('#tie').innerHTML = ''; return; }
+    if (!reg) { $('#tie').innerHTML = `<p class="muted peq">${emb.rgp || emb.inscricao ? 'Embarcação não encontrada na lista do MPA pelo RGP ou pela inscrição.' : 'Informe o RGP da embarcação no cadastro dela para conferir com a lista do MPA.'}</p>`; return; }
+    const n = v => v == null ? 'N/I' : String(v).replace('.', ',');
+    const t = ab.tie || {};
+    $('#tie').innerHTML = `<h3>Autorização de pesca x TIE</h3>
+      <p class="peq">Lista do MPA: <b>${esc(reg.nome)}</b> · ${esc(reg.status)} · ${n(reg.comprimentoM)} m · AB ${n(reg.ab)} · ${n(reg.hp)} HP · ${n(reg.ano)}</p>
+      <p class="muted peq">Digite os dados do TIE. Se forem diferentes, vale o TIE e a autorização fica sem efeito (IN SEAP/PR 03/2004, art. 14).</p>
+      <div class="grade">${TIE.map(([k, rot]) => `<div><label for="tie-${k}">${rot}</label><input id="tie-${k}" data-tie="${k}" type="number" min="0" step="any" inputmode="decimal" value="${esc(t[k] ?? '')}"></div>`).join('')}</div>`;
+    $('#tie').querySelectorAll('[data-tie]').forEach(el => el.oninput = () => {
+      ab.tie = { ...(ab.tie || {}), [el.dataset.tie]: el.value === '' ? null : +el.value }; desenharSem();
+    });
   };
   // Embarcação e veículo usados: escolhidos do cadastro da pessoa ou cadastrados na hora.
   const SEL_BEM = { embarcacoes: ['embarcacaoId', 'Embarcação usada', aplicarEmb], veiculos: ['veiculoId', 'Veículo usado', x => { ab.veiculoId = x?.id || ''; }] };
@@ -885,6 +902,7 @@ function telaAbordagem(param) {
       if (sel.value !== '+') { form.innerHTML = ''; aplicar((p[t] || []).find(x => x.id === sel.value)); return; }
       formBem(t, form, p, novo => { aplicar(novo); desenharEmb(); });
     });
+    desenharTie();
   };
 
   const desenharPessoa = () => {
@@ -909,7 +927,7 @@ function telaAbordagem(param) {
       desenharEmb();
       return;
     }
-    $('#embs').innerHTML = '';
+    $('#embs').innerHTML = ''; $('#tie').innerHTML = '';
     // Petrecho encontrado sem responsável: as regras de petrecho, local e época continuam valendo.
     const desc = `<div><label class="chk"><input type="checkbox" id="p-desc"${ab.autorDesconhecido ? ' checked' : ''}> Autor desconhecido (petrecho sem responsável)</label></div>`;
     const marcarDesc = () => $('#p-desc').onchange = e => { ab.autorDesconhecido = e.target.checked; desenharPessoa(); desenharSem(); };

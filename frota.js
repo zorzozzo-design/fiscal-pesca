@@ -119,5 +119,31 @@ function fiscalizacoesDe(e, abordagens, pessoa) {
     .sort((a, b) => b.data.localeCompare(a.data));
 }
 
-globalThis.Frota = { textoDe, lerCsv, lerFrotaPdf, lerFrotaPlanilha, mesclarFrota, buscarFrota, lembreteFrota, fiscalizacoesDe };
+// Registro da lista do MPA para a embarcação do cadastro da pessoa (RGP com ou sem traços, ou inscrição na Marinha).
+function registroDaEmbarcacao(lista, emb) {
+  const rgp = alnum(emb?.rgp), mar = alnum(emb?.inscricao);
+  if (!rgp && !mar) return null;
+  return lista.find(e => (rgp && alnum(e.rgp) === rgp) || (mar && alnum(e.marinha) === mar)) || null;
+}
+
+// Autorização de pesca x TIE. Vale o TIE: embarcação alterada sem anuência do órgão perde a permissão (IN SEAP/PR 03/2004, art. 14).
+const NORMA_RGP = 'Lei 11.959/2009, art. 24 (embarcação de pesca inscrita no RGP)';
+const CONFERIR = [['comprimentoM', 'comprimento', ' m'], ['ab', 'AB', ''], ['hp', 'potência', ' HP'], ['ano', 'ano de construção', '']];
+function conferirEmbarcacao(reg, tie = {}, emb = {}) {
+  const ms = [], add = (nivel, texto, norma) => ms.push({ regra: 'R45', nivel, texto, norma, enquadramento: '', artigo: null });
+  if (!reg) {
+    if (emb?.rgp) add('amarelo', `RGP da embarcação ${emb.rgp} não está na lista do MPA importada: confira a autorização de pesca.`, NORMA_RGP);
+    return ms;
+  }
+  if (reg.status === 'Cancelada' || reg.status === 'Suspensa')
+    add('vermelho', `Autorização de pesca da embarcação ${reg.nome} ${reg.status.toLowerCase()} na lista do MPA.`, NORMA_RGP);
+  const fmt = v => String(v).replace('.', ',');
+  const difs = CONFERIR.filter(([k]) => tie?.[k] != null && tie[k] !== '' && reg[k] != null && Math.abs(+tie[k] - reg[k]) > 0.005)
+    .map(([k, rot, un]) => `${rot} ${fmt(tie[k])}${un} no TIE e ${fmt(reg[k])}${un} na autorização`);
+  if (difs.length) add('vermelho', `Embarcação diferente da autorização de pesca: ${difs.join('; ')}. Vale o TIE: a autorização fica sem efeito (embarcação alterada sem anuência).`,
+    'IN SEAP/PR 03/2004, art. 14; ' + NORMA_RGP);
+  return ms;
+}
+
+globalThis.Frota = { registroDaEmbarcacao, conferirEmbarcacao, textoDe, lerCsv, lerFrotaPdf, lerFrotaPlanilha, mesclarFrota, buscarFrota, lembreteFrota, fiscalizacoesDe };
 })();

@@ -91,3 +91,39 @@ test('CSV do Excel: ";" e acentos em Latin-1 (Windows-1252), com aspas', () => {
   assert.equal(registros[1].nome, 'GARÇA');
   assert.equal(registros[1].covos, 60);
 });
+
+test('registroDaEmbarcacao: acha na lista do MPA pelo RGP ou pela inscrição na Marinha', () => {
+  const { registroDaEmbarcacao } = globalThis.Frota;
+  const lista = lerFrotaPdf(itens).registros;
+  assert.equal(registroDaEmbarcacao(lista, { rgp: 'RS-0005432-1' })?.nome, 'GARÇA DO MAR'); // certificado traz o RGP com traços e dígito
+  assert.equal(registroDaEmbarcacao(lista, { inscricao: '442M2015001234' })?.nome, 'GARÇA DO MAR');
+  assert.equal(registroDaEmbarcacao(lista, { rgp: 'RS99999999' }), null);
+  assert.equal(registroDaEmbarcacao(lista, null), null);
+});
+
+test('conferirEmbarcacao: TIE diferente da autorização de pesca é vermelho (IN SEAP/PR 03/2004, art. 14)', () => {
+  const { conferirEmbarcacao } = globalThis.Frota;
+  const reg = { nome: 'FICTO', rgp: 'RS00011111', comprimentoM: 12.3, ab: 17.09, hp: 18, ano: 2012, status: 'Deferida' };
+  assert.deepEqual(conferirEmbarcacao(reg, { comprimentoM: 12.3, ab: 17.09, hp: 18, ano: 2012 }), []);
+  const m = conferirEmbarcacao(reg, { comprimentoM: 12.3, ab: 17.99, hp: 180, ano: 2014 });
+  assert.equal(m.length, 1);
+  assert.equal(m[0].nivel, 'vermelho');
+  assert.match(m[0].texto, /AB 17,99 no TIE e 17,09 na autorização/);
+  assert.match(m[0].texto, /potência 180 HP no TIE e 18 HP/);
+  assert.match(m[0].texto, /ano de construção 2014 no TIE e 2012/);
+  assert.doesNotMatch(m[0].texto, /comprimento/);
+  assert.match(m[0].norma, /03\/2004, art. 14/);
+  // Campo do TIE em branco ou não informado na autorização: não compara.
+  assert.deepEqual(conferirEmbarcacao({ ...reg, hp: null }, { hp: 180 }), []);
+  assert.deepEqual(conferirEmbarcacao(reg, {}), []);
+});
+
+test('conferirEmbarcacao: autorização cancelada ou suspensa é vermelho; fora da lista, amarelo', () => {
+  const { conferirEmbarcacao } = globalThis.Frota;
+  for (const status of ['Cancelada', 'Suspensa']) {
+    const m = conferirEmbarcacao({ nome: 'FICTO', rgp: 'RS1', status }, {});
+    assert.ok(m.some(x => x.nivel === 'vermelho' && x.texto.includes(status.toLowerCase())), status);
+  }
+  assert.equal(conferirEmbarcacao(null, {}, { rgp: 'RS00011111' })[0].nivel, 'amarelo');
+  assert.deepEqual(conferirEmbarcacao(null, {}, { rgp: '' }), []); // sem RGP informado, nada a conferir
+});
