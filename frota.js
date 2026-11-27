@@ -64,6 +64,27 @@ function lerFrotaPlanilha(linhas) {
   return resultado(registros);
 }
 
+// CSV exportado pelo Excel: UTF-8 ou Windows-1252 (Latin-1), separador ";" ou ",", campos entre aspas.
+function textoDe(buf) {
+  try { return new TextDecoder('utf-8', { fatal: true }).decode(buf).replace(/^\uFEFF/, ''); }
+  catch { return new TextDecoder('windows-1252').decode(buf); }
+}
+function lerCsv(texto) {
+  const sep = (texto.split(/\r?\n/)[0].match(/;/g) || []).length >= (texto.split(/\r?\n/)[0].match(/,/g) || []).length ? ';' : ',';
+  const linhas = [];
+  let l = [], c = '', aspas = false;
+  for (let i = 0; i < texto.length; i++) {
+    const ch = texto[i];
+    if (aspas) { if (ch === '"' && texto[i + 1] === '"') { c += '"'; i++; } else if (ch === '"') aspas = false; else c += ch; }
+    else if (ch === '"') aspas = true;
+    else if (ch === sep) { l.push(c); c = ''; }
+    else if (ch === '\n' || ch === '\r') { if (ch === '\r' && texto[i + 1] === '\n') i++; l.push(c); linhas.push(l); l = []; c = ''; }
+    else c += ch;
+  }
+  if (c || l.length) { l.push(c); linhas.push(l); }
+  return linhas;
+}
+
 // Mesmo RGP = mesma embarcação; a lista nova vale.
 function mesclarFrota(lista, registros) {
   const res = { novos: 0, atualizados: 0 }, pos = new Map(lista.map((e, i) => [e.rgp, i]));
@@ -98,5 +119,5 @@ function fiscalizacoesDe(e, abordagens, pessoa) {
     .sort((a, b) => b.data.localeCompare(a.data));
 }
 
-globalThis.Frota = { lerFrotaPdf, lerFrotaPlanilha, mesclarFrota, buscarFrota, lembreteFrota, fiscalizacoesDe };
+globalThis.Frota = { textoDe, lerCsv, lerFrotaPdf, lerFrotaPlanilha, mesclarFrota, buscarFrota, lembreteFrota, fiscalizacoesDe };
 })();

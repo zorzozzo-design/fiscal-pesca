@@ -2,7 +2,7 @@ const { corrigirCadastro, juntarPessoas, lerAutorizacao, mesclarAutorizacao, nor
 const { avaliar, ultimaConsulta, corDe, AREAS_COM_LISTA } = window.Semaforo;
 const { checar, multaReferencia, defesosDe, DEFESOS, RESUMO, RESUMO_TODOS, AMEACADAS_GUIA, TAMANHO_MINIMO, LOCAIS } = window.Normas;
 const { lerXlsx, lerEstabelecimentos, mesclarEstabelecimentos } = window.Planilha;
-const { lerFrotaPdf, lerFrotaPlanilha, mesclarFrota, buscarFrota, lembreteFrota, fiscalizacoesDe } = window.Frota;
+const { textoDe, lerCsv, lerFrotaPdf, lerFrotaPlanilha, mesclarFrota, buscarFrota, lembreteFrota, fiscalizacoesDe } = window.Frota;
 const { ORLA, MUNICIPIOS_ORLA, zonasDe, GUIA_ESTADUAL } = window.Orla;
 const { fielDe, avisoNaLista, lembreteBackup, NOTIF_ABERTURA, itensDaAbordagem, termoApreensao, notificacao, motivoSugerido, normalizarAb, pendenciasDe, PESSOAIS, DESTINOS } = window.Docs;
 
@@ -1266,8 +1266,8 @@ function telaDados() {
         ${i.avisos.length ? `<details><summary>${i.avisos.length} aviso(s)</summary><ul class="peq">${i.avisos.map(a => `<li>Linha ${a.linha} ${esc(a.nome)}: ${esc(a.texto)}</li>`).join('')}</ul></details>` : ''}</div>`).join('')}</div>
 
     <div class="card"><h2>Embarcações de pesca (lista do MPA)</h2>
-      <p class="muted peq">Baixe a lista no <a href="https://www.gov.br/mpa/pt-br/assuntos/cadastro-registro-e-monitoramento/painel-unificado-do-registro-geral-da-atividade-pesqueira" target="_blank" rel="noopener">Painel Unificado do RGP</a> e importe aqui, em PDF ou .xlsx. A lista nova atualiza as embarcações pelo RGP. Atualize a cada 6 meses. Consulte em <a href="#/embarcacoes">Embarcações</a>.</p>
-      <label for="f-frota">Arquivo PDF ou .xlsx</label><input type="file" id="f-frota" accept=".pdf,.xlsx,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+      <p class="muted peq">Baixe a lista no <a href="https://www.gov.br/mpa/pt-br/assuntos/cadastro-registro-e-monitoramento/painel-unificado-do-registro-geral-da-atividade-pesqueira" target="_blank" rel="noopener">Painel Unificado do RGP</a> e importe aqui, em CSV, .xlsx ou PDF (o CSV é o melhor: o PDF pode vir cortado e com o número da Marinha perdido). A lista nova atualiza as embarcações pelo RGP. Atualize a cada 6 meses. Consulte em <a href="#/embarcacoes">Embarcações</a>.</p>
+      <label for="f-frota">Arquivo CSV, .xlsx ou PDF</label><input type="file" id="f-frota" accept=".csv,.pdf,.xlsx,text/csv,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
       <p id="m-frota" class="msg"></p>
       ${db.cfg.importacaoFrota ? ((i) => `<div class="revisar" style="border-color:var(--borda)"><b>Última lista: ${esc(i.arquivo)}</b>
         <div class="muted peq">${fmtDH(i.data)} · ${i.registros} embarcações, ${i.novos} novas, ${i.atualizados} atualizadas · ${frota.length} na base</div>
@@ -1373,7 +1373,8 @@ function telaDados() {
     try {
       const imp = await ocupado(async () => {
         const buf = await arq.arrayBuffer();
-        const lido = /\.pdf$/i.test(arq.name) ? lerFrotaPdf(await itensDoPdf(buf)) : lerFrotaPlanilha(await lerXlsx(buf));
+        const lido = /\.pdf$/i.test(arq.name) ? lerFrotaPdf(await itensDoPdf(buf))
+          : lerFrotaPlanilha(/\.csv$/i.test(arq.name) ? lerCsv(textoDe(buf)) : await lerXlsx(buf));
         if (!lido.registros.length) throw new Error('Nenhuma embarcação encontrada no arquivo.');
         const r = mesclarFrota(frota, lido.registros);
         await salvarFrota();

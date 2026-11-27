@@ -1,5 +1,5 @@
-// conteudo: e765e38b6379
-const CACHE = 'fpesca-v67';
+// conteudo: 5af0eceb9748
+const CACHE = 'fpesca-v68';
 const ARQUIVOS = ['./', 'index.html', 'app.js', 'lista.js', 'semaforo.js', 'normas.js', 'docs.js', 'municipios-rs.js', 'locais.js', 'vinculos.js', 'planilha.js', 'frota.js', 'orla.js', 'style.css', 'manifest.webmanifest',
   'vendor/pdf.min.js', 'vendor/pdf.worker.min.js', 'vendor/cytoscape.min.js', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png'];
 

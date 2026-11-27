@@ -75,3 +75,19 @@ test('fiscalizacoesDe: abordagens com a embarcação, pelo RGP ou pela inscriç�
   assert.deepEqual(fiscalizacoesDe(e, abs, pessoa).map(a => a.id), ['a2', 'a1']);
   assert.deepEqual(fiscalizacoesDe({ rgp: 'RS1', marinha: '' }, abs, pessoa), []);
 });
+
+test('CSV do Excel: ";" e acentos em Latin-1 (Windows-1252), com aspas', () => {
+  const { lerCsv, textoDe } = globalThis.Frota;
+  const txt = CAB.join(';') + '\r\n' + '"BOTO; FICTICIO";RS00012345;4430012345;3.0;9.50;Motor;45.00;;;3;;Deferida;RS;2.04.001;2.4;2. Rede de Emalhe;2005;1\r\n'
+    + 'GARÇA;RS00054321;442M2015001234;;7.00;Remo;;;;2;60;Cancelada;RS;;;5. Armadilha;1998;2\r\n';
+  const latin1 = Uint8Array.from([...txt].map(c => c.charCodeAt(0))).buffer; // "Ç" e "ã" em um byte
+  const t = textoDe(latin1);
+  assert.ok(t.startsWith('Nome da Embarcação;'));
+  assert.equal(textoDe(new TextEncoder().encode('Embarcação').buffer), 'Embarcação'); // UTF-8 continua valendo
+  const { registros } = lerFrotaPlanilha(lerCsv(t));
+  assert.equal(registros.length, 2);
+  assert.equal(registros[0].nome, 'BOTO; FICTICIO');
+  assert.equal(registros[0].marinha, '4430012345');
+  assert.equal(registros[1].nome, 'GARÇA');
+  assert.equal(registros[1].covos, 60);
+});
